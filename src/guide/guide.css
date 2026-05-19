@@ -906,7 +906,7 @@ a:hover { text-decoration: underline; }
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: #fff;
-    transition: all var(--transition);
+    transition: width var(--transition), background-color var(--transition), border-color var(--transition), box-shadow var(--transition);
     outline: none;
 }
 
@@ -959,7 +959,7 @@ a:hover { text-decoration: underline; }
     font-size: var(--text-sm);
     font-weight: var(--weight-medium);
     cursor: pointer;
-    transition: all var(--transition);
+    transition: background-color var(--transition), border-color var(--transition);
 }
 
 .header-btn:hover {
@@ -1436,7 +1436,7 @@ a:hover { text-decoration: underline; }
     font-weight: var(--weight-medium);
     color: var(--text-secondary);
     text-decoration: none;
-    transition: all var(--transition-fast);
+    transition: color var(--transition-fast), background-color var(--transition-fast);
     line-height: 1.4;
 }
 
@@ -1731,7 +1731,7 @@ a:hover { text-decoration: underline; }
     font-weight: var(--weight-medium);
     color: var(--text-secondary);
     cursor: pointer;
-    transition: all var(--transition);
+    transition: background-color var(--transition), border-color var(--transition), color var(--transition);
 }
 
 .search-clear-btn:hover {
@@ -1754,7 +1754,7 @@ a:hover { text-decoration: underline; }
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
     text-decoration: none;
 }
 
