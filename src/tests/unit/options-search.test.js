@@ -292,6 +292,19 @@ describe('Options search helper', () => {
     expect(search.matches.map(result => result.card.id)).not.toContain('mdClipsFolder');
   });
 
+  test('downloads category search includes the downloads subgroup settings', () => {
+    const search = optionsSearch.searchSettings(index, 'downloads');
+
+    expect(search.stage).toBe('strict');
+    expect(search.matches.map(result => result.card.id)).toEqual(expect.arrayContaining([
+      'downloadMode',
+      'saveAs-container',
+      'downloadImages-container',
+      'imagePrefix',
+      'mdClipsFolder'
+    ]));
+  });
+
   test('exact searches still resolve expected settings', () => {
     expect(getMatchIds(index, 'save as')).toContain('saveAs-container');
     expect(getMatchIds(index, 'default export')).toContain('defaultExportTypeGroup');

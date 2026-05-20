@@ -70,7 +70,7 @@
     const entry = { card, section, fields: [], fieldKeys: new Set() };
 
     addField(entry, sectionTitle, { source: 'section-title', primary: true, qualifies: false, allowFuzzy: true });
-    addField(entry, card.closest('.setting-subgroup')?.querySelector('.setting-subgroup__label')?.textContent, { source: 'subgroup-label', primary: true, qualifies: true, allowFuzzy: true });
+    addField(entry, card.closest('.setting-subgroup')?.querySelector('.setting-subgroup__label')?.textContent, { source: 'subgroup-label', primary: true, qualifies: true, allowFuzzy: false });
     addField(entry, card.querySelector('.card-title')?.textContent, { source: 'card-title', primary: true, qualifies: true });
 
     addFieldsFromNodeList(entry, card.querySelectorAll('.toggle-label-text'), { source: 'toggle-label', primary: true, qualifies: true });
