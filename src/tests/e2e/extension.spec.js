@@ -392,6 +392,15 @@ test.describe('MarkSnip Extension E2E', () => {
   });
 
   test('clips deterministic fixture page through popup flow and produces markdown', async () => {
+    await setLibraryStorage(serviceWorker, {
+      librarySettings: {
+        enabled: true,
+        autoSaveOnPopupOpen: true,
+        itemsToKeep: 10
+      },
+      libraryItems: []
+    });
+
     const fixturePage = await context.newPage();
     const popupPage = await context.newPage();
 
