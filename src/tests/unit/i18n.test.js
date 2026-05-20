@@ -115,6 +115,29 @@ function createEnglishDom(html) {
 }
 
 describe('shared i18n helper', () => {
+  test('defines non-empty placeholder content in locale catalogs', () => {
+    const localesRoot = path.join(__dirname, '../../_locales');
+    const violations = [];
+
+    fs.readdirSync(localesRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .forEach((entry) => {
+        const locale = entry.name;
+        const catalogPath = path.join(localesRoot, locale, 'messages.json');
+        const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
+
+        Object.entries(catalog).forEach(([key, messageConfig]) => {
+          Object.entries(messageConfig.placeholders || {}).forEach(([name, placeholder]) => {
+            if (typeof placeholder.content !== 'string' || placeholder.content.trim() === '') {
+              violations.push(`${locale}.${key}.${name}`);
+            }
+          });
+        });
+      });
+
+    expect(violations).toEqual([]);
+  });
+
   test('localizes explicit keys, exact English strings, attributes, and document language', async () => {
     const dom = createDom(`
       <!doctype html>

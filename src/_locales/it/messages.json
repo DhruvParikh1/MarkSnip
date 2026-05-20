@@ -3033,10 +3033,10 @@
     "description": "Summary text for site rules list when there are zero or many rules",
     "placeholders": {
       "rules": {
-        "content": ""
+        "content": "$1"
       },
       "enabled": {
-        "content": ""
+        "content": "$2"
       }
     }
   },
