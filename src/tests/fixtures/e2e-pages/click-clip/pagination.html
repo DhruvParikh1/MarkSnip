@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Click and Clip Pagination Fixture</title>
+</head>
+<body>
+  <h1>Pagination Fixture</h1>
+  <main id="content">
+    <h2>Page 1</h2>
+    <p>Content for page one of the pagination fixture.</p>
+  </main>
+  <button id="next">Next</button>
+  <script>
+    var page = 1;
+    var maxPage = 3;
+    document.getElementById('next').addEventListener('click', function () {
+      if (page >= maxPage) {
+        return;
+      }
+      page += 1;
+      document.getElementById('content').innerHTML =
+        '<h2>Page ' + page + '</h2><p>Content for page ' + page + ' of the pagination fixture.</p>';
+      if (page >= maxPage) {
+        this.disabled = true;
+      }
+    });
+  </script>
+</body>
+</html>

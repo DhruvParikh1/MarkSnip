@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Click and Clip Tabs Fixture</title>
+</head>
+<body>
+  <h1>Tabs Fixture</h1>
+  <div role="tablist">
+    <button role="tab" id="tab-1" aria-controls="panel" aria-selected="true">First Tab</button>
+    <button role="tab" id="tab-2" aria-controls="panel" aria-selected="false">Second Tab</button>
+    <button role="tab" id="tab-3" aria-controls="panel" aria-selected="false">Third Tab</button>
+  </div>
+  <div id="panel" role="tabpanel"></div>
+  <script>
+    var panels = [
+      '<h2>First Panel</h2><p>Alpha panel content for click and clip testing.</p>',
+      '<h2>Second Panel</h2><p>Beta panel content for click and clip testing.</p>',
+      '<h2>Third Panel</h2><p>Gamma panel content for click and clip testing.</p>'
+    ];
+
+    function showPanel(index) {
+      document.getElementById('panel').innerHTML = panels[index];
+    }
+
+    document.querySelectorAll('[role="tab"]').forEach(function (tab, index) {
+      tab.addEventListener('click', function () {
+        document.querySelectorAll('[role="tab"]').forEach(function (t) {
+          t.setAttribute('aria-selected', 'false');
+        });
+        tab.setAttribute('aria-selected', 'true');
+        showPanel(index);
+      });
+    });
+    showPanel(0);
+  </script>
+</body>
+</html>

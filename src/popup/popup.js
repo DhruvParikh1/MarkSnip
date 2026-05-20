@@ -414,7 +414,9 @@ const dom = {
     urlList: document.getElementById('urlList'),
     convertUrlsButton: document.getElementById('convertUrls'),
     pickLinksButton: document.getElementById('pickLinks'),
+    clickClipButton: document.getElementById('clickClip'),
     batchSaveModeToggle: document.getElementById('batchSaveModeToggle'),
+    clickClipCombinedToggle: document.getElementById('clickClipCombinedToggle'),
     batchProcessButton: document.getElementById('batchProcess'),
     themeToggleButton: document.getElementById('themeToggle'),
     openGuideButton: document.getElementById('openGuide'),
@@ -1967,8 +1969,10 @@ dom.shortcutsModalBody?.addEventListener('click', (e) => {
     }
 });
 dom.pickLinksButton?.addEventListener("click", activateLinkPicker);
+dom.clickClipButton?.addEventListener("click", activateClickClip);
 dom.pickElementButton?.addEventListener("click", activateElementPicker);
 dom.batchSaveModeToggle?.addEventListener("change", saveBatchSettings);
+dom.clickClipCombinedToggle?.addEventListener("change", saveBatchSettings);
 progressUI.cancelBtn?.addEventListener("click", () => {
     browser.runtime.sendMessage({ type: 'cancel-batch' }).catch(() => {});
     progressUI.cancelBtn.disabled = true;
@@ -1983,13 +1987,23 @@ function setSelectedBatchSaveMode(mode) {
     if (dom.batchSaveModeToggle) dom.batchSaveModeToggle.checked = mode === 'individual';
 }
 
+function getSelectedClickClipOutputMode() {
+    return dom.clickClipCombinedToggle?.checked ? 'combined' : 'files';
+}
+
+function setSelectedClickClipOutputMode(mode) {
+    if (dom.clickClipCombinedToggle) dom.clickClipCombinedToggle.checked = mode === 'combined';
+}
+
 // Save batch settings to storage
 function saveBatchSettings() {
     const urlList = dom.urlList?.value || '';
     const batchSaveMode = getSelectedBatchSaveMode();
+    const clickClipOutputMode = getSelectedClickClipOutputMode();
     browser.storage.local.set({
         batchUrlList: urlList,
-        batchSaveMode
+        batchSaveMode,
+        clickClipOutputMode
     }).catch(err => {
         console.error("Error saving batch settings:", err);
     });
@@ -1998,11 +2012,12 @@ function saveBatchSettings() {
 // Load batch settings from storage
 async function loadBatchSettings() {
     try {
-        const data = await browser.storage.local.get(['batchUrlList', 'batchSaveMode']);
+        const data = await browser.storage.local.get(['batchUrlList', 'batchSaveMode', 'clickClipOutputMode']);
         if (data.batchUrlList && dom.urlList) {
             dom.urlList.value = data.batchUrlList;
         }
         setSelectedBatchSaveMode(data.batchSaveMode || 'zip');
+        setSelectedClickClipOutputMode(data.clickClipOutputMode || 'files');
         validateAndPreviewUrls();
         batchSettingsLoaded = true;
         return data;
@@ -2096,6 +2111,51 @@ async function activateLinkPicker(e) {
     } catch (error) {
         console.error("Error activating link picker:", error);
         alert(popupMessage('popupAlertFailedToActivateLinkPicker', null, 'Failed to activate link picker. Please try again.'));
+    }
+}
+
+async function activateClickClip(e) {
+    e.preventDefault();
+
+    try {
+        const activeTab = await getActiveTab();
+        if (!activeTab?.id) {
+            throw new Error(popupMessage('popupNoActiveTabError', null, 'No active tab found'));
+        }
+
+        if (isRestrictedTabUrl(activeTab.url || '')) {
+            showError(getRestrictedPageMessage(activeTab.url || ''));
+            return;
+        }
+
+        // Ensure content script is injected
+        await browser.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            files: ["/browser-polyfill.min.js", "/shared/i18n.js", "/contentScript/contentScript.js"]
+        }).catch(err => {
+            console.log("Content script may already be injected:", err);
+        });
+
+        // Persist current settings, then seed the in-page picker with them.
+        await ensureBatchSettingsLoaded();
+        const response = await browser.tabs.sendMessage(activeTab.id, {
+            type: "ACTIVATE_CLICK_CLIP",
+            captureOptions: {
+                skipHiddenContent: currentOptions?.skipHiddenContent === true
+            },
+            clickClipOutputMode: getSelectedClickClipOutputMode(),
+            batchSaveMode: getSelectedBatchSaveMode()
+        });
+        if (response?.success === false) {
+            throw new Error(response.error || popupMessage('popupAlertFailedToActivateClickClip', null, 'Failed to activate Click & Clip. Please try again.'));
+        }
+
+        // Focus the tab — the picker runs in-page and the popup closes.
+        await browser.tabs.update(activeTab.id, { active: true });
+        window.close();
+    } catch (error) {
+        console.error("Error activating Click & Clip:", error);
+        alert(popupMessage('popupAlertFailedToActivateClickClip', null, 'Failed to activate Click & Clip. Please try again.'));
     }
 }
 

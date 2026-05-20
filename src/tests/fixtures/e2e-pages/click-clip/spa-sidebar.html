@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Dynamic Shell Training Fixture</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; }
+    .app-shell { display: flex; min-height: 100vh; }
+    .side-panel { width: 260px; padding: 16px; border-right: 1px solid #d8dee4; }
+    .side-brand { font-weight: 700; margin-bottom: 12px; }
+    .menu-list { list-style: none; padding: 0; margin: 0; }
+    .menu-btn { display: block; width: 100%; margin: 2px 0; padding: 8px; text-align: left; }
+    .menu-btn[data-active="true"] { font-weight: 700; background: #e8f0fe; }
+    .workspace-main { flex: 1; padding: 24px; }
+    .content-card { max-width: 760px; }
+    .step-controls { display: flex; gap: 12px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #d8dee4; }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="side-panel">
+      <div class="side-brand">Operations Handbook</div>
+      <nav>
+        <ul class="menu-list" id="fixture-menu"></ul>
+      </nav>
+    </aside>
+    <main class="workspace-main">
+      <div class="content-card" id="fixture-view"></div>
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      var sections = [
+        {
+          title: '1. Intake Overview',
+          html: '<h1>Intake Overview</h1><p>The intake overview explains how requests enter the queue and how coordinators record the first checkpoint.</p>'
+        },
+        {
+          title: '2.1. Sort Requests',
+          html: '<h1>Sort Requests</h1><p>Sorting guidance uses priority, owner, and due date so the team can route each request without scanning the full workspace.</p>'
+        },
+        {
+          title: '2.2. Prepare a Response',
+          html: '<h1>Prepare a Response</h1><p>Response preparation starts with a short summary, then adds the source notes and the required follow-up owner.</p>'
+        },
+        {
+          title: '2.3. Quality Review',
+          html: '<h1>Quality Review</h1><p>Reviewers check that the response answers the request, avoids stale assumptions, and keeps the action list complete.</p>'
+        },
+        {
+          title: '2.4. Practice Simulation',
+          html: '<h1>Practice Simulation</h1><p>This unselected practice simulation should not appear when the shell is excluded from capture.</p>'
+        },
+        {
+          title: '5. Archive Requests',
+          html: '<h1>Archive Requests</h1><p>This unselected archive guidance should not appear in the clipped output.</p>'
+        },
+        {
+          title: 'Reference Desk',
+          html: '<h1>Reference Desk</h1><p>This unselected reference material should stay outside the clipped output.</p>'
+        }
+      ];
+      var activeIndex = 0;
+
+      function initMenu() {
+        var menu = document.getElementById('fixture-menu');
+        menu.innerHTML = '';
+        sections.forEach(function (section, index) {
+          var item = document.createElement('li');
+          var button = document.createElement('button');
+          button.className = 'menu-btn';
+          button.textContent = section.title;
+          button.setAttribute('data-index', String(index));
+          button.setAttribute('data-active', index === activeIndex ? 'true' : 'false');
+          button.addEventListener('click', function () {
+            switchSection(index);
+          });
+          item.appendChild(button);
+          menu.appendChild(item);
+        });
+      }
+
+      function renderContent() {
+        var view = document.getElementById('fixture-view');
+        view.innerHTML = sections[activeIndex].html +
+          '<div class="step-controls"><button type="button">Back</button><button type="button">Continue</button></div>';
+      }
+
+      function switchSection(index) {
+        activeIndex = index;
+        document.querySelectorAll('.menu-btn').forEach(function (button, buttonIndex) {
+          button.setAttribute('data-active', buttonIndex === activeIndex ? 'true' : 'false');
+        });
+        renderContent();
+      }
+
+      initMenu();
+      renderContent();
+    })();
+  </script>
+</body>
+</html>

@@ -456,6 +456,14 @@
           </svg>
           Pick Links from Page
         </button>
+        <button id="clickClip" class="btn btn-secondary btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 3H5a2 2 0 0 0-2 2v4"/>
+            <path d="M3 11v3"/>
+            <path d="m12 12 7 3-3 2 2 3-3 2-2-3-3 3z"/>
+          </svg>
+          Click &amp; Clip
+        </button>
       </div>
 
       <div class="batch-save-mode">
@@ -468,6 +476,19 @@
             </div>
           </label>
           <span class="batch-save-label">Individual</span>
+        </div>
+      </div>
+
+      <div class="batch-save-mode" id="clickClipOutputMode">
+        <div class="batch-save-mode-options">
+          <span class="batch-save-label">File per button</span>
+          <label class="toggle-label" for="clickClipCombinedToggle">
+            <div class="toggle-switch">
+              <input type="checkbox" id="clickClipCombinedToggle" class="toggle-input">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+          <span class="batch-save-label">Combined doc</span>
         </div>
       </div>
 

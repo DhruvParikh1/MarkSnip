@@ -48,6 +48,8 @@ function getHTMLOfDocument(captureOptions = {}) {
         removeHiddenNodes(document.body, clonedDocument.body);
     }
 
+    removeMarkSnipElementPickerArtifacts(clonedDocument.documentElement);
+
     // get the cloned page content as a string
     return clonedDocument.documentElement.outerHTML;
 }
@@ -322,13 +324,21 @@ function removeMarkSnipElementPickerArtifacts(root) {
 
         if (node.classList) {
             Array.from(node.classList).forEach(className => {
-                if (className.startsWith('marksnip-element-picker-')) {
+                if (className.startsWith('marksnip-element-picker-') ||
+                    className.startsWith('marksnip-click-clip-')) {
                     node.classList.remove(className);
                 }
             });
             if (node.getAttribute('class') === '') {
                 node.removeAttribute('class');
             }
+        }
+
+        // Click & Clip tags triggers in place; a tagged trigger can live inside a
+        // captured region (e.g. an accordion <summary>). Strip the marker attribute
+        // but keep the node — it is real content.
+        if (node.hasAttribute?.('data-marksnip-clip-index')) {
+            node.removeAttribute('data-marksnip-clip-index');
         }
     });
 }
@@ -1975,4 +1985,996 @@ function cleanupElementPicker() {
         accentColors: null,
         converting: false
     };
+}
+
+// ===== Click & Clip Feature =====
+// Clips pages that reveal content via in-page clicks (tabs, accordions,
+// "load more", pagination) rather than navigation. The user tags trigger
+// elements; the extension clicks each, waits for the DOM to settle, resolves
+// the changed region, and converts it to markdown. Conversion + ZIP/combined
+// assembly happens in the service worker; this module only drives the page.
+
+if (typeof window.clickClipState === 'undefined') {
+    window.clickClipState = createClickClipInitialState();
+}
+
+function createClickClipInitialState() {
+    return {
+        active: false,
+        phase: 'idle',                 // idle | picking | running | done
+        sessionId: null,
+        triggers: [],                  // [{ id, el, label, textKey }]
+        pattern: 'auto',
+        outputMode: 'files',           // files | combined
+        batchSaveMode: 'zip',          // zip | individual
+        captureOptions: {},
+        controlPanel: null,
+        styleElement: null,
+        overlayElement: null,
+        handlers: {},
+        accentColors: null,
+        hoveredElement: null,
+        results: [],                   // [{ label, order }] (markdown lives in SW)
+        skipped: [],
+        navigated: false,
+        navStartHref: '',
+        aborted: false,
+        bulkMode: false,
+        nextTriggerId: 1
+    };
+}
+
+function getClickClipTriggerSelector() {
+    return "button, [role='button'], [role='tab'], summary, [onclick], a[href^='#'], a[href^='javascript:']";
+}
+
+function clickClipMsg(key, substitutions, fallback) {
+    return markSnipMessage(key, substitutions, fallback);
+}
+
+if (!window.clickClipMessageListenerAdded) {
+    browser.runtime.onMessage.addListener((message) => {
+        if (message && message.type === 'ACTIVATE_CLICK_CLIP') {
+            return initButtonBatchPickerMode(message)
+                .then(() => ({ success: true }))
+                .catch((error) => {
+                    console.error('Failed to activate Click & Clip:', error);
+                    return { success: false, error: String(error?.message || error) };
+                });
+        }
+    });
+    window.clickClipMessageListenerAdded = true;
+}
+
+async function initButtonBatchPickerMode(message = {}) {
+    const cc = window.clickClipState;
+    if (cc.active) {
+        return;
+    }
+    if (window.linkPickerState?.active && typeof cleanupLinkPicker === 'function') {
+        cleanupLinkPicker();
+    }
+    if (window.elementPickerState?.active && typeof cleanupElementPicker === 'function') {
+        cleanupElementPicker();
+    }
+
+    await markSnipI18nReady();
+
+    let accentColors = ACCENT_COLORS.sage;
+    try {
+        const data = await browser.storage.sync.get('popupAccent');
+        accentColors = ACCENT_COLORS[data.popupAccent || 'sage'] || ACCENT_COLORS.sage;
+    } catch (e) { /* default */ }
+
+    const fresh = createClickClipInitialState();
+    fresh.active = true;
+    fresh.phase = 'picking';
+    fresh.accentColors = accentColors;
+    fresh.captureOptions = { skipHiddenContent: message?.captureOptions?.skipHiddenContent === true };
+    fresh.outputMode = message?.clickClipOutputMode === 'combined' ? 'combined' : 'files';
+    fresh.batchSaveMode = message?.batchSaveMode === 'individual' ? 'individual' : 'zip';
+    window.clickClipState = fresh;
+
+    injectClickClipStyles(accentColors);
+    createClickClipControlPanel();
+    setupClickClipPickerListeners();
+    renderClickClipTriggerList();
+}
+
+function injectClickClipStyles(colors) {
+    const { base, dark, darker } = colors;
+    const hexToRgb = (hex) => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `${r}, ${g}, ${b}`;
+    };
+    const baseRgb = hexToRgb(base);
+    const darkRgb = hexToRgb(dark);
+
+    const styles = `
+        .marksnip-click-clip-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.22);
+            z-index: 999998; pointer-events: none;
+        }
+        .marksnip-click-clip-highlight {
+            outline: 2px solid ${base} !important; outline-offset: 2px !important;
+            cursor: pointer !important;
+            box-shadow: 0 0 0 4px rgba(${baseRgb}, 0.18) !important;
+        }
+        .marksnip-click-clip-trigger-tagged {
+            outline: 2px solid ${dark} !important; outline-offset: 2px !important;
+            position: relative !important;
+            box-shadow: 0 0 0 4px rgba(${darkRgb}, 0.20) !important;
+        }
+        .marksnip-click-clip-trigger-tagged::after {
+            content: attr(data-marksnip-clip-index);
+            position: absolute; top: -10px; left: -10px;
+            min-width: 18px; height: 18px; padding: 0 4px;
+            background: ${dark}; color: #fff; border-radius: 9px;
+            display: flex; align-items: center; justify-content: center;
+            font: 700 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3); z-index: 999999;
+        }
+        .marksnip-click-clip-region {
+            outline: 3px dashed ${base} !important; outline-offset: 2px !important;
+            box-shadow: 0 0 0 6px rgba(${baseRgb}, 0.14) !important;
+        }
+        .marksnip-click-clip-panel {
+            position: fixed; bottom: 24px; right: 24px;
+            width: min(320px, calc(100vw - 32px));
+            background: linear-gradient(150deg, ${darker} 0%, ${dark} 100%);
+            border-radius: 12px; padding: 16px 16px 14px;
+            box-shadow: 0 14px 44px rgba(0,0,0,0.4);
+            z-index: 1000001; color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            border: 1px solid rgba(255,255,255,0.12);
+        }
+        .marksnip-click-clip-panel * { box-sizing: border-box; }
+        .marksnip-click-clip-h {
+            font-size: 12px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.08em; text-align: center; margin: 0 0 4px;
+        }
+        .marksnip-click-clip-warn {
+            font-size: 10.5px; color: rgba(255,255,255,0.55);
+            text-align: center; margin: 0 0 10px; line-height: 1.4;
+        }
+        .marksnip-click-clip-info {
+            font-size: 11.5px; color: rgba(255,255,255,0.75);
+            text-align: center; margin: 0 0 8px; line-height: 1.45; min-height: 16px;
+        }
+        .marksnip-click-clip-list {
+            list-style: none; margin: 0 0 10px; padding: 0;
+            max-height: 132px; overflow-y: auto;
+        }
+        .marksnip-click-clip-list:empty { display: none; }
+        .marksnip-click-clip-row {
+            display: flex; align-items: center; gap: 6px;
+            padding: 4px 6px; margin-bottom: 3px;
+            background: rgba(255,255,255,0.1); border-radius: 6px;
+            font-size: 11.5px;
+        }
+        .marksnip-click-clip-row-idx { font-weight: 700; opacity: 0.7; }
+        .marksnip-click-clip-row-label {
+            flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .marksnip-click-clip-row button {
+            background: rgba(255,255,255,0.14); border: none; color: #fff;
+            width: 20px; height: 20px; border-radius: 4px; cursor: pointer;
+            font-size: 12px; line-height: 1; padding: 0;
+        }
+        .marksnip-click-clip-row button:hover { background: rgba(255,255,255,0.28); }
+        .marksnip-click-clip-field {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; margin-bottom: 8px; font-size: 11.5px;
+        }
+        .marksnip-click-clip-field select {
+            flex: 1; max-width: 170px; padding: 4px 6px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.95); color: ${darker};
+            font: inherit; font-size: 11.5px;
+        }
+        .marksnip-click-clip-btns { display: flex; gap: 6px; }
+        .marksnip-click-clip-btn {
+            flex: 1; padding: 8px 6px; border-radius: 8px; cursor: pointer;
+            font: 600 12px/1.2 inherit; border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.14); color: rgba(255,255,255,0.92);
+        }
+        .marksnip-click-clip-btn:hover { background: rgba(255,255,255,0.24); }
+        .marksnip-click-clip-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .marksnip-click-clip-btn-primary {
+            background: rgba(255,255,255,0.95); color: ${darker};
+            border-color: rgba(255,255,255,0.4);
+        }
+        .marksnip-click-clip-btn-primary:hover:not(:disabled) { background: ${base}; color: #fff; }
+        .marksnip-click-clip-progress-bar {
+            height: 6px; border-radius: 3px; background: rgba(255,255,255,0.18);
+            overflow: hidden; margin: 10px 0;
+        }
+        .marksnip-click-clip-progress-fill {
+            height: 100%; background: #fff; width: 0%;
+            transition: width 200ms ease;
+        }
+    `;
+
+    const styleEl = document.createElement('style');
+    styleEl.textContent = styles;
+    styleEl.setAttribute('data-marksnip-element-picker-ui', 'true');
+    document.head.appendChild(styleEl);
+    window.clickClipState.styleElement = styleEl;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'marksnip-click-clip-overlay';
+    overlay.setAttribute('data-marksnip-element-picker-ui', 'true');
+    document.body.appendChild(overlay);
+    window.clickClipState.overlayElement = overlay;
+}
+
+function clickClipEl(tag, className, text) {
+    const el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text != null) el.textContent = text;
+    return el;
+}
+
+function createClickClipControlPanel() {
+    const cc = window.clickClipState;
+    const panel = document.createElement('div');
+    panel.className = 'marksnip-click-clip-panel';
+    panel.id = 'marksnip-click-clip-panel';
+    panel.setAttribute('data-marksnip-element-picker-ui', 'true');
+
+    panel.appendChild(clickClipEl('div', 'marksnip-click-clip-h',
+        clickClipMsg('clickClipTitle', null, 'Click & Clip')));
+    panel.appendChild(clickClipEl('div', 'marksnip-click-clip-warn',
+        clickClipMsg('clickClipWarning', null,
+            'Clicks the buttons you tag. Avoid pages where clicking submits forms or makes purchases.')));
+
+    const info = clickClipEl('div', 'marksnip-click-clip-info',
+        clickClipMsg('clickClipPickInfo', null, 'Click buttons/tabs on the page to tag them.'));
+    info.id = 'marksnip-click-clip-info';
+    panel.appendChild(info);
+
+    const list = document.createElement('ol');
+    list.className = 'marksnip-click-clip-list';
+    list.id = 'marksnip-click-clip-list';
+    panel.appendChild(list);
+
+    const bulkBtn = clickClipEl('button', 'marksnip-click-clip-btn',
+        clickClipMsg('clickClipBulkBtn', null, 'Add all in a container'));
+    bulkBtn.id = 'marksnip-click-clip-bulk';
+    bulkBtn.type = 'button';
+    bulkBtn.style.width = '100%';
+    bulkBtn.style.marginBottom = '8px';
+    bulkBtn.addEventListener('click', toggleClickClipBulkMode);
+    panel.appendChild(bulkBtn);
+
+    // Pattern field
+    const patternField = clickClipEl('div', 'marksnip-click-clip-field');
+    patternField.appendChild(clickClipEl('span', null,
+        clickClipMsg('clickClipPatternLabel', null, 'Pattern')));
+    const patternSelect = document.createElement('select');
+    patternSelect.id = 'marksnip-click-clip-pattern';
+    [
+        ['auto', clickClipMsg('clickClipPatternAuto', null, 'Auto-detect')],
+        ['tabs', clickClipMsg('clickClipPatternTabs', null, 'Tabs / panels')],
+        ['accordion', clickClipMsg('clickClipPatternAccordion', null, 'Accordion')],
+        ['loadmore', clickClipMsg('clickClipPatternLoadMore', null, 'Load more')],
+        ['pagination', clickClipMsg('clickClipPatternPagination', null, 'Pagination')]
+    ].forEach(([value, label]) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = label;
+        patternSelect.appendChild(opt);
+    });
+    patternSelect.value = cc.pattern;
+    patternSelect.addEventListener('change', () => { cc.pattern = patternSelect.value; });
+    patternField.appendChild(patternSelect);
+    panel.appendChild(patternField);
+
+    // Output field
+    const outputField = clickClipEl('div', 'marksnip-click-clip-field');
+    outputField.appendChild(clickClipEl('span', null,
+        clickClipMsg('clickClipOutputLabel', null, 'Output')));
+    const outputSelect = document.createElement('select');
+    outputSelect.id = 'marksnip-click-clip-output';
+    [
+        ['files', clickClipMsg('clickClipOutputFiles', null, 'File per button')],
+        ['combined', clickClipMsg('clickClipOutputCombined', null, 'Combined doc')]
+    ].forEach(([value, label]) => {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = label;
+        outputSelect.appendChild(opt);
+    });
+    outputSelect.value = cc.outputMode;
+    outputSelect.addEventListener('change', () => { cc.outputMode = outputSelect.value; });
+    outputField.appendChild(outputSelect);
+    panel.appendChild(outputField);
+
+    const btns = clickClipEl('div', 'marksnip-click-clip-btns');
+    const cancelBtn = clickClipEl('button', 'marksnip-click-clip-btn',
+        clickClipMsg('clickClipCancelBtn', null, 'Cancel'));
+    cancelBtn.id = 'marksnip-click-clip-cancel';
+    cancelBtn.type = 'button';
+    cancelBtn.addEventListener('click', cancelClickClip);
+    const testBtn = clickClipEl('button', 'marksnip-click-clip-btn',
+        clickClipMsg('clickClipTestBtn', null, 'Test first'));
+    testBtn.id = 'marksnip-click-clip-test';
+    testBtn.type = 'button';
+    testBtn.addEventListener('click', testFirstTrigger);
+    const startBtn = clickClipEl('button', 'marksnip-click-clip-btn marksnip-click-clip-btn-primary',
+        clickClipMsg('clickClipStartBtn', null, 'Start'));
+    startBtn.id = 'marksnip-click-clip-start';
+    startBtn.type = 'button';
+    startBtn.addEventListener('click', startClickClipRun);
+    btns.appendChild(cancelBtn);
+    btns.appendChild(testBtn);
+    btns.appendChild(startBtn);
+    panel.appendChild(btns);
+
+    document.body.appendChild(panel);
+    cc.controlPanel = panel;
+}
+
+function isClickClipUi(element) {
+    return !!element?.closest?.('[data-marksnip-element-picker-ui="true"]');
+}
+
+function setupClickClipPickerListeners() {
+    const cc = window.clickClipState;
+    cc.handlers.mousemove = function (e) {
+        if (isClickClipUi(e.target)) {
+            clearClickClipHighlight();
+            return;
+        }
+        const el = getPickableElement(e.target);
+        if (!el || cc.triggers.some(t => t.el === el)) {
+            clearClickClipHighlight();
+            return;
+        }
+        clearClickClipHighlight();
+        el.classList.add('marksnip-click-clip-highlight');
+        cc.hoveredElement = el;
+    };
+    cc.handlers.click = function (e) {
+        if (isClickClipUi(e.target)) {
+            return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        const el = getPickableElement(e.target);
+        if (!el) return;
+        if (cc.bulkMode) {
+            cc.bulkMode = false;
+            document.getElementById('marksnip-click-clip-bulk')
+                ?.classList.remove('marksnip-click-clip-btn-primary');
+            bulkSelectTriggersInContainer(el);
+            return;
+        }
+        const existing = cc.triggers.find(t => t.el === el);
+        if (existing) {
+            untagTrigger(existing);
+        } else {
+            tagTrigger(el);
+        }
+    };
+    cc.handlers.keydown = function (e) {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelClickClip();
+        }
+    };
+    document.addEventListener('mousemove', cc.handlers.mousemove, true);
+    document.addEventListener('click', cc.handlers.click, true);
+    document.addEventListener('keydown', cc.handlers.keydown, true);
+}
+
+function detachClickClipPickerListeners() {
+    const cc = window.clickClipState;
+    const h = cc.handlers || {};
+    if (h.mousemove) document.removeEventListener('mousemove', h.mousemove, true);
+    if (h.click) document.removeEventListener('click', h.click, true);
+    clearClickClipHighlight();
+}
+
+function clearClickClipHighlight() {
+    const cc = window.clickClipState;
+    if (cc.hoveredElement) {
+        cc.hoveredElement.classList.remove('marksnip-click-clip-highlight');
+        cc.hoveredElement = null;
+    }
+}
+
+function clickClipNormalizeText(value) {
+    return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function deriveTriggerLabel(el) {
+    if (!el) return '';
+    const text = clickClipNormalizeText(el.innerText || el.textContent).slice(0, 80);
+    if (text) return text;
+    const aria = clickClipNormalizeText(
+        el.getAttribute?.('aria-label') || el.getAttribute?.('title') || '');
+    if (aria) return aria;
+    return getElementPickerLabel(el) || 'item';
+}
+
+function tagTrigger(el) {
+    const cc = window.clickClipState;
+    // Reject real navigational links — those belong to Batch Link.
+    if (el.tagName === 'A') {
+        const href = el.getAttribute('href') || '';
+        if (/^https?:/i.test(href) || (el.href && !href.startsWith('#') && !/^javascript:/i.test(href))) {
+            try {
+                const abs = new URL(el.href, window.location.href);
+                if ((abs.protocol === 'http:' || abs.protocol === 'https:') &&
+                    abs.href.split('#')[0] !== window.location.href.split('#')[0]) {
+                    setClickClipInfo(clickClipMsg('clickClipRejectLink', null,
+                        'That link navigates away — use Batch Link for links.'));
+                    return;
+                }
+            } catch (e) { /* not a real URL, allow */ }
+        }
+    }
+    const trigger = {
+        id: cc.nextTriggerId++,
+        el,
+        label: deriveTriggerLabel(el),
+        textKey: clickClipNormalizeText(el.innerText || el.textContent).toLowerCase()
+    };
+    cc.triggers.push(trigger);
+    el.classList.remove('marksnip-click-clip-highlight');
+    applyTriggerBadges();
+    renderClickClipTriggerList();
+}
+
+function untagTrigger(trigger) {
+    const cc = window.clickClipState;
+    cc.triggers = cc.triggers.filter(t => t !== trigger);
+    if (trigger.el) {
+        trigger.el.classList.remove('marksnip-click-clip-trigger-tagged');
+        trigger.el.removeAttribute('data-marksnip-clip-index');
+    }
+    applyTriggerBadges();
+    renderClickClipTriggerList();
+}
+
+function applyTriggerBadges() {
+    const cc = window.clickClipState;
+    cc.triggers.forEach((t, i) => {
+        if (!t.el) return;
+        t.el.classList.add('marksnip-click-clip-trigger-tagged');
+        t.el.setAttribute('data-marksnip-clip-index', String(i + 1));
+    });
+}
+
+function moveTrigger(index, delta) {
+    const cc = window.clickClipState;
+    const target = index + delta;
+    if (target < 0 || target >= cc.triggers.length) return;
+    const [item] = cc.triggers.splice(index, 1);
+    cc.triggers.splice(target, 0, item);
+    applyTriggerBadges();
+    renderClickClipTriggerList();
+}
+
+function renderClickClipTriggerList() {
+    const cc = window.clickClipState;
+    const list = document.getElementById('marksnip-click-clip-list');
+    if (!list) return;
+    list.innerHTML = '';
+    cc.triggers.forEach((trigger, index) => {
+        const row = clickClipEl('li', 'marksnip-click-clip-row');
+        row.appendChild(clickClipEl('span', 'marksnip-click-clip-row-idx', String(index + 1)));
+        row.appendChild(clickClipEl('span', 'marksnip-click-clip-row-label', trigger.label));
+        const up = clickClipEl('button', null, '↑');
+        up.type = 'button';
+        up.title = clickClipMsg('clickClipMoveUp', null, 'Move up');
+        up.addEventListener('click', () => moveTrigger(index, -1));
+        const down = clickClipEl('button', null, '↓');
+        down.type = 'button';
+        down.title = clickClipMsg('clickClipMoveDown', null, 'Move down');
+        down.addEventListener('click', () => moveTrigger(index, 1));
+        const remove = clickClipEl('button', null, '✕');
+        remove.type = 'button';
+        remove.title = clickClipMsg('clickClipRemove', null, 'Remove');
+        remove.addEventListener('click', () => untagTrigger(trigger));
+        row.appendChild(up);
+        row.appendChild(down);
+        row.appendChild(remove);
+        list.appendChild(row);
+    });
+
+    const count = cc.triggers.length;
+    setClickClipInfo(count === 0
+        ? clickClipMsg('clickClipPickInfo', null, 'Click buttons/tabs on the page to tag them.')
+        : clickClipMsg('clickClipTaggedCount', [count], `${count} button(s) tagged`));
+
+    const startBtn = document.getElementById('marksnip-click-clip-start');
+    const testBtn = document.getElementById('marksnip-click-clip-test');
+    if (startBtn) startBtn.disabled = count === 0;
+    if (testBtn) testBtn.disabled = count === 0;
+}
+
+function setClickClipInfo(text) {
+    const info = document.getElementById('marksnip-click-clip-info');
+    if (info) info.textContent = text;
+}
+
+function toggleClickClipBulkMode() {
+    const cc = window.clickClipState;
+    cc.bulkMode = !cc.bulkMode;
+    document.getElementById('marksnip-click-clip-bulk')
+        ?.classList.toggle('marksnip-click-clip-btn-primary', cc.bulkMode);
+    setClickClipInfo(cc.bulkMode
+        ? clickClipMsg('clickClipBulkPrompt', null, 'Click a container to tag all buttons inside it.')
+        : clickClipMsg('clickClipPickInfo', null, 'Click buttons/tabs on the page to tag them.'));
+}
+
+// Tag every clickable element inside the nearest ancestor of `fromEl` that
+// holds two or more of them — so a whole tab strip can be tagged in one click.
+function bulkSelectTriggersInContainer(fromEl) {
+    const cc = window.clickClipState;
+    let container = fromEl;
+    let matches = [];
+    while (container && container !== document.documentElement) {
+        if (!isClickClipUi(container)) {
+            matches = Array.from(container.querySelectorAll(getClickClipTriggerSelector()))
+                .filter(el => {
+                    if (isClickClipUi(el) || cc.triggers.some(t => t.el === el)) return false;
+                    const rect = el.getBoundingClientRect();
+                    return rect.width > 0 || rect.height > 0;
+                });
+            if (matches.length >= 2) break;
+        }
+        container = container.parentElement;
+    }
+    if (matches.length === 0) {
+        setClickClipInfo(clickClipMsg('clickClipBulkNone', null,
+            'No buttons found in that container.'));
+        return;
+    }
+    matches.forEach(el => {
+        if (!cc.triggers.some(t => t.el === el)) {
+            tagTrigger(el);
+        }
+    });
+}
+
+function suggestClickClipPattern(triggers) {
+    if (!triggers.length) return 'tabs';
+    const els = triggers.map(t => t.el).filter(Boolean);
+    if (els.length && els.every(el => el.getAttribute('role') === 'tab' || el.closest('[role="tablist"]'))) {
+        return 'tabs';
+    }
+    if (els.length > 1 && els.every(el => el.tagName === 'SUMMARY' || el.hasAttribute('aria-expanded'))) {
+        return 'accordion';
+    }
+    if (els.length === 1) {
+        const txt = deriveTriggerLabel(els[0]).toLowerCase();
+        if (/load\s*more|show\s*more|view\s*more|see\s*more/.test(txt)) return 'loadmore';
+        if (/next|older|»|›/.test(txt) || els[0].getAttribute('rel') === 'next') return 'pagination';
+    }
+    return 'tabs';
+}
+
+// ----- Region resolution -----
+
+function clickClipRegionText(el) {
+    if (!el) return '';
+    return clickClipNormalizeText(el.innerText || el.textContent || '');
+}
+
+function snapshotRegion(el) {
+    const text = clickClipRegionText(el);
+    return { len: text.length };
+}
+
+// ----- Clicking & settling -----
+
+function clickClipClickTrigger(el) {
+    try {
+        el.scrollIntoView({ block: 'center', inline: 'nearest' });
+    } catch (e) { /* ignore */ }
+    try {
+        if (typeof el.click === 'function') {
+            el.click();
+            return;
+        }
+    } catch (e) {
+        // fall through to dispatched events
+    }
+    ['mousedown', 'mouseup', 'click'].forEach(type => {
+        try {
+            el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+        } catch (e) { /* ignore */ }
+    });
+}
+
+function clickAndSettle(triggerEl, observeTarget, quietMs = 400, timeoutMs = 10000) {
+    return new Promise((resolve) => {
+        const records = [];
+        let quietTimer = null;
+        let hardTimer = null;
+        const target = (observeTarget && document.contains(observeTarget))
+            ? observeTarget
+            : document.body;
+        const observer = new MutationObserver((muts) => {
+            records.push(...muts);
+            if (quietTimer) clearTimeout(quietTimer);
+            quietTimer = setTimeout(finish, quietMs);
+        });
+
+        function finish() {
+            if (quietTimer) clearTimeout(quietTimer);
+            if (hardTimer) clearTimeout(hardTimer);
+            try { observer.disconnect(); } catch (e) { /* ignore */ }
+            resolve(records);
+        }
+
+        observer.observe(target, {
+            subtree: true, childList: true, characterData: true, attributes: true
+        });
+        hardTimer = setTimeout(finish, timeoutMs);
+        // Resolve even if nothing mutates at all.
+        quietTimer = setTimeout(finish, Math.max(quietMs, 900));
+        clickClipClickTrigger(triggerEl);
+    });
+}
+
+// ----- Navigation guard -----
+
+function guardClickClipNavigation() {
+    const cc = window.clickClipState;
+    cc.navStartHref = window.location.href.split('#')[0];
+    cc.handlers.beforeunload = function () {
+        cc.navigated = true;
+        if (cc.sessionId) {
+            try {
+                browser.runtime.sendMessage({ type: 'click-clip-finalize', sessionId: cc.sessionId });
+            } catch (e) { /* best effort */ }
+        }
+    };
+    window.addEventListener('beforeunload', cc.handlers.beforeunload);
+}
+
+function clickClipDidNavigate() {
+    const cc = window.clickClipState;
+    return cc.navigated || window.location.href.split('#')[0] !== cc.navStartHref;
+}
+
+// ----- Run orchestration -----
+
+function startClickClipRun() {
+    const cc = window.clickClipState;
+    if (cc.phase !== 'picking' || cc.triggers.length === 0) return;
+    runClickClip().catch((error) => {
+        console.error('Click & Clip run failed:', error);
+        setClickClipInfo(clickClipMsg('clickClipRunFailed', null, 'Click & Clip failed. See console.'));
+    });
+}
+
+function showClickClipRunningUI() {
+    const cc = window.clickClipState;
+    const panel = cc.controlPanel;
+    if (!panel) return;
+    panel.innerHTML = '';
+    panel.appendChild(clickClipEl('div', 'marksnip-click-clip-h',
+        clickClipMsg('clickClipTitle', null, 'Click & Clip')));
+    const status = clickClipEl('div', 'marksnip-click-clip-info',
+        clickClipMsg('clickClipRunning', null, 'Running…'));
+    status.id = 'marksnip-click-clip-status';
+    panel.appendChild(status);
+    const bar = clickClipEl('div', 'marksnip-click-clip-progress-bar');
+    const fill = clickClipEl('div', 'marksnip-click-clip-progress-fill');
+    fill.id = 'marksnip-click-clip-fill';
+    bar.appendChild(fill);
+    panel.appendChild(bar);
+    if (cc.overlayElement) cc.overlayElement.remove();
+}
+
+function setClickClipStatus(text) {
+    const status = document.getElementById('marksnip-click-clip-status');
+    if (status) status.textContent = text;
+}
+
+function setClickClipProgress(current, total) {
+    const fill = document.getElementById('marksnip-click-clip-fill');
+    if (fill && total > 0) {
+        fill.style.width = `${Math.min(100, Math.round((current / total) * 100))}%`;
+    }
+}
+
+async function convertCurrentPageState(label, order) {
+    const cc = window.clickClipState;
+    if (typeof marksnipPrepareForCapture === 'function') {
+        try { await marksnipPrepareForCapture(); } catch (e) { /* ignore */ }
+    }
+    const payload = getSelectionAndDom(cc.captureOptions);
+    if (!payload?.dom) {
+        cc.skipped.push({ label, reason: 'empty' });
+        return false;
+    }
+    payload.captureKind = 'page';
+    try {
+        const res = await browser.runtime.sendMessage({
+            type: 'click-clip-convert-item',
+            sessionId: cc.sessionId,
+            payload,
+            label,
+            order,
+            current: order + 1,
+            total: cc.triggers.length
+        });
+        if (res && res.ok) {
+            cc.results.push({ label, order });
+            return true;
+        }
+        cc.skipped.push({ label, reason: 'convert-failed' });
+        return false;
+    } catch (error) {
+        console.error('Click & Clip convert failed:', error);
+        cc.skipped.push({ label, reason: 'convert-error' });
+        return false;
+    }
+}
+
+function clickClipTriggerIsActive(el) {
+    return el.getAttribute('aria-selected') === 'true' ||
+        el.getAttribute('aria-current') != null ||
+        el.classList.contains('active');
+}
+
+function clickClipTriggerIsExpanded(el) {
+    if (el.getAttribute('aria-expanded') === 'true') return true;
+    const details = el.tagName === 'SUMMARY' ? el.closest('details') : null;
+    return !!(details && details.open);
+}
+
+function clickClipTriggerDisabledOrHidden(el) {
+    if (!el || !document.contains(el)) return true;
+    if (el.disabled || el.getAttribute('aria-disabled') === 'true') return true;
+    const rect = el.getBoundingClientRect();
+    return rect.width === 0 && rect.height === 0;
+}
+
+async function runClickClip() {
+    const cc = window.clickClipState;
+    cc.phase = 'running';
+    cc.sessionId = `cc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+    if (cc.pattern === 'auto') {
+        cc.pattern = suggestClickClipPattern(cc.triggers);
+    }
+
+    await browser.runtime.sendMessage({
+        type: 'click-clip-start-session',
+        sessionId: cc.sessionId,
+        outputMode: cc.outputMode,
+        batchSaveMode: cc.batchSaveMode,
+        pageTitle: document.title || '',
+        pageUrl: window.location.href,
+        total: cc.triggers.length
+    }).catch((e) => console.warn('start-session failed:', e));
+
+    detachClickClipPickerListeners();
+    guardClickClipNavigation();
+    showClickClipRunningUI();
+
+    try {
+        if (cc.pattern === 'tabs' || cc.pattern === 'accordion') {
+            await runClickClipTabsOrAccordion(cc.pattern);
+        } else if (cc.pattern === 'loadmore') {
+            await runClickClipLoadMore();
+        } else if (cc.pattern === 'pagination') {
+            await runClickClipPagination();
+        }
+    } catch (error) {
+        console.error('Click & Clip orchestration error:', error);
+    }
+
+    await finishClickClip();
+}
+
+async function runClickClipTabsOrAccordion(pattern) {
+    const cc = window.clickClipState;
+    const triggers = cc.triggers.slice();
+    let originalActive = null;
+    if (pattern === 'tabs') {
+        originalActive = triggers.find(t => t.el && clickClipTriggerIsActive(t.el)) || null;
+    }
+
+    for (let i = 0; i < triggers.length; i++) {
+        if (cc.aborted) break;
+        const trigger = triggers[i];
+        const el = (trigger.el && document.contains(trigger.el)) ? trigger.el : null;
+        if (!el) {
+            cc.skipped.push({ label: trigger.label, reason: 'stale-trigger' });
+            continue;
+        }
+        setClickClipStatus(clickClipMsg('clickClipRunningItem', [i + 1, triggers.length],
+            `Processing ${i + 1} of ${triggers.length}…`));
+
+        const alreadyShown = pattern === 'tabs'
+            ? clickClipTriggerIsActive(el)
+            : clickClipTriggerIsExpanded(el);
+
+        if (!alreadyShown) {
+            await clickAndSettle(el, document.body);
+            if (clickClipDidNavigate()) {
+                cc.aborted = true;
+                setClickClipStatus(clickClipMsg('clickClipNavAborted', null,
+                    'A click navigated away — stopping.'));
+                break;
+            }
+        }
+        await convertCurrentPageState(trigger.label, i);
+        setClickClipProgress(i + 1, triggers.length);
+    }
+
+    if (pattern === 'tabs' && originalActive && originalActive.el && document.contains(originalActive.el)) {
+        clickClipClickTrigger(originalActive.el);
+    }
+}
+
+async function runClickClipLoadMore() {
+    const cc = window.clickClipState;
+    const trigger = cc.triggers[0];
+    if (!trigger) return;
+    let stagnant = 0;
+    let clicks = 0;
+    const maxClicks = 60;
+
+    while (clicks < maxClicks) {
+        if (cc.aborted) break;
+        const el = (trigger.el && document.contains(trigger.el)) ? trigger.el : null;
+        if (!el || clickClipTriggerDisabledOrHidden(el)) break;
+
+        const before = snapshotRegion(document.body);
+        await clickAndSettle(el, document.body);
+        clicks++;
+        if (clickClipDidNavigate()) {
+            cc.aborted = true;
+            setClickClipStatus(clickClipMsg('clickClipNavAborted', null,
+                'A click navigated away — stopping.'));
+            break;
+        }
+        const after = snapshotRegion(document.body);
+        if (after.len - before.len < 40) {
+            stagnant++;
+        } else {
+            stagnant = 0;
+        }
+        setClickClipStatus(clickClipMsg('clickClipRunningLoadMore', [clicks],
+            `Loaded ${clicks} time(s)…`));
+        if (stagnant >= 2) break;
+    }
+
+    await convertCurrentPageState(document.title || 'content', 0);
+    setClickClipProgress(1, 1);
+}
+
+async function runClickClipPagination() {
+    const cc = window.clickClipState;
+    const nextTrigger = cc.triggers[0];
+    if (!nextTrigger) return;
+
+    let pageIndex = 0;
+    const maxPages = 100;
+    while (pageIndex < maxPages) {
+        if (cc.aborted) break;
+
+        await convertCurrentPageState(
+            `${document.title || 'page'} ${pageIndex + 1}`, pageIndex);
+        setClickClipStatus(clickClipMsg('clickClipRunningPage', [pageIndex + 1],
+            `Captured page ${pageIndex + 1}…`));
+        setClickClipProgress(pageIndex + 1, pageIndex + 2);
+
+        const el = (nextTrigger.el && document.contains(nextTrigger.el)) ? nextTrigger.el : null;
+        if (!el || clickClipTriggerDisabledOrHidden(el)) break;
+
+        await clickAndSettle(el, document.body);
+        if (clickClipDidNavigate()) {
+            cc.aborted = true;
+            setClickClipStatus(clickClipMsg('clickClipNavAborted', null,
+                'A click navigated away — stopping.'));
+            break;
+        }
+        pageIndex++;
+    }
+}
+
+async function finishClickClip() {
+    const cc = window.clickClipState;
+    cc.phase = 'done';
+
+    if (cc.results.length === 0) {
+        setClickClipStatus(clickClipMsg('clickClipNothingCaptured', null,
+            'Nothing was captured.'));
+        if (cc.sessionId) {
+            browser.runtime.sendMessage({ type: 'click-clip-cancel-session', sessionId: cc.sessionId })
+                .catch(() => {});
+        }
+        setTimeout(() => cleanupClickClip(), 2600);
+        return;
+    }
+
+    setClickClipStatus(clickClipMsg('clickClipFinalizing', null, 'Saving…'));
+    try {
+        const res = await browser.runtime.sendMessage({
+            type: 'click-clip-finalize',
+            sessionId: cc.sessionId
+        });
+        const count = (res && res.count) || cc.results.length;
+        setClickClipProgress(1, 1);
+        setClickClipStatus(clickClipMsg('clickClipSuccess', [count],
+            `Done — ${count} item(s) clipped.`));
+    } catch (error) {
+        console.error('Click & Clip finalize failed:', error);
+        setClickClipStatus(clickClipMsg('clickClipRunFailed', null,
+            'Click & Clip failed. See console.'));
+    }
+    setTimeout(() => cleanupClickClip(), 2800);
+}
+
+async function testFirstTrigger() {
+    const cc = window.clickClipState;
+    if (cc.phase !== 'picking' || cc.triggers.length === 0) return;
+    const trigger = cc.triggers[0];
+    const el = trigger.el;
+    if (!el || !document.contains(el)) return;
+
+    setClickClipInfo(clickClipMsg('clickClipTesting', null, 'Testing first button…'));
+    const wasShown = clickClipTriggerIsActive(el) || clickClipTriggerIsExpanded(el);
+    if (!wasShown) {
+        await clickAndSettle(el, document.body);
+    }
+    if (typeof marksnipPrepareForCapture === 'function') {
+        try { await marksnipPrepareForCapture(); } catch (e) { /* ignore */ }
+    }
+    const payload = getSelectionAndDom(cc.captureOptions);
+    if (payload?.dom) {
+        const len = clickClipRegionText(document.body).length;
+        setClickClipInfo(clickClipMsg('clickClipTestResult', [len],
+            `Ready to clip this page state (${len} characters).`));
+    } else {
+        setClickClipInfo(clickClipMsg('clickClipTestNoRegion', null,
+            'Unable to capture the page state for the first button.'));
+    }
+}
+
+function cancelClickClip() {
+    const cc = window.clickClipState;
+    cc.aborted = true;
+    if (cc.sessionId && cc.phase === 'running') {
+        // Let any already-converted items finalize.
+        browser.runtime.sendMessage({ type: 'click-clip-finalize', sessionId: cc.sessionId })
+            .catch(() => {});
+    }
+    cleanupClickClip();
+}
+
+function cleanupClickClip() {
+    const cc = window.clickClipState;
+    const h = cc.handlers || {};
+    if (h.mousemove) document.removeEventListener('mousemove', h.mousemove, true);
+    if (h.click) document.removeEventListener('click', h.click, true);
+    if (h.keydown) document.removeEventListener('keydown', h.keydown, true);
+    if (h.beforeunload) window.removeEventListener('beforeunload', h.beforeunload);
+
+    cc.triggers.forEach(t => {
+        if (t.el) {
+            t.el.classList.remove('marksnip-click-clip-trigger-tagged', 'marksnip-click-clip-highlight');
+            t.el.removeAttribute('data-marksnip-clip-index');
+        }
+    });
+    document.querySelectorAll('.marksnip-click-clip-region')
+        .forEach(n => n.classList.remove('marksnip-click-clip-region'));
+
+    cc.controlPanel?.remove();
+    cc.overlayElement?.remove();
+    cc.styleElement?.remove();
+
+    window.clickClipState = createClickClipInitialState();
 }

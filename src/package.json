@@ -20,7 +20,7 @@
     "test:unit": "jest --testPathPattern=tests/unit",
     "test:integration": "jest --testPathPattern=tests/integration",
     "test:e2e": "playwright test",
-    "test:e2e:ci": "playwright test tests/e2e/extension.spec.js tests/e2e/notifications.spec.js tests/e2e/batch-processing.spec.js tests/e2e/command-download-regression.spec.js",
+    "test:e2e:ci": "playwright test tests/e2e/extension.spec.js tests/e2e/notifications.spec.js tests/e2e/batch-processing.spec.js tests/e2e/command-download-regression.spec.js tests/e2e/click-clip.spec.js",
     "test:e2e:mathml": "playwright test tests/e2e/extension.spec.js -g \"clips native MathML\"",
     "test:firefox:focused": "jest --runTestsByPath tests/unit/firefox-build-config.test.js tests/unit/mathml-to-tex.test.js tests/integration/html-to-markdown-real.test.js",
     "test:firefox:live": "npm run build:browser-manifests && node scripts/run-firefox-live-smoke.js",

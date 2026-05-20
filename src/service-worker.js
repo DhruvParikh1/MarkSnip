@@ -851,6 +851,14 @@ async function handleMessages(message, sender, _sendResponse) {
       break;
     case "element-picker-convert":
       return await handleElementPickerConvert(message, sender);
+    case "click-clip-start-session":
+      return await handleClickClipStartSession(message, sender);
+    case "click-clip-convert-item":
+      return await handleClickClipConvertItem(message, sender);
+    case "click-clip-finalize":
+      return await handleClickClipFinalize(message, sender);
+    case "click-clip-cancel-session":
+      return await handleClickClipCancelSession(message);
     case "download":
       await handleDownloadRequest(message);
       break;
@@ -2102,6 +2110,329 @@ async function handleElementPickerConvert(message, sender) {
     };
   }
 }
+
+// ===== Click & Clip =====
+// Button-driven batch clipping. The content script clicks in-page triggers and
+// sends each captured region here for conversion. Converted markdown is buffered
+// in a storage-backed session so an MV3 service-worker suspension or a stray
+// navigation cannot lose finished work; the session is finalized into a ZIP,
+// individual files, or one combined document.
+
+const clickClipSessions = new Map();          // sessionId -> session (in-memory cache)
+const clickClipActiveTabIds = new Set();      // tabIds with an open session (event gate)
+
+function clickClipSessionStorage() {
+  return (browser.storage && browser.storage.session)
+    ? browser.storage.session
+    : browser.storage.local;
+}
+
+function clickClipSessionKey(sessionId) {
+  return `clickClipSession:${sessionId}`;
+}
+
+async function saveClickClipSession(session) {
+  clickClipSessions.set(session.sessionId, session);
+  try {
+    await clickClipSessionStorage().set({ [clickClipSessionKey(session.sessionId)]: session });
+  } catch (error) {
+    console.warn('[Click & Clip] Failed to persist session:', error);
+  }
+}
+
+async function getClickClipSession(sessionId) {
+  if (!sessionId) return null;
+  if (clickClipSessions.has(sessionId)) {
+    return clickClipSessions.get(sessionId);
+  }
+  try {
+    const key = clickClipSessionKey(sessionId);
+    const data = await clickClipSessionStorage().get(key);
+    if (data && data[key]) {
+      clickClipSessions.set(sessionId, data[key]);
+      return data[key];
+    }
+  } catch (error) {
+    console.warn('[Click & Clip] Failed to load session:', error);
+  }
+  return null;
+}
+
+async function deleteClickClipSession(sessionId) {
+  clickClipSessions.delete(sessionId);
+  try {
+    await clickClipSessionStorage().remove(clickClipSessionKey(sessionId));
+  } catch (error) { /* ignore */ }
+}
+
+// Rehydrate the in-memory cache after a service-worker restart so the tab-event
+// finalize path keeps working for sessions started before the restart.
+async function rehydrateClickClipSessions() {
+  try {
+    const all = await clickClipSessionStorage().get(null);
+    for (const [key, session] of Object.entries(all || {})) {
+      if (key.startsWith('clickClipSession:') && session && !session.finalized) {
+        clickClipSessions.set(session.sessionId, session);
+        if (Number.isInteger(session.tabId)) {
+          clickClipActiveTabIds.add(session.tabId);
+        }
+      }
+    }
+  } catch (error) { /* ignore */ }
+}
+rehydrateClickClipSessions();
+
+async function handleClickClipStartSession(message, sender) {
+  const sessionId = message.sessionId;
+  if (!sessionId) {
+    return { ok: false, error: 'Missing sessionId' };
+  }
+  // tabId is derived from the message sender, never trusted from the page.
+  const tabId = Number.isInteger(sender?.tab?.id) ? sender.tab.id : null;
+  const session = {
+    sessionId,
+    tabId,
+    outputMode: message.outputMode === 'combined' ? 'combined' : 'files',
+    batchSaveMode: message.batchSaveMode === 'individual' ? 'individual' : 'zip',
+    pageTitle: String(message.pageTitle || ''),
+    pageUrl: String(message.pageUrl || ''),
+    total: Number.isInteger(message.total) ? message.total : 0,
+    items: [],
+    firstArticle: null,
+    firstTemplateOptions: null,
+    finalized: false,
+    createdAt: Date.now()
+  };
+  if (Number.isInteger(tabId)) {
+    clickClipActiveTabIds.add(tabId);
+  }
+  await saveClickClipSession(session);
+  return { ok: true };
+}
+
+async function handleClickClipConvertItem(message, sender) {
+  const session = await getClickClipSession(message.sessionId);
+  if (!session) {
+    return { ok: false, error: 'Unknown Click & Clip session' };
+  }
+  if (session.finalized) {
+    return { ok: false, error: 'Click & Clip session already finalized' };
+  }
+  const payload = message.payload || null;
+  if (!payload?.dom) {
+    return { ok: false, error: 'Missing captured page content' };
+  }
+
+  const tabId = Number.isInteger(sender?.tab?.id) ? sender.tab.id : session.tabId;
+  try {
+    await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+    const options = await getOptions();
+    const usePageClipPath = payload.captureKind === 'page';
+    const response = await browser.runtime.sendMessage({
+      target: 'offscreen',
+      type: usePageClipPath ? 'process-content-return' : 'process-element-content',
+      data: payload,
+      tabId,
+      options,
+      // Combined output assembles one document-level frontmatter at finalize,
+      // so each section body must be converted template-free.
+      suppressTemplate: session.outputMode === 'combined'
+    });
+
+    if (!response?.ok) {
+      return { ok: false, error: response?.error || 'Click & Clip conversion failed' };
+    }
+
+    session.items.push({
+      label: String(message.label || ''),
+      markdown: String(response.result.markdown || ''),
+      order: Number.isInteger(message.order) ? message.order : session.items.length
+    });
+    if (!session.firstArticle) {
+      session.firstArticle = response.result.article || null;
+      session.firstTemplateOptions = response.result.templateOptions || null;
+    }
+    await saveClickClipSession(session);
+
+    await sendBatchProgressUpdate({
+      status: 'converting',
+      current: Number.isInteger(message.current) ? message.current : session.items.length,
+      total: Number.isInteger(message.total) ? message.total : session.total,
+      title: String(message.label || '')
+    });
+
+    return { ok: true };
+  } catch (error) {
+    console.error('[Click & Clip] Convert item failed:', error);
+    return { ok: false, error: error.message };
+  }
+}
+
+async function clickClipTabIsClosed(tabId) {
+  if (!Number.isInteger(tabId)) return true;
+  try {
+    await browser.tabs.get(tabId);
+    return false;
+  } catch (error) {
+    return true;
+  }
+}
+
+async function finalizeClickClipCombined(session, items, options, tabId) {
+  const pageTitle = String(session.pageTitle || '').trim() || 'Clipped content';
+  const sections = items.map((item) => {
+    const heading = String(item.label || 'Section').replace(/\s+/g, ' ').trim() || 'Section';
+    return `## ${heading}\n\n${String(item.markdown || '').trim()}`;
+  });
+  let body = `# ${pageTitle}\n\n${sections.join('\n\n---\n\n')}\n`;
+
+  // One document-level frontmatter/backmatter, if the user's pre-suppression
+  // effective template setting actually wanted templates.
+  if (session.firstTemplateOptions?.includeTemplate && session.firstArticle) {
+    try {
+      await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+      const docArticle = {
+        ...session.firstArticle,
+        title: pageTitle,
+        baseURI: session.pageUrl || session.firstArticle.baseURI || ''
+      };
+      const rendered = await browser.runtime.sendMessage({
+        target: 'offscreen',
+        type: 'render-template',
+        article: docArticle,
+        options: session.firstTemplateOptions
+      });
+      if (rendered?.ok) {
+        body = `${rendered.frontmatter || ''}${body}${rendered.backmatter || ''}`;
+      }
+    } catch (error) {
+      console.warn('[Click & Clip] Document template render failed:', error);
+    }
+  }
+
+  await downloadGeneratedFile({
+    title: pageTitle,
+    content: body,
+    mimeType: 'text/markdown',
+    fileExtension: 'md',
+    tabId
+  });
+}
+
+async function finalizeClickClipFiles(session, items, options, tabId) {
+  const usedPaths = new Set();
+  const files = items.map((item) => {
+    const baseName = String(generateValidFileName(
+      String(item.label || '').trim() || 'section',
+      options.disallowedChars,
+      options.disallowedCharReplacement
+    ) || 'section').trim() || 'section';
+    return {
+      filename: ensureUniqueBatchEntryPath(`${baseName}.md`, usedPaths),
+      content: String(item.markdown || '')
+    };
+  });
+
+  // A closed source tab can't drive per-file content-script downloads — fall
+  // back to a ZIP so partial results are never lost on navigation/tab-close.
+  const tabClosed = await clickClipTabIsClosed(tabId);
+  const useIndividual = session.batchSaveMode === 'individual' && !tabClosed;
+
+  if (useIndividual) {
+    for (const file of files) {
+      try {
+        const title = file.filename.replace(/\.md$/i, '');
+        await downloadMarkdown(file.content, title, tabId, {}, options.mdClipsFolder || '');
+      } catch (error) {
+        console.error('[Click & Clip] Individual file download failed:', error);
+      }
+    }
+  } else {
+    await triggerBatchZipDownload(files, options, tabId);
+  }
+}
+
+async function handleClickClipFinalize(message, sender) {
+  const session = await getClickClipSession(message.sessionId);
+  if (!session) {
+    return { ok: false, error: 'Unknown Click & Clip session' };
+  }
+  if (session.finalized) {
+    return { ok: true, count: session.items.length, alreadyFinalized: true };
+  }
+
+  // Mark finalized first so a racing tab-event finalize cannot double-download.
+  session.finalized = true;
+  await saveClickClipSession(session);
+
+  const items = session.items.slice().sort((a, b) => a.order - b.order);
+  if (items.length === 0) {
+    await deleteClickClipSession(session.sessionId);
+    if (Number.isInteger(session.tabId)) clickClipActiveTabIds.delete(session.tabId);
+    return { ok: true, count: 0 };
+  }
+
+  const options = await getOptions();
+  const tabId = Number.isInteger(sender?.tab?.id) ? sender.tab.id : session.tabId;
+
+  try {
+    if (session.outputMode === 'combined') {
+      await finalizeClickClipCombined(session, items, options, tabId);
+    } else {
+      await finalizeClickClipFiles(session, items, options, tabId);
+    }
+  } catch (error) {
+    console.error('[Click & Clip] Finalize failed:', error);
+    session.finalized = false; // allow a retry
+    await saveClickClipSession(session);
+    await sendBatchProgressUpdate({ status: 'error', error: error.message });
+    return { ok: false, error: error.message };
+  }
+
+  await deleteClickClipSession(session.sessionId);
+  if (Number.isInteger(session.tabId)) clickClipActiveTabIds.delete(session.tabId);
+  await sendBatchProgressUpdate({ status: 'finished', current: items.length, total: items.length });
+  return { ok: true, count: items.length };
+}
+
+async function handleClickClipCancelSession(message) {
+  const session = await getClickClipSession(message.sessionId);
+  if (session && Number.isInteger(session.tabId)) {
+    clickClipActiveTabIds.delete(session.tabId);
+  }
+  await deleteClickClipSession(message.sessionId);
+  return { ok: true };
+}
+
+// Navigation-safe finalize: finalize a session whose tab really navigates to a
+// new document or closes. A bare URL change (hash/history) is ignored on
+// purpose — Click & Clip allows in-page #anchors and the content script stays
+// alive through those.
+async function autoFinalizeClickClipForTab(tabId) {
+  if (!Number.isInteger(tabId) || !clickClipActiveTabIds.has(tabId)) {
+    return;
+  }
+  for (const session of Array.from(clickClipSessions.values())) {
+    if (session.tabId === tabId && !session.finalized && session.items.length > 0) {
+      try {
+        await handleClickClipFinalize({ sessionId: session.sessionId }, { tab: { id: tabId } });
+      } catch (error) {
+        console.warn('[Click & Clip] Auto-finalize failed:', error);
+      }
+    }
+  }
+  clickClipActiveTabIds.delete(tabId);
+}
+
+browser.tabs.onRemoved.addListener((tabId) => {
+  autoFinalizeClickClipForTab(tabId);
+});
+
+browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo && changeInfo.status === 'loading') {
+    autoFinalizeClickClipForTab(tabId);
+  }
+});
 
 /**
  * Generate unique request ID

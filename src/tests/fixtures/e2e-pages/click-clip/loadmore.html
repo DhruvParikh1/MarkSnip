@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Click and Clip Load More Fixture</title>
+</head>
+<body>
+  <h1>Load More Fixture</h1>
+  <main id="content">
+    <ul id="list">
+      <li>List item 1</li>
+      <li>List item 2</li>
+    </ul>
+  </main>
+  <button id="more">Load more</button>
+  <script>
+    var count = 2;
+    var clicks = 0;
+    document.getElementById('more').addEventListener('click', function () {
+      clicks += 1;
+      for (var i = 0; i < 2; i += 1) {
+        count += 1;
+        var li = document.createElement('li');
+        li.textContent = 'List item ' + count;
+        document.getElementById('list').appendChild(li);
+      }
+      if (clicks >= 3) {
+        this.remove();
+      }
+    });
+  </script>
+</body>
+</html>
