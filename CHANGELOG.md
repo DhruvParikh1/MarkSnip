@@ -1,5 +1,24 @@
 # Changelog
 
+## 5.0.0
+
+### User Highlights
+
+- Clips can now be sent to custom Webhook Targets, with configurable HTTP methods, headers, JSON body templates, popup actions, and clearer server error summaries.
+- MarkSnip's interface now supports display-language selection, including Auto plus English, Spanish, French, German, Italian, Brazilian Portuguese, Simplified Chinese, Japanese, Korean, and Hindi.
+- A new Element Picker lets you manually choose part of the current page from the popup or context menu, then review the Markdown in the popup or copy it directly.
+- Context menus are more configurable: choose which right-click actions are visible, while settings are grouped into clearer sections with better search behavior and wrapped-row spacing.
+- Template variables are more flexible with `:ascii`, `:slugify`, `:lowercase`, `:uppercase`, chainable filters, and `publishedTime` date formatting for cleaner filenames and metadata.
+
+### Technical Notes
+
+- **Webhook Targets**: Added `webhookTargets` and `defaultWebhookBodyTemplate` options, shared webhook rendering helpers, popup send/dropdown integration, service-worker fetch handling with timeout support, templated headers/body values, metadata propagation for excerpt/byline/keywords/published time, structured response summarization, and webhook unit/integration coverage.
+- **Interface Localization**: Added locale catalogs for `en`, `es`, `fr`, `de`, `it`, `pt_BR`, `zh_CN`, `ja`, `ko`, and `hi`, changed manifest strings and command descriptions to `__MSG_*__` values, exposed locale messages to extension pages, and added a shared i18n runtime for the popup, options page, guide, content overlays, notifications, batch overlays, and context menus.
+- **Element Picker and Context Menus**: Added default element-picker options, an in-page picker overlay with parent/child/reselect controls, offscreen selected-element conversion, popup quick-action state handling, copy-or-review completion modes, a context-menu activation path, and per-item context-menu visibility settings.
+- **Template Pipeline**: Moved template replacement and filename cleanup into shared utilities used by the service worker, added chainable filter parsing, `publishedTime` formatting, longest-key matching safeguards, and expanded template-processing tests.
+- **Options, Library, and UI Polish**: Grouped settings into semantic subgroups, added language and webhook controls, refined options search matching, improved toggle wrapping and transitions, capped Library retention at 1,000 items, and avoided numeric parsing that could unexpectedly trim saved clips.
+- **Release Assets and Coverage**: Refreshed store screenshots and added or expanded i18n, webhook, element-picker, options-search, context-menu, Library, template, popup, and command-download regression coverage.
+
 ## 4.6.0
 
 ### User Highlights

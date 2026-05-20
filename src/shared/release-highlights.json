@@ -1,7 +1,14 @@
 {
-  "generatedAt": "2026-05-14T00:20:06.398Z",
+  "generatedAt": "2026-05-20T04:37:07.153Z",
   "source": "CHANGELOG.md",
   "versions": {
+    "5.0.0": [
+      "Clips can now be sent to custom Webhook Targets, with configurable HTTP methods, headers, JSON body templates, popup actions, and clearer server error summaries.",
+      "MarkSnip's interface now supports display-language selection, including Auto plus English, Spanish, French, German, Italian, Brazilian Portuguese, Simplified Chinese, Japanese, Korean, and Hindi.",
+      "A new Element Picker lets you manually choose part of the current page from the popup or context menu, then review the Markdown in the popup or copy it directly.",
+      "Context menus are more configurable: choose which right-click actions are visible, while settings are grouped into clearer sections with better search behavior and wrapped-row spacing.",
+      "Template variables are more flexible with :ascii, :slugify, :lowercase, :uppercase, chainable filters, and publishedTime date formatting for cleaner filenames and metadata."
+    ],
     "4.6.0": [
       "Collapsed FAQ answers and other hidden article sections are now kept by default. Turn on Skip Hidden Content when you want a strict visible-only clip.",
       "MathML now exports as TeX, so equations from math-heavy pages stay readable instead of flattening into mashed-together text.",
