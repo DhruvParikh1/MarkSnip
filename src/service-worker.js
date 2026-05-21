@@ -1150,6 +1150,80 @@ async function triggerBatchZipDownload(files, options, fallbackTabId = null, zip
   }
 }
 
+function createBatchCombinedFilename() {
+  return `MarkSnip-batch-${moment().format('YYYYMMDD-HHmmss')}`;
+}
+
+// Render one document-level frontmatter/backmatter pair for combined output,
+// mirroring finalizeClickClipCombined. `template` carries the first captured
+// page's article and its pre-suppression (post-site-rule) template options.
+async function renderBatchCombinedTemplate(template) {
+  if (!template?.options?.includeTemplate || !template.article) {
+    return { frontmatter: '', backmatter: '' };
+  }
+  try {
+    await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+    const rendered = await browser.runtime.sendMessage({
+      target: 'offscreen',
+      type: 'render-template',
+      article: template.article,
+      options: template.options
+    });
+    if (rendered?.ok) {
+      return {
+        frontmatter: rendered.frontmatter || '',
+        backmatter: rendered.backmatter || ''
+      };
+    }
+  } catch (error) {
+    console.warn('[Batch] Combined document template render failed:', error);
+  }
+  return { frontmatter: '', backmatter: '' };
+}
+
+// Assemble every captured page into one Markdown document and download it.
+async function triggerBatchCombinedDownload(files, fallbackTabId = null, template = null) {
+  let tabId = Number.isInteger(fallbackTabId) ? fallbackTabId : null;
+  if (!tabId) {
+    const activeTabs = await browser.tabs.query({ currentWindow: true, active: true }).catch(() => []);
+    tabId = activeTabs?.[0]?.id || null;
+  }
+
+  // Per-page templates are suppressed for combined output, so prepend each
+  // page's title as a heading to keep pages identifiable in the document.
+  const body = files
+    .map((file) => {
+      const content = String(file?.content || '').trim();
+      if (!content) return '';
+      const heading = String(file?.filename || '')
+        .replace(/\\/g, '/')
+        .split('/')
+        .pop()
+        .replace(/\.md$/i, '')
+        .trim();
+      return heading ? `# ${heading}\n\n${content}` : content;
+    })
+    .filter(Boolean)
+    .join('\n\n---\n\n');
+
+  // Wrap the combined body in one document-level template when the first
+  // captured page wanted templates — ZIP/individual exports keep their
+  // metadata, so combined output should not silently drop it.
+  const { frontmatter, backmatter } = await renderBatchCombinedTemplate(template);
+
+  console.log(`[Batch] Triggering combined download with ${files.length} page(s)`);
+  // Per-URL exports are already counted by the batch handler (mirroring ZIP
+  // mode), so the assembled file itself must not add another export metric.
+  await downloadGeneratedFile({
+    title: createBatchCombinedFilename(),
+    content: `${frontmatter}${body}\n${backmatter}`,
+    mimeType: 'text/markdown',
+    fileExtension: 'md',
+    tabId,
+    notificationDelta: NO_EXPORT_DOWNLOAD_NOTIFICATION_DELTA
+  });
+}
+
 async function resolveLibraryExportTabId(message, sender) {
   if (Number.isInteger(message?.tabId)) {
     return message.tabId;
@@ -1393,8 +1467,10 @@ async function _removeBatchProgressOverlay(tabId) {
   } catch (e) { /* ignore */ }
 }
 
-async function processBatchTab(urlObj, index, total, options, batchSaveMode = 'zip', signal = null, accentColors = null) {
-  const collectOnly = batchSaveMode === 'zip';
+async function processBatchTab(urlObj, index, total, options, batchSaveMode = 'zip', signal = null, accentColors = null, captureTemplate = false) {
+  // ZIP and Combined both assemble their output after every page is captured,
+  // so neither triggers a per-page download — they only collect markdown.
+  const collectOnly = batchSaveMode === 'zip' || batchSaveMode === 'combined';
   const effectiveOptions = collectOnly
     ? { ...options, downloadImages: false }
     : options;
@@ -1462,7 +1538,9 @@ async function processBatchTab(urlObj, index, total, options, batchSaveMode = 'z
         effectiveOptions,
         collectOnly,
         signal,
-        collectOnly ? NO_EXPORT_DOWNLOAD_NOTIFICATION_DELTA : BATCH_DOWNLOAD_NOTIFICATION_DELTA
+        collectOnly ? NO_EXPORT_DOWNLOAD_NOTIFICATION_DELTA : BATCH_DOWNLOAD_NOTIFICATION_DELTA,
+        batchSaveMode === 'combined',
+        captureTemplate
       );
       lastResult = result;
       const likelyIncomplete = !!result?.likelyIncomplete;
@@ -1524,7 +1602,9 @@ async function handleBatchConversionInServiceWorker(message) {
     throw new Error('Batch conversion already in progress');
   }
 
-  const batchSaveMode = message.batchSaveMode === 'individual' ? 'individual' : 'zip';
+  const batchSaveMode = (message.batchSaveMode === 'individual' || message.batchSaveMode === 'combined')
+    ? message.batchSaveMode
+    : 'zip';
 
   batchConversionInProgress = true;
   const signal = createBatchCancellationSignal();
@@ -1550,6 +1630,9 @@ async function handleBatchConversionInServiceWorker(message) {
   const failures = [];
   const collectedFiles = [];
   const usedPaths = new Set();
+  // First successfully-captured page's article + pre-suppression template
+  // options, used to render one document-level template for combined output.
+  let combinedTemplate = null;
 
   try {
     await sendBatchProgressUpdate({
@@ -1563,14 +1646,24 @@ async function handleBatchConversionInServiceWorker(message) {
       const urlObj = urlObjects[i];
       const current = i + 1;
       try {
-        const { result } = await processBatchTab(urlObj, current, urlObjects.length, options, batchSaveMode, signal, accentColors);
+        // Combined output keeps asking for the template until one page
+        // succeeds, so a failed first URL doesn't lose the document template.
+        const captureTemplate = batchSaveMode === 'combined' && !combinedTemplate;
+        const { result } = await processBatchTab(urlObj, current, urlObjects.length, options, batchSaveMode, signal, accentColors, captureTemplate);
 
-        if (batchSaveMode === 'zip' && result?.markdown && result?.fullFilename) {
+        if ((batchSaveMode === 'zip' || batchSaveMode === 'combined') && result?.markdown && result?.fullFilename) {
           const uniquePath = ensureUniqueBatchEntryPath(result.fullFilename, usedPaths);
           collectedFiles.push({
             filename: uniquePath,
             content: result.markdown
           });
+        }
+
+        if (batchSaveMode === 'combined' && !combinedTemplate && result?.templateArticle && result?.templateOptions) {
+          combinedTemplate = {
+            article: result.templateArticle,
+            options: result.templateOptions
+          };
         }
       } catch (error) {
         if (error instanceof BatchCancelledError) throw error;
@@ -1593,6 +1686,13 @@ async function handleBatchConversionInServiceWorker(message) {
       });
 
       await triggerBatchZipDownload(collectedFiles, options, originalTabId);
+    } else if (batchSaveMode === 'combined' && collectedFiles.length > 0) {
+      await sendBatchProgressUpdate({
+        status: 'combining',
+        total: urlObjects.length
+      });
+
+      await triggerBatchCombinedDownload(collectedFiles, originalTabId, combinedTemplate);
     }
 
     const successfulBatchUrls = Math.max(0, urlObjects.length - failures.length);
@@ -1605,7 +1705,7 @@ async function handleBatchConversionInServiceWorker(message) {
       });
     }
 
-    await browser.storage.local.remove('batchUrlList').catch(() => {});
+    await browser.storage.local.remove(['batchUrlList', 'batchPickedLinks']).catch(() => {});
 
     await sendBatchProgressUpdate({
       status: 'finished',
@@ -3188,7 +3288,7 @@ async function ensureScripts(tabId) {
 /**
  * Download markdown from context menu
  */
-async function downloadMarkdownFromContext(info, tab, customTitle = null, providedOptions = null, collectOnly = false, signal = null, notificationDelta = SINGLE_DOWNLOAD_NOTIFICATION_DELTA) {
+async function downloadMarkdownFromContext(info, tab, customTitle = null, providedOptions = null, collectOnly = false, signal = null, notificationDelta = SINGLE_DOWNLOAD_NOTIFICATION_DELTA, suppressTemplate = false, captureTemplate = false) {
   await ensureScripts(tab.id);
   await ensureOffscreenDocumentExists();
   const options = providedOptions || await getOptions();
@@ -3228,7 +3328,9 @@ async function downloadMarkdownFromContext(info, tab, customTitle = null, provid
     options: options,
     customTitle: customTitle,
     collectOnly: collectOnly,
-    notificationDelta: notificationDelta
+    notificationDelta: notificationDelta,
+    suppressTemplate: suppressTemplate,
+    captureTemplate: captureTemplate
   });
 
   // Wait for completion, racing against cancellation signal

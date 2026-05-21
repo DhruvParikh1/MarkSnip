@@ -67,11 +67,21 @@ async function installBatchHarness(serviceWorker) {
           fallbackTabId
         });
       };
+
+      // Combined mode assembles one document and downloads it via
+      // downloadGeneratedFile — capture it in memory instead.
+      self.downloadGeneratedFile = async (message) => {
+        self.__markSnipBatchHarnessState.generatedFiles.push({
+          title: String(message?.title || ''),
+          content: String(message?.content || '')
+        });
+      };
     }
 
     self.__markSnipBatchHarnessState = {
       progress: [],
-      zipCalls: []
+      zipCalls: [],
+      generatedFiles: []
     };
   });
 }
@@ -195,7 +205,7 @@ async function runBatchCapture(context, extensionId, serviceWorker, urls, option
   await waitForBatchWorkerIdle(serviceWorker);
 
   return serviceWorker.evaluate(() => (
-    JSON.parse(JSON.stringify(self.__markSnipBatchHarnessState || { progress: [], zipCalls: [] }))
+    JSON.parse(JSON.stringify(self.__markSnipBatchHarnessState || { progress: [], zipCalls: [], generatedFiles: [] }))
   ));
 }
 
@@ -374,6 +384,49 @@ test.describe('Batch Processing E2E', () => {
     expect(repeatedMarkdown).toContain('## Full code');
     expect(repeatedMarkdown).toContain('wrapper.asm');
     expect(repeatedMarkdown).toContain('main.lnk');
+  });
+
+  test('combines pages into one document with a single template wrapper', async () => {
+    test.setTimeout(240000);
+
+    // includeTemplate is off by default; turn it on so the test exercises the
+    // template path. Combined output must suppress per-page templates and add
+    // exactly one document-level frontmatter/backmatter wrapper.
+    const state = await withTemporarySyncOptions(serviceWorker, {
+      includeTemplate: true
+    }, async () => (
+      await runBatchCapture(context, extensionId, serviceWorker, [
+        fixtureUrl('/batch/alpha.html'),
+        fixtureUrl('/batch/beta.html')
+      ], { batchSaveMode: 'combined' })
+    ));
+
+    const finalUpdate = getFinalProgressUpdate(state);
+    expect(finalUpdate?.status).toBe('finished');
+    expect(finalUpdate?.failed ?? 0).toBe(0);
+    expect(finalUpdate?.batchSaveMode).toBe('combined');
+
+    // Combined mode emits a single assembled document, never a ZIP.
+    expect(state.zipCalls || []).toHaveLength(0);
+    const generatedFiles = state.generatedFiles || [];
+    expect(generatedFiles).toHaveLength(1);
+
+    const combined = normalizeMarkdown(generatedFiles[0].content);
+
+    // Both pages live in the one document.
+    expect(combined).toContain('Alpha Fixture Heading');
+    expect(combined).toContain('Alpha fixture body paragraph for deterministic batch conversion.');
+    expect(combined).toContain('Beta Fixture Heading');
+    expect(combined).toContain('const beta = true;');
+
+    // The excerpt block is unique to the default frontmatter template. Without
+    // suppression each page would carry its own, so two URLs would yield two
+    // blocks; the fix collapses it to one document-level wrapper.
+    const templateBlocks = combined.match(/> ## Excerpt/g) || [];
+    expect(templateBlocks).toHaveLength(1);
+
+    // The single frontmatter sits at the top of the assembled document.
+    expect(combined.startsWith('---\ncreated:')).toBeTruthy();
   });
 
   for (const batchCase of deterministicCases) {

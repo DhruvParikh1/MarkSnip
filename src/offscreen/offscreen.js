@@ -405,10 +405,10 @@ function renderClickClipTemplate(message) {
  */
 async function processContextMenu(message) {
   const { action, info, tabId, options, customTitle, collectOnly, notificationDelta } = message;
-  
+
   try {
     if (action === 'download') {
-      await handleContextMenuDownload(info, tabId, options, customTitle, collectOnly, notificationDelta);
+      await handleContextMenuDownload(info, tabId, options, customTitle, collectOnly, notificationDelta, message.suppressTemplate, message.captureTemplate);
     } else if (action === 'copy') {
       const copied = await handleContextMenuCopy(info, tabId, options);
       return { ok: copied === true, action };
@@ -493,12 +493,12 @@ function isLikelyIncompleteMarkdown(markdown) {
   );
 }
 
-async function handleContextMenuDownload(info, tabId, providedOptions = null, customTitle = null, collectOnly = false, notificationDelta = null) {
+async function handleContextMenuDownload(info, tabId, providedOptions = null, customTitle = null, collectOnly = false, notificationDelta = null, suppressTemplate = false, captureTemplate = false) {
   console.log(`Starting download for tab ${tabId}`);
   try {
     const options = providedOptions || defaultOptions;
-    
-    const article = await getArticleFromContent(tabId, 
+
+    const article = await getArticleFromContent(tabId,
       info.menuItemId === "download-markdown-selection",
       options
     );
@@ -512,6 +512,15 @@ async function handleContextMenuDownload(info, tabId, providedOptions = null, cu
     }
 
     const resolved = resolveOptionsForArticle(article, options);
+    // Capture the resolved (post-site-rule) template intent before suppression
+    // so combined batch output can render one document-level template.
+    const templateOptions = captureTemplate ? { ...resolved.options } : null;
+    if (suppressTemplate) {
+      // Combined batch output joins every page into one file, so per-page
+      // frontmatter/backmatter would repeat. resolveOptionsForArticle can
+      // re-enable templates via site rules, so suppress after it runs.
+      resolved.options = { ...resolved.options, includeTemplate: false };
+    }
     const effectiveOptions = collectOnly
       ? {
         ...resolved.options,
@@ -541,7 +550,9 @@ async function handleContextMenuDownload(info, tabId, providedOptions = null, cu
       likelyIncomplete: likelyIncomplete,
       markdownLength: markdown.length,
       markdown: collectOnly ? markdown : undefined,
-      fullFilename: collectOnly ? fullFilename : undefined
+      fullFilename: collectOnly ? fullFilename : undefined,
+      templateArticle: captureTemplate ? article : undefined,
+      templateOptions: captureTemplate ? templateOptions : undefined
     });
   } catch (error) {
     console.error(`Error processing tab ${tabId}:`, error);
