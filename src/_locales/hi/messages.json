@@ -480,25 +480,9 @@
     "message": "बैच प्रोसेसिंग",
     "description": "Title for batch processing section"
   },
-  "popupUrlsLabel": {
-    "message": "URLs (हर लाइन में एक)",
-    "description": "Label for batch URLs textarea"
-  },
   "popupUrlsPlaceholder": {
     "message": "https://example.com/page1\nhttps://example.com/page2\n\nया मार्कडाउन लिंक्स का इस्तेमाल करें:\n[Page Title](https://example.com)",
     "description": "Placeholder for batch URLs textarea"
-  },
-  "popupPickLinksBtn": {
-    "message": "पेज से लिंक्स चुनें",
-    "description": "Button label"
-  },
-  "popupBatchSaveZip": {
-    "message": "ZIP फ़ाइल",
-    "description": "Toggle option for batch save mode"
-  },
-  "popupBatchSaveIndividual": {
-    "message": "अलग-अलग",
-    "description": "Toggle option for batch save mode"
   },
   "popupProgressProcessing": {
     "message": "प्रोसेस हो रहा है...",
@@ -508,9 +492,237 @@
     "message": "कैंसल करें",
     "description": "Button label"
   },
-  "popupConvertAllUrlsBtn": {
-    "message": "सभी URLs को कन्वर्ट करें",
-    "description": "Button label"
+  "popupBatchSubtitle": {
+    "message": "Extract content from multiple sources at once.",
+    "description": "Subtitle for the batch processing view"
+  },
+  "popupBatchCloseAria": {
+    "message": "Close Batch Processing",
+    "description": "ARIA label for closing the batch processing view"
+  },
+  "popupBatchCaptureMethodTitle": {
+    "message": "Capture Method",
+    "description": "Title for the batch capture method step"
+  },
+  "popupBatchCaptureMethodDesc": {
+    "message": "Choose how you want to provide the sources.",
+    "description": "Description for the batch capture method step"
+  },
+  "popupBatchCaptureMethodAria": {
+    "message": "Capture method",
+    "description": "ARIA label for the batch capture method selector"
+  },
+  "popupBatchManualTitle": {
+    "message": "URL Input",
+    "description": "Batch capture method option title for manual URL entry"
+  },
+  "popupBatchManualDesc": {
+    "message": "Type or paste URLs manually",
+    "description": "Batch capture method option description for manual URL entry"
+  },
+  "popupBatchPickTitle": {
+    "message": "Pick Links",
+    "description": "Batch capture method option title for picking links from the page"
+  },
+  "popupBatchPickDesc": {
+    "message": "Extract links from this page",
+    "description": "Batch capture method option description for picking links from the page"
+  },
+  "popupBatchClickDesc": {
+    "message": "Click elements to extract",
+    "description": "Batch capture method option description for Click & Clip"
+  },
+  "popupBatchStepUrlsTitle": {
+    "message": "URLs",
+    "description": "Title for the manual URL input step"
+  },
+  "popupBatchStepUrlsHint": {
+    "message": "One per line",
+    "description": "Hint for the manual URL input step"
+  },
+  "popupBatchUrlsAria": {
+    "message": "URLs to convert, one per line",
+    "description": "ARIA label for the batch URLs textarea"
+  },
+  "popupBatchPickCurrentPageBtn": {
+    "message": "Pick Links from Current Page",
+    "description": "Button label for activating the link picker from batch mode"
+  },
+  "popupBatchPickNote": {
+    "message": "Links will be gathered from the active tab.",
+    "description": "Note explaining where picked batch links come from"
+  },
+  "popupBatchNoLinksTitle": {
+    "message": "No links selected yet",
+    "description": "Empty state title for picked batch links"
+  },
+  "popupBatchNoLinksText": {
+    "message": "Your selected links will appear here.",
+    "description": "Empty state text for picked batch links"
+  },
+  "popupBatchClickPanelTitle": {
+    "message": "Click & Clip runs on the page",
+    "description": "Title for the batch Click & Clip explanation panel"
+  },
+  "popupBatchClickPanelDesc": {
+    "message": "When you start, the element picker opens on the active tab. Click elements to queue them, then finish from the in-page panel.",
+    "description": "Description for the batch Click & Clip explanation panel"
+  },
+  "popupBatchOutputFormatTitle": {
+    "message": "Output Format",
+    "description": "Title for the batch output format step"
+  },
+  "popupBatchOutputFormatDesc": {
+    "message": "Choose how the results should be saved.",
+    "description": "Description for the batch output format step"
+  },
+  "popupBatchOutputFormatAria": {
+    "message": "Output format",
+    "description": "ARIA label for the batch output format selector"
+  },
+  "popupBatchOutputZipTitle": {
+    "message": "ZIP Archive",
+    "description": "Batch output option title for ZIP archive"
+  },
+  "popupBatchOutputZipDesc": {
+    "message": "All results in a single .zip file",
+    "description": "Batch output option description for ZIP archive"
+  },
+  "popupBatchOutputIndividualTitle": {
+    "message": "Individual .md Files",
+    "description": "Batch output option title for individual Markdown files"
+  },
+  "popupBatchOutputIndividualDesc": {
+    "message": "One Markdown file per source",
+    "description": "Batch output option description for individual Markdown files"
+  },
+  "popupBatchOutputCombinedTitle": {
+    "message": "Combined .md File",
+    "description": "Batch output option title for a combined Markdown file"
+  },
+  "popupBatchOutputCombinedDesc": {
+    "message": "All results in one Markdown file",
+    "description": "Batch output option description for a combined Markdown file"
+  },
+  "popupBatchStartProcessingBtn": {
+    "message": "Start Batch Processing",
+    "description": "Button label for starting a batch URL or picked-links run"
+  },
+  "popupBatchStepLinksTitle": {
+    "message": "Links to Capture",
+    "description": "Title for the picked links step"
+  },
+  "popupBatchStepLinksDesc": {
+    "message": "Collect links from the current page and add them to the batch list.",
+    "description": "Description for the picked links step"
+  },
+  "popupBatchStepElementsTitle": {
+    "message": "Elements to Capture",
+    "description": "Title for the Click & Clip step"
+  },
+  "popupBatchStepElementsDesc": {
+    "message": "Click & Clip runs directly on the active tab.",
+    "description": "Description for the Click & Clip step"
+  },
+  "popupBatchStartClickClipBtn": {
+    "message": "Start Click & Clip",
+    "description": "Button label for starting Click & Clip from batch mode"
+  },
+  "popupBatchLinksSelectedOne": {
+    "message": "1 link selected",
+    "description": "Picked links count when exactly one link is selected"
+  },
+  "popupBatchLinksSelectedMany": {
+    "message": "$COUNT$ links selected",
+    "description": "Picked links count when zero or many links are selected",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupBatchClearLinksBtn": {
+    "message": "Clear all",
+    "description": "Button label for clearing picked links"
+  },
+  "popupBatchRemoveLinkAria": {
+    "message": "Remove link",
+    "description": "ARIA label for removing a picked batch link"
+  },
+  "popupBatchLoadingPage": {
+    "message": "Loading page...",
+    "description": "Batch progress status while loading a page"
+  },
+  "popupBatchConvertingPage": {
+    "message": "Converting page...",
+    "description": "Batch progress status while converting a page"
+  },
+  "popupBatchRetryingPage": {
+    "message": "Retrying page capture...",
+    "description": "Batch progress status while retrying a page capture"
+  },
+  "popupBatchCreatingZip": {
+    "message": "Creating ZIP archive...",
+    "description": "Batch progress status while creating the ZIP archive"
+  },
+  "popupBatchCombining": {
+    "message": "Building combined document...",
+    "description": "Batch progress status while building a combined Markdown document"
+  },
+  "popupBatchWarning": {
+    "message": "Warning during conversion",
+    "description": "Fallback batch warning status"
+  },
+  "popupBatchFailedUrl": {
+    "message": "Failed URL",
+    "description": "Fallback label for a failed batch URL"
+  },
+  "popupBatchItemError": {
+    "message": "Error: $ERROR$",
+    "description": "Batch progress status for an item error",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupBatchCancelled": {
+    "message": "Batch cancelled",
+    "description": "Batch progress status after cancellation"
+  },
+  "popupBatchUnknownError": {
+    "message": "Unknown error",
+    "description": "Fallback batch error text"
+  },
+  "popupBatchFailed": {
+    "message": "Batch failed: $ERROR$",
+    "description": "Batch progress status after failure",
+    "placeholders": {
+      "error": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupBatchFinishedWithErrors": {
+    "message": "Finished with $COUNT$ error(s)",
+    "description": "Batch progress status when some URLs failed",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
+  },
+  "popupBatchZipDownloaded": {
+    "message": "ZIP downloaded",
+    "description": "Batch completion status for ZIP output"
+  },
+  "popupBatchCombinedDownloaded": {
+    "message": "Combined file downloaded",
+    "description": "Batch completion status for combined Markdown output"
+  },
+  "popupBatchComplete": {
+    "message": "Batch complete",
+    "description": "Batch completion status for individual file output"
   },
   "popupLibraryTitle": {
     "message": "लाइब्रेरी",

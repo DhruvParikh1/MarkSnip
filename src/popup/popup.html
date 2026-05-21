@@ -434,10 +434,10 @@
   <div id="batchContainer" class="batch-container">
     <header class="batch-header">
       <div class="batch-header-text">
-        <h2 class="batch-title">Batch Processing</h2>
-        <p class="batch-subtitle">Extract content from multiple sources at once.</p>
+        <h2 class="batch-title" data-i18n="popupBatchProcessingTitle">Batch Processing</h2>
+        <p class="batch-subtitle" data-i18n="popupBatchSubtitle">Extract content from multiple sources at once.</p>
       </div>
-      <button id="cancelBatch" class="icon-btn" aria-label="Close Batch Processing">
+      <button id="cancelBatch" class="icon-btn" aria-label="Close Batch Processing" data-i18n-aria-label="popupBatchCloseAria">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6" y1="6" x2="18" y2="18"/>
@@ -451,11 +451,11 @@
         <div class="batch-step-head">
           <span class="batch-step-num">1</span>
           <div class="batch-step-heading">
-            <h3 class="batch-step-title">Capture Method</h3>
-            <p class="batch-step-desc">Choose how you want to provide the sources.</p>
+            <h3 class="batch-step-title" data-i18n="popupBatchCaptureMethodTitle">Capture Method</h3>
+            <p class="batch-step-desc" data-i18n="popupBatchCaptureMethodDesc">Choose how you want to provide the sources.</p>
           </div>
         </div>
-        <div class="batch-option-grid" role="radiogroup" aria-label="Capture method">
+        <div class="batch-option-grid" role="radiogroup" aria-label="Capture method" data-i18n-aria-label="popupBatchCaptureMethodAria">
           <button type="button" class="batch-option-card is-selected" data-capture-method="manual" role="radio" aria-checked="true">
             <span class="batch-option-card__check">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -463,8 +463,8 @@
             <span class="batch-option-card__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
             </span>
-            <span class="batch-option-card__title">URL Input</span>
-            <span class="batch-option-card__desc">Type or paste URLs manually</span>
+            <span class="batch-option-card__title" data-i18n="popupBatchManualTitle">URL Input</span>
+            <span class="batch-option-card__desc" data-i18n="popupBatchManualDesc">Type or paste URLs manually</span>
           </button>
           <button type="button" class="batch-option-card" data-capture-method="pick" role="radio" aria-checked="false">
             <span class="batch-option-card__check">
@@ -473,8 +473,8 @@
             <span class="batch-option-card__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
             </span>
-            <span class="batch-option-card__title">Pick Links</span>
-            <span class="batch-option-card__desc">Extract links from this page</span>
+            <span class="batch-option-card__title" data-i18n="popupBatchPickTitle">Pick Links</span>
+            <span class="batch-option-card__desc" data-i18n="popupBatchPickDesc">Extract links from this page</span>
           </button>
           <button type="button" class="batch-option-card" data-capture-method="click" role="radio" aria-checked="false">
             <span class="batch-option-card__check">
@@ -483,8 +483,8 @@
             <span class="batch-option-card__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/></svg>
             </span>
-            <span class="batch-option-card__title">Click &amp; Clip</span>
-            <span class="batch-option-card__desc">Click elements to extract</span>
+            <span class="batch-option-card__title" data-i18n="clickClipTitle">Click &amp; Clip</span>
+            <span class="batch-option-card__desc" data-i18n="popupBatchClickDesc">Click elements to extract</span>
           </button>
         </div>
       </section>
@@ -496,15 +496,15 @@
         <div class="batch-step-head">
           <span class="batch-step-num">2</span>
           <div class="batch-step-heading">
-            <h3 class="batch-step-title" id="batchStep2Title">URLs</h3>
+            <h3 class="batch-step-title" id="batchStep2Title" data-i18n="popupBatchStepUrlsTitle">URLs</h3>
             <p class="batch-step-desc" id="batchStep2Desc" hidden></p>
           </div>
-          <span class="batch-step-hint" id="batchStep2Hint">One per line</span>
+          <span class="batch-step-hint" id="batchStep2Hint" data-i18n="popupBatchStepUrlsHint">One per line</span>
         </div>
 
         <!-- Manual URL Input -->
         <div class="batch-capture-panel" data-capture-panel="manual">
-          <textarea id="urlList" class="url-textarea" aria-label="URLs to convert, one per line" placeholder="https://example.com/page1&#10;https://example.com/page2&#10;&#10;Or use markdown links:&#10;[Page Title](https://example.com)"></textarea>
+          <textarea id="urlList" class="url-textarea" aria-label="URLs to convert, one per line" data-i18n-aria-label="popupBatchUrlsAria" placeholder="https://example.com/page1&#10;https://example.com/page2&#10;&#10;Or use markdown links:&#10;[Page Title](https://example.com)" data-i18n-placeholder="popupUrlsPlaceholder"></textarea>
           <div id="urlValidation" class="url-validation" style="display: none;"></div>
         </div>
 
@@ -515,17 +515,17 @@
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
             </svg>
-            Pick Links from Current Page
+            <span data-i18n="popupBatchPickCurrentPageBtn">Pick Links from Current Page</span>
           </button>
-          <p class="batch-pick-note">
+          <p class="batch-pick-note" data-i18n-skip>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            Links will be gathered from the active tab.
+            <span data-i18n="popupBatchPickNote">Links will be gathered from the active tab.</span>
           </p>
           <div id="batchLinkList" class="batch-link-list">
             <div id="batchLinkEmpty" class="batch-link-empty">
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 3"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-              <p class="batch-link-empty__title">No links selected yet</p>
-              <p class="batch-link-empty__text">Your selected links will appear here.</p>
+              <p class="batch-link-empty__title" data-i18n="popupBatchNoLinksTitle">No links selected yet</p>
+              <p class="batch-link-empty__text" data-i18n="popupBatchNoLinksText">Your selected links will appear here.</p>
             </div>
           </div>
         </div>
@@ -536,8 +536,8 @@
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/><path d="M9.037 9.69a.498.498 0 0 1 .653-.653l11 4.5a.5.5 0 0 1-.074.949l-4.349 1.041a1 1 0 0 0-.74.739l-1.04 4.35a.5.5 0 0 1-.95.074z"/>
             </svg>
-            <p class="batch-clickclip-explainer__title">Click &amp; Clip runs on the page</p>
-            <p class="batch-clickclip-explainer__text">When you start, the element picker opens on the active tab. Click elements to queue them, then finish from the in-page panel.</p>
+            <p class="batch-clickclip-explainer__title" data-i18n="popupBatchClickPanelTitle">Click &amp; Clip runs on the page</p>
+            <p class="batch-clickclip-explainer__text" data-i18n="popupBatchClickPanelDesc">When you start, the element picker opens on the active tab. Click elements to queue them, then finish from the in-page panel.</p>
           </div>
         </div>
       </section>
@@ -549,11 +549,11 @@
         <div class="batch-step-head">
           <span class="batch-step-num">3</span>
           <div class="batch-step-heading">
-            <h3 class="batch-step-title">Output Format</h3>
-            <p class="batch-step-desc">Choose how the results should be saved.</p>
+            <h3 class="batch-step-title" data-i18n="popupBatchOutputFormatTitle">Output Format</h3>
+            <p class="batch-step-desc" data-i18n="popupBatchOutputFormatDesc">Choose how the results should be saved.</p>
           </div>
         </div>
-        <div class="batch-option-grid" role="radiogroup" aria-label="Output format">
+        <div class="batch-option-grid" role="radiogroup" aria-label="Output format" data-i18n-aria-label="popupBatchOutputFormatAria">
           <button type="button" class="batch-option-card is-selected" data-output-format="zip" role="radio" aria-checked="true">
             <span class="batch-option-card__check">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -561,8 +561,8 @@
             <span class="batch-option-card__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M10 8h1"/><path d="M13 11h1"/><path d="M10 14h1"/><path d="M13 17h1"/></svg>
             </span>
-            <span class="batch-option-card__title">ZIP Archive</span>
-            <span class="batch-option-card__desc">All results in a single .zip file</span>
+            <span class="batch-option-card__title" data-i18n="popupBatchOutputZipTitle">ZIP Archive</span>
+            <span class="batch-option-card__desc" data-i18n="popupBatchOutputZipDesc">All results in a single .zip file</span>
           </button>
           <button type="button" class="batch-option-card" data-output-format="individual" role="radio" aria-checked="false">
             <span class="batch-option-card__check">
@@ -571,8 +571,8 @@
             <span class="batch-option-card__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
             </span>
-            <span class="batch-option-card__title">Individual .md Files</span>
-            <span class="batch-option-card__desc">One Markdown file per source</span>
+            <span class="batch-option-card__title" data-i18n="popupBatchOutputIndividualTitle">Individual .md Files</span>
+            <span class="batch-option-card__desc" data-i18n="popupBatchOutputIndividualDesc">One Markdown file per source</span>
           </button>
           <button type="button" class="batch-option-card" data-output-format="combined" role="radio" aria-checked="false">
             <span class="batch-option-card__check">
@@ -581,22 +581,22 @@
             <span class="batch-option-card__icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             </span>
-            <span class="batch-option-card__title">Combined .md File</span>
-            <span class="batch-option-card__desc">All results in one Markdown file</span>
+            <span class="batch-option-card__title" data-i18n="popupBatchOutputCombinedTitle">Combined .md File</span>
+            <span class="batch-option-card__desc" data-i18n="popupBatchOutputCombinedDesc">All results in one Markdown file</span>
           </button>
         </div>
       </section>
 
       <div id="progressContainer" class="progress-container" style="display: none;">
         <div class="progress-header">
-          <span id="progressStatus" class="progress-label">Processing...</span>
+          <span id="progressStatus" class="progress-label" data-i18n="popupProgressProcessing">Processing...</span>
           <span id="progressCount" class="progress-count">0/0</span>
         </div>
         <div class="progress-bar-bg">
           <div id="progressBar" class="progress-bar"></div>
         </div>
         <p id="currentUrl" class="current-url"></p>
-        <button id="cancelBatchProgress" class="btn btn-sm btn-cancel-batch" style="display: none;">Cancel</button>
+        <button id="cancelBatchProgress" class="btn btn-sm btn-cancel-batch" style="display: none;" data-i18n="popupCancelBtn">Cancel</button>
       </div>
     </div>
 
@@ -605,7 +605,7 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" stroke="none">
           <polygon points="6 4 20 12 6 20 6 4"/>
         </svg>
-        <span id="startBatchLabel">Start Batch Processing</span>
+        <span id="startBatchLabel" data-i18n="popupBatchStartProcessingBtn">Start Batch Processing</span>
       </button>
     </div>
   </div>

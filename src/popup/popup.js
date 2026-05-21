@@ -2015,9 +2015,30 @@ const CAPTURE_METHODS = ['manual', 'pick', 'click'];
 const OUTPUT_FORMATS = ['zip', 'individual', 'combined'];
 
 const BATCH_STEP2_META = {
-    manual: { title: 'URLs', desc: '', hint: 'One per line' },
-    pick: { title: 'Links to Capture', desc: 'Collect links from the current page and add them to the batch list.', hint: '' },
-    click: { title: 'Elements to Capture', desc: 'Click & Clip runs directly on the active tab.', hint: '' }
+    manual: {
+        titleKey: 'popupBatchStepUrlsTitle',
+        titleFallback: 'URLs',
+        descKey: null,
+        descFallback: '',
+        hintKey: 'popupBatchStepUrlsHint',
+        hintFallback: 'One per line'
+    },
+    pick: {
+        titleKey: 'popupBatchStepLinksTitle',
+        titleFallback: 'Links to Capture',
+        descKey: 'popupBatchStepLinksDesc',
+        descFallback: 'Collect links from the current page and add them to the batch list.',
+        hintKey: null,
+        hintFallback: ''
+    },
+    click: {
+        titleKey: 'popupBatchStepElementsTitle',
+        titleFallback: 'Elements to Capture',
+        descKey: 'popupBatchStepElementsDesc',
+        descFallback: 'Click & Clip runs directly on the active tab.',
+        hintKey: null,
+        hintFallback: ''
+    }
 };
 
 function getSelectedOutputFormat() {
@@ -2046,12 +2067,19 @@ function syncCaptureMethodUi() {
     });
 
     const meta = BATCH_STEP2_META[batchCaptureMethod] || BATCH_STEP2_META.manual;
-    if (dom.batchStep2Title) dom.batchStep2Title.textContent = meta.title;
+    const title = meta.titleKey ? popupMessage(meta.titleKey, null, meta.titleFallback) : meta.titleFallback;
+    const desc = meta.descKey ? popupMessage(meta.descKey, null, meta.descFallback) : meta.descFallback;
+    const hint = meta.hintKey ? popupMessage(meta.hintKey, null, meta.hintFallback) : meta.hintFallback;
+
+    if (dom.batchStep2Title) dom.batchStep2Title.textContent = title;
     if (dom.batchStep2Desc) {
-        dom.batchStep2Desc.textContent = meta.desc;
-        dom.batchStep2Desc.hidden = !meta.desc;
+        dom.batchStep2Desc.textContent = desc;
+        dom.batchStep2Desc.hidden = !desc;
     }
-    if (dom.batchStep2Hint) dom.batchStep2Hint.hidden = !meta.hint;
+    if (dom.batchStep2Hint) {
+        dom.batchStep2Hint.textContent = hint;
+        dom.batchStep2Hint.hidden = !hint;
+    }
 }
 
 function syncOutputFormatUi() {
@@ -2088,8 +2116,8 @@ function updateStartBatchButton() {
 
     if (dom.startBatchLabel) {
         dom.startBatchLabel.textContent = batchCaptureMethod === 'click'
-            ? 'Start Click & Clip'
-            : 'Start Batch Processing';
+            ? popupMessage('popupBatchStartClickClipBtn', null, 'Start Click & Clip')
+            : popupMessage('popupBatchStartProcessingBtn', null, 'Start Batch Processing');
     }
 
     let disabled = false;
@@ -2120,13 +2148,13 @@ function renderBatchPickedLinks() {
     head.className = 'batch-link-list-head';
     const count = document.createElement('span');
     count.textContent = batchPickedLinks.length === 1
-        ? '1 link selected'
-        : `${batchPickedLinks.length} links selected`;
+        ? popupMessage('popupBatchLinksSelectedOne', null, '1 link selected')
+        : popupMessage('popupBatchLinksSelectedMany', [batchPickedLinks.length], `${batchPickedLinks.length} links selected`);
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.className = 'batch-link-clear';
     clear.dataset.clearLinks = 'true';
-    clear.textContent = 'Clear all';
+    clear.textContent = popupMessage('popupBatchClearLinksBtn', null, 'Clear all');
     head.append(count, clear);
     list.appendChild(head);
 
@@ -2141,7 +2169,7 @@ function renderBatchPickedLinks() {
         remove.type = 'button';
         remove.className = 'batch-link-row__remove';
         remove.dataset.removeLink = String(index);
-        remove.setAttribute('aria-label', 'Remove link');
+        remove.setAttribute('aria-label', popupMessage('popupBatchRemoveLinkAria', null, 'Remove link'));
         remove.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
         row.append(urlEl, remove);
         list.appendChild(row);
@@ -4955,47 +4983,59 @@ function notify(message) {
                 progressUI.showCancelButton();
                 break;
             case 'loading':
-                progressUI.setStatus('Loading page...');
+                progressUI.setStatus(popupMessage('popupBatchLoadingPage', null, 'Loading page...'));
                 break;
             case 'converting':
-                progressUI.setStatus('Converting page...');
+                progressUI.setStatus(popupMessage('popupBatchConvertingPage', null, 'Converting page...'));
                 break;
             case 'retrying':
-                progressUI.setStatus('Retrying page capture...');
+                progressUI.setStatus(popupMessage('popupBatchRetryingPage', null, 'Retrying page capture...'));
                 break;
             case 'zipping':
-                progressUI.setStatus('Creating ZIP archive...');
+                progressUI.setStatus(popupMessage('popupBatchCreatingZip', null, 'Creating ZIP archive...'));
                 break;
             case 'combining':
-                progressUI.setStatus('Building combined document...');
+                progressUI.setStatus(popupMessage('popupBatchCombining', null, 'Building combined document...'));
                 break;
             case 'warning':
-                progressUI.setStatus(message.message || 'Warning during conversion');
+                progressUI.setStatus(message.message || popupMessage('popupBatchWarning', null, 'Warning during conversion'));
                 break;
             case 'item-error':
-                progressUI.setStatus(`Error: ${message.error || 'Failed URL'}`);
+                progressUI.setStatus(popupMessage(
+                    'popupBatchItemError',
+                    [message.error || popupMessage('popupBatchFailedUrl', null, 'Failed URL')],
+                    `Error: ${message.error || 'Failed URL'}`
+                ));
                 break;
             case 'cancelled':
-                progressUI.setStatus('Batch cancelled');
+                progressUI.setStatus(popupMessage('popupBatchCancelled', null, 'Batch cancelled'));
                 progressUI.hideCancelButton();
                 dom.spinner.style.display = 'none';
                 setBatchFooterVisible(true);
                 break;
             case 'failed':
-                progressUI.setStatus(`Batch failed: ${message.error || 'Unknown error'}`);
+                progressUI.setStatus(popupMessage(
+                    'popupBatchFailed',
+                    [message.error || popupMessage('popupBatchUnknownError', null, 'Unknown error')],
+                    `Batch failed: ${message.error || 'Unknown error'}`
+                ));
                 progressUI.hideCancelButton();
                 dom.spinner.style.display = 'none';
                 setBatchFooterVisible(true);
                 break;
             case 'finished':
                 if (message.failed > 0) {
-                    progressUI.setStatus(`Finished with ${message.failed} error(s)`);
+                    progressUI.setStatus(popupMessage(
+                        'popupBatchFinishedWithErrors',
+                        [message.failed],
+                        `Finished with ${message.failed} error(s)`
+                    ));
                 } else if (message.batchSaveMode === 'zip') {
-                    progressUI.setStatus('ZIP downloaded');
+                    progressUI.setStatus(popupMessage('popupBatchZipDownloaded', null, 'ZIP downloaded'));
                 } else if (message.batchSaveMode === 'combined') {
-                    progressUI.setStatus('Combined file downloaded');
+                    progressUI.setStatus(popupMessage('popupBatchCombinedDownloaded', null, 'Combined file downloaded'));
                 } else {
-                    progressUI.setStatus('Batch complete');
+                    progressUI.setStatus(popupMessage('popupBatchComplete', null, 'Batch complete'));
                 }
                 progressUI.hideCancelButton();
                 dom.spinner.style.display = 'none';
