@@ -215,7 +215,9 @@ git push origin v4.0.4
 
 ## Privacy
 
-MarkSnip does not send clipped page content to external servers. See [PRIVACY.md](PRIVACY.md) for details.
+MarkSnip does not send clipped page content to external servers by default. The optional, opt-in Interpreter feature sends a clip's
+Markdown to an LLM provider you configure, and the optional Agent Bridge sends it to a local CLI on your own machine. See
+[PRIVACY.md](PRIVACY.md) for details.
 
 ## Credits
 

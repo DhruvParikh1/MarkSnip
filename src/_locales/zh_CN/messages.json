@@ -4037,5 +4037,81 @@
   "elementPickerCopySuccess": {
     "message": "元素 Markdown 已复制到剪贴板。",
     "description": "Element picker success notification when Done copies Markdown directly"
+  },
+  "interpreterSectionTitle": {
+    "message": "Interpreter",
+    "description": "Interpreter panel heading in the popup"
+  },
+  "interpreterButton": {
+    "message": "Interpret",
+    "description": "Label for the popup Interpret button"
+  },
+  "interpreterThinking": {
+    "message": "Thinking...",
+    "description": "Interpret button label while the LLM request is in progress"
+  },
+  "interpreterDone": {
+    "message": "Done",
+    "description": "Interpret button label after a successful run"
+  },
+  "interpreterError": {
+    "message": "Interpreter request failed.",
+    "description": "Generic interpreter error message"
+  },
+  "interpreterNoModel": {
+    "message": "Select an interpreter model first.",
+    "description": "Error shown when no interpreter model is selected"
+  },
+  "optionsSidebarInterpreter": {
+    "message": "Interpreter",
+    "description": "Interpreter section label in the options sidebar"
+  },
+  "optionsInterpreterEnabled": {
+    "message": "Enable Interpreter",
+    "description": "Label for the interpreter enable toggle"
+  },
+  "optionsInterpreterAutoRun": {
+    "message": "Run automatically on clip",
+    "description": "Label for the interpreter auto-run toggle"
+  },
+  "optionsInterpreterContext": {
+    "message": "Prompt Context",
+    "description": "Label for the interpreter prompt context textarea"
+  },
+  "optionsInterpreterProviders": {
+    "message": "Providers",
+    "description": "Heading for the interpreter providers manager"
+  },
+  "optionsInterpreterModels": {
+    "message": "Models",
+    "description": "Heading for the interpreter models manager"
+  },
+  "optionsInterpreterAddProvider": {
+    "message": "Add Provider",
+    "description": "Summary label for the add-provider editor"
+  },
+  "optionsInterpreterAddModel": {
+    "message": "Add Model",
+    "description": "Summary label for the add-model editor"
+  },
+  "optionsInterpreterApiKey": {
+    "message": "API Key",
+    "description": "Label for the provider API key field"
+  },
+  "optionsInterpreterBaseUrl": {
+    "message": "Base URL",
+    "description": "Label for the provider base URL field"
+  },
+  "optionsInterpreterModelId": {
+    "message": "Model ID",
+    "description": "Label for the model ID field"
+  },
+  "optionsInterpreterEnabledModel": {
+    "message": "Show in popup",
+    "description": "Label for the model enabled toggle"
+  },
+  "interpreterUnresolvedExportWarning": {
+    "message": "This clip still contains an interpreter prompt ({{prompt:\"...\"}}) that has not been run yet. Export it anyway?",
+    "description": "Confirmation shown when exporting a clip that still has an unresolved interpreter prompt"
   }
 }

@@ -158,6 +158,17 @@
 	                    </svg>
 	                    <span class="sidebar-label">Site Rules</span>
 	                </li>
+	                <li class="sidebar-item" id="tab-interpreter" data-section="interpreter" role="tab" tabindex="-1" aria-selected="false" aria-controls="section-interpreter">
+	                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+	                        <path d="M12 8V4H8"/>
+	                        <rect x="4" y="8" width="16" height="12" rx="2"/>
+	                        <path d="M2 14h2"/>
+	                        <path d="M20 14h2"/>
+	                        <path d="M15 13v2"/>
+	                        <path d="M9 13v2"/>
+	                    </svg>
+	                    <span class="sidebar-label" data-i18n="optionsSidebarInterpreter">Interpreter</span>
+	                </li>
 	                <div class="sidebar-divider"></div>
                 <li class="sidebar-item" id="tab-import-export" data-section="import-export" role="tab" tabindex="-1" aria-selected="false" aria-controls="section-import-export">
                     <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1938,6 +1949,141 @@ const helloWorld = () => {
 	                </div>
 	            </div>
 
+	            <div class="section" id="section-interpreter" data-section-label="Interpreter" role="tabpanel" tabindex="0" aria-labelledby="tab-interpreter">
+                <h2 class="section-title" data-i18n="optionsSidebarInterpreter">Interpreter</h2>
+                <p class="section-desc">Let an LLM fill in <code>{{prompt:"..."}}</code> placeholders you put in your Frontmatter, Title, or Backmatter templates. Content is sent to your chosen provider only when you enable this feature and run it.</p>
+
+                <div class="setting-card" id="interpreterGeneralCard"
+                    data-search-keywords="interpreter,llm,ai,prompt,gpt,claude,gemini,ollama,openrouter,auto run,prompt context"
+                    data-setting-key="interpreterEnabled,interpreterAutoRun,defaultPromptContext">
+                    <h3 class="card-title">Interpreter</h3>
+                    <p class="card-desc">When enabled, clipping a page that contains <code>{{prompt:"..."}}</code> placeholders shows an Interpreter panel in the popup. Add <code>{{prompt:"Summarize this"}}</code> to your templates in the Templates section.</p>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <label class="toggle-label-text" for="interpreterEnabled" data-i18n="optionsInterpreterEnabled">Enable Interpreter</label>
+                        </div>
+                        <label class="toggle-switch">
+                            <input name="interpreterEnabled" id="interpreterEnabled" type="checkbox" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <label class="toggle-label-text" for="interpreterAutoRun" data-i18n="optionsInterpreterAutoRun">Run automatically on clip</label>
+                            <p class="toggle-hint">When off, you click an Interpret button in the popup. When on, prompts run as soon as the page is clipped.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input name="interpreterAutoRun" id="interpreterAutoRun" type="checkbox" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="defaultPromptContext" data-i18n="optionsInterpreterContext">Prompt Context</label>
+                        <textarea name="defaultPromptContext" id="defaultPromptContext" class="text-input" rows="3" spellcheck="false"></textarea>
+                        <p class="input-hint">The content sent to the model alongside your prompts. <code>{{content}}</code> is replaced with the clipped Markdown.</p>
+                    </div>
+                </div>
+
+                <div class="setting-card" id="interpreterProvidersCard"
+                    data-search-keywords="interpreter,provider,api key,base url,anthropic,openai,gemini,ollama,openrouter,llm endpoint">
+                    <h3 class="card-title" data-i18n="optionsInterpreterProviders">Providers</h3>
+                    <p class="card-desc">An LLM endpoint and its API key. The five built-in providers are pre-configured — just add an API key. API keys are stored locally and never synced.</p>
+
+                    <div id="interpreterProvidersList" class="webhook-targets-list" aria-live="polite"></div>
+
+                    <details class="info-panel webhook-target-editor" id="interpreterProviderEditor">
+                        <summary id="interpreterProviderEditorSummary" data-i18n="optionsInterpreterAddProvider">Add Provider</summary>
+                        <div class="info-panel-content">
+                            <div class="webhook-target-editor__fields">
+                                <div class="input-group">
+                                    <label class="input-label" for="interpreterProviderPreset">Start From Preset</label>
+                                    <select id="interpreterProviderPreset" class="text-input">
+                                        <option value="">Custom provider</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label" for="interpreterProviderName">Provider Name</label>
+                                    <input type="text" id="interpreterProviderName" class="text-input" role="textbox" placeholder="My LLM Provider" />
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label" for="interpreterProviderFamily">API Format</label>
+                                    <select id="interpreterProviderFamily" class="text-input">
+                                        <option value="openai">OpenAI-compatible</option>
+                                        <option value="anthropic">Anthropic</option>
+                                        <option value="ollama">Ollama</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label" for="interpreterProviderBaseUrl" data-i18n="optionsInterpreterBaseUrl">Base URL</label>
+                                    <input type="text" id="interpreterProviderBaseUrl" class="text-input" role="textbox" placeholder="https://api.example.com/v1/chat/completions" spellcheck="false" />
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label" for="interpreterProviderApiKey" data-i18n="optionsInterpreterApiKey">API Key</label>
+                                    <input type="password" id="interpreterProviderApiKey" class="text-input" autocomplete="off" spellcheck="false" placeholder="Leave blank to keep the saved key" />
+                                    <p class="input-hint" id="interpreterProviderApiKeyHint">Stored locally on this device only.</p>
+                                </div>
+                                <div class="toggle-row">
+                                    <div class="toggle-info">
+                                        <label class="toggle-label-text" for="interpreterProviderApiKeyRequired">Requires an API key</label>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input id="interpreterProviderApiKeyRequired" type="checkbox" checked />
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="webhook-target-editor__actions">
+                                    <button type="button" id="interpreterSaveProvider" class="btn btn-primary">Save Provider</button>
+                                    <button type="button" id="interpreterClearProviderKey" class="btn btn-secondary">Clear Key</button>
+                                    <button type="button" id="interpreterCancelProvider" class="btn btn-text">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <div class="setting-card" id="interpreterModelsCard"
+                    data-search-keywords="interpreter,model,gpt,claude,gemini,llama,model id,enable model">
+                    <h3 class="card-title" data-i18n="optionsInterpreterModels">Models</h3>
+                    <p class="card-desc">A model belongs to a provider. Enabled models appear in the popup's Interpreter dropdown.</p>
+
+                    <div id="interpreterModelsList" class="webhook-targets-list" aria-live="polite"></div>
+
+                    <details class="info-panel webhook-target-editor" id="interpreterModelEditor">
+                        <summary id="interpreterModelEditorSummary" data-i18n="optionsInterpreterAddModel">Add Model</summary>
+                        <div class="info-panel-content">
+                            <div class="webhook-target-editor__fields">
+                                <div class="input-group">
+                                    <label class="input-label" for="interpreterModelName">Display Name</label>
+                                    <input type="text" id="interpreterModelName" class="text-input" role="textbox" placeholder="Claude 4.5 Haiku" />
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label" for="interpreterModelProvider">Provider</label>
+                                    <select id="interpreterModelProvider" class="text-input"></select>
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label" for="interpreterModelModelId" data-i18n="optionsInterpreterModelId">Model ID</label>
+                                    <input type="text" id="interpreterModelModelId" class="text-input" role="textbox" list="interpreterModelIdList" placeholder="claude-haiku-4-5" spellcheck="false" />
+                                    <datalist id="interpreterModelIdList"></datalist>
+                                </div>
+                                <div class="toggle-row">
+                                    <div class="toggle-info">
+                                        <label class="toggle-label-text" for="interpreterModelEnabled" data-i18n="optionsInterpreterEnabledModel">Show in popup</label>
+                                    </div>
+                                    <label class="toggle-switch">
+                                        <input id="interpreterModelEnabled" type="checkbox" checked />
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                                <div class="webhook-target-editor__actions">
+                                    <button type="button" id="interpreterSaveModel" class="btn btn-primary">Save Model</button>
+                                    <button type="button" id="interpreterCancelModel" class="btn btn-text">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+                </div>
+            </div>
+
 	            <div class="section" id="section-import-export" data-section-label="Import / Export" role="tabpanel" tabindex="0" aria-labelledby="tab-import-export">
                 <h2 class="section-title">Import / Export</h2>
                 <p class="section-desc">Back up your settings or restore from a previous backup.</p>
@@ -2067,6 +2213,7 @@ const helloWorld = () => {
     <script src="../shared/search-core.js"></script>
     <script src="../shared/options-state.js"></script>
     <script src="../shared/webhook-utils.js"></script>
+    <script src="../shared/interpreter-utils.js"></script>
     <script src="options-search.js"></script>
     <script src="options.js"></script>
 </body>

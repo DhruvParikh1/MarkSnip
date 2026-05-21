@@ -274,6 +274,19 @@
       <input type="text" id="title" class="title-input" placeholder="Document title...">
     </section>
 
+    <!-- Interpreter Section -->
+    <section class="interpreter-section" id="interpreterSection" style="display: none;">
+      <div class="interpreter-header">
+        <span class="interpreter-label" data-i18n="interpreterSectionTitle">Interpreter</span>
+        <span id="interpreterTimer" class="interpreter-timer" hidden></span>
+      </div>
+      <div class="interpreter-controls">
+        <select id="interpreterModelSelect" class="interpreter-model-select" aria-label="Interpreter model"></select>
+        <button id="interpretBtn" class="btn btn-secondary interpreter-btn" type="button" data-i18n="interpreterButton">Interpret</button>
+      </div>
+      <div id="interpreterError" class="interpreter-error" role="alert" hidden></div>
+    </section>
+
     <!-- Editor Section -->
     <section class="editor-section">
       <div class="editor-header">
@@ -714,6 +727,8 @@
   <script type="application/javascript" src="../shared/library-state.js"></script>
   <script type="application/javascript" src="../shared/options-state.js"></script>
   <script type="application/javascript" src="../shared/webhook-utils.js"></script>
+  <script type="application/javascript" src="../shared/template-utils.js"></script>
+  <script type="application/javascript" src="../shared/interpreter-utils.js"></script>
   <script type="application/javascript" src="../shared/popup-batch-utils.js"></script>
   <script type="application/javascript" src="../shared/popup-shortcuts.js"></script>
   <script type="application/javascript" src="../shared/count-utils.js"></script>

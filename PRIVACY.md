@@ -18,6 +18,12 @@ If you enable the optional Agent Bridge feature, MarkSnip may also send the curr
 native messaging host running on your own machine so the local `marksnip.exe` CLI can read it. This bridge is local-only, opt-in,
 and is not used to send your data to me or to any remote MarkSnip service.
 
+If you enable the optional Interpreter feature, MarkSnip sends the converted Markdown of a page you clip to the LLM provider you
+configure (for example Anthropic, OpenAI, Google Gemini, OpenRouter, or a local Ollama instance), using the API key you supply. This
+only happens when the Interpreter is enabled, a provider is configured, and the feature runs. Data goes directly from your browser to
+that provider under the provider's own privacy policy — it is never sent to me or to any MarkSnip service. API keys are stored only in
+your browser's local storage and are not synced.
+
 ## Changes to This Privacy Policy
 I may update this Privacy Policy from time to time, for example if new features are developed which require data collection.
 Thus, it might be a good idea to review this page periodically for any changes. Any changes are effective immediately, as they are

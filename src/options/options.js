@@ -937,6 +937,615 @@ function initWebhookTargetControls() {
     });
 }
 
+// ===== Interpreter: providers & models managers =====
+let interpreterConfig = null;
+let editingInterpreterProviderId = null;
+let editingInterpreterModelId = null;
+
+function getInterpreterUtilsApi() {
+    return globalThis.markSnipInterpreterUtils || null;
+}
+
+function getInterpreterConfig() {
+    const utils = getInterpreterUtilsApi();
+    if (!interpreterConfig) {
+        interpreterConfig = utils
+            ? utils.normalizeInterpreterConfig(null)
+            : { providers: [], models: [] };
+    }
+    return interpreterConfig;
+}
+
+function isSeededInterpreterProvider(providerId) {
+    const presets = getInterpreterUtilsApi()?.PROVIDER_PRESETS || [];
+    return presets.some((preset) => preset.id === providerId);
+}
+
+async function persistInterpreterConfig(feedback) {
+    const utils = getInterpreterUtilsApi();
+    if (!utils) {
+        return;
+    }
+    interpreterConfig = utils.normalizeInterpreterConfig(interpreterConfig);
+    try {
+        await utils.saveInterpreterConfig(interpreterConfig);
+        if (feedback) {
+            showToast(feedback, 'success');
+        }
+    } catch (error) {
+        console.error('Failed to save interpreter config:', error);
+        showToast('Failed to save interpreter settings', 'error');
+    }
+}
+
+function buildInterpreterId(prefix) {
+    return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function renderInterpreterProvidersList() {
+    const list = document.getElementById('interpreterProvidersList');
+    if (!list) {
+        return;
+    }
+    const config = getInterpreterConfig();
+    list.innerHTML = '';
+
+    if (config.providers.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'assistant-targets-empty';
+        empty.textContent = 'No providers configured yet.';
+        list.appendChild(empty);
+        return;
+    }
+
+    config.providers.forEach((provider) => {
+        const item = document.createElement('article');
+        item.className = 'assistant-target-item';
+
+        const body = document.createElement('div');
+        body.className = 'assistant-target-item__body';
+
+        const header = document.createElement('div');
+        header.className = 'assistant-target-item__header';
+
+        const badge = document.createElement('span');
+        badge.className = 'webhook-method-badge';
+        badge.textContent = provider.apiKey
+            ? 'KEY SET'
+            : (provider.apiKeyRequired ? 'NO KEY' : 'NO AUTH');
+
+        const name = document.createElement('h4');
+        name.className = 'assistant-target-item__name';
+        name.textContent = provider.name;
+
+        header.appendChild(badge);
+        header.appendChild(name);
+
+        const meta = document.createElement('code');
+        meta.className = 'assistant-target-item__meta';
+        meta.textContent = provider.baseUrl;
+        meta.title = provider.baseUrl;
+
+        body.appendChild(header);
+        body.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'assistant-target-item__actions';
+
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'btn btn-secondary btn-sm';
+        editButton.dataset.providerId = provider.id;
+        editButton.dataset.action = 'edit-provider';
+        editButton.textContent = 'Edit';
+        editButton.setAttribute('aria-label', `Edit ${provider.name}`);
+        actions.appendChild(editButton);
+
+        if (!isSeededInterpreterProvider(provider.id)) {
+            const removeButton = document.createElement('button');
+            removeButton.type = 'button';
+            removeButton.className = 'btn btn-secondary btn-sm assistant-target-item__remove';
+            removeButton.dataset.providerId = provider.id;
+            removeButton.dataset.action = 'remove-provider';
+            removeButton.textContent = 'Remove';
+            removeButton.setAttribute('aria-label', `Remove ${provider.name}`);
+            actions.appendChild(removeButton);
+        }
+
+        item.appendChild(body);
+        item.appendChild(actions);
+        list.appendChild(item);
+    });
+}
+
+function renderInterpreterModelsList() {
+    const list = document.getElementById('interpreterModelsList');
+    if (!list) {
+        return;
+    }
+    const config = getInterpreterConfig();
+    list.innerHTML = '';
+
+    if (config.models.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'assistant-targets-empty';
+        empty.textContent = 'No models configured yet.';
+        list.appendChild(empty);
+        return;
+    }
+
+    config.models.forEach((model) => {
+        const provider = config.providers.find((p) => p.id === model.providerId);
+
+        const item = document.createElement('article');
+        item.className = 'assistant-target-item';
+
+        const body = document.createElement('div');
+        body.className = 'assistant-target-item__body';
+
+        const header = document.createElement('div');
+        header.className = 'assistant-target-item__header';
+
+        const badge = document.createElement('span');
+        badge.className = 'webhook-method-badge';
+        badge.textContent = model.enabled ? 'ON' : 'OFF';
+
+        const name = document.createElement('h4');
+        name.className = 'assistant-target-item__name';
+        name.textContent = model.name;
+
+        header.appendChild(badge);
+        header.appendChild(name);
+
+        const meta = document.createElement('code');
+        meta.className = 'assistant-target-item__meta';
+        meta.textContent = `${provider ? provider.name : 'Unknown provider'} / ${model.providerModelId}`;
+
+        body.appendChild(header);
+        body.appendChild(meta);
+
+        const actions = document.createElement('div');
+        actions.className = 'assistant-target-item__actions';
+
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.className = 'btn btn-secondary btn-sm';
+        editButton.dataset.modelId = model.id;
+        editButton.dataset.action = 'edit-model';
+        editButton.textContent = 'Edit';
+        editButton.setAttribute('aria-label', `Edit ${model.name}`);
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-secondary btn-sm assistant-target-item__remove';
+        removeButton.dataset.modelId = model.id;
+        removeButton.dataset.action = 'remove-model';
+        removeButton.textContent = 'Remove';
+        removeButton.setAttribute('aria-label', `Remove ${model.name}`);
+
+        actions.appendChild(editButton);
+        actions.appendChild(removeButton);
+
+        item.appendChild(body);
+        item.appendChild(actions);
+        list.appendChild(item);
+    });
+}
+
+function renderInterpreterManagers() {
+    renderInterpreterProvidersList();
+    renderInterpreterModelsList();
+}
+
+function populateInterpreterProviderPresetSelect() {
+    const select = document.getElementById('interpreterProviderPreset');
+    if (!select) {
+        return;
+    }
+    const presets = getInterpreterUtilsApi()?.PROVIDER_PRESETS || [];
+    select.innerHTML = '<option value="">Custom provider</option>';
+    presets.forEach((preset) => {
+        const option = document.createElement('option');
+        option.value = preset.id;
+        option.textContent = preset.name;
+        select.appendChild(option);
+    });
+}
+
+function setInterpreterProviderKeyHint(provider) {
+    const hint = document.getElementById('interpreterProviderApiKeyHint');
+    if (!hint) {
+        return;
+    }
+    if (provider && provider.apiKey) {
+        hint.textContent = 'A key is saved. Leave blank to keep it, or type a new key to replace it.';
+    } else if (provider) {
+        hint.textContent = 'No key saved yet. Stored locally on this device only.';
+    } else {
+        hint.textContent = 'Stored locally on this device only.';
+    }
+}
+
+// Clears the provider editor fields WITHOUT touching <details>.open. Safe to
+// call from the editor's own toggle handler.
+function clearInterpreterProviderFields() {
+    editingInterpreterProviderId = null;
+    const presetSelect = document.getElementById('interpreterProviderPreset');
+    const nameInput = document.getElementById('interpreterProviderName');
+    const familySelect = document.getElementById('interpreterProviderFamily');
+    const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
+    const apiKeyInput = document.getElementById('interpreterProviderApiKey');
+    const apiKeyRequired = document.getElementById('interpreterProviderApiKeyRequired');
+    const summary = document.getElementById('interpreterProviderEditorSummary');
+
+    if (presetSelect) { presetSelect.value = ''; presetSelect.style.display = ''; }
+    if (nameInput) nameInput.value = '';
+    if (familySelect) familySelect.value = 'openai';
+    if (baseUrlInput) baseUrlInput.value = '';
+    if (apiKeyInput) apiKeyInput.value = '';
+    if (apiKeyRequired) apiKeyRequired.checked = true;
+    if (summary) summary.textContent = 'Add Provider';
+    setInterpreterProviderKeyHint(null);
+}
+
+function resetInterpreterProviderForm() {
+    clearInterpreterProviderFields();
+    const editor = document.getElementById('interpreterProviderEditor');
+    if (editor) editor.open = false;
+}
+
+function populateInterpreterProviderForm(provider) {
+    const presetSelect = document.getElementById('interpreterProviderPreset');
+    const nameInput = document.getElementById('interpreterProviderName');
+    const familySelect = document.getElementById('interpreterProviderFamily');
+    const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
+    const apiKeyInput = document.getElementById('interpreterProviderApiKey');
+    const apiKeyRequired = document.getElementById('interpreterProviderApiKeyRequired');
+    const summary = document.getElementById('interpreterProviderEditorSummary');
+
+    if (presetSelect) presetSelect.style.display = 'none';
+    if (nameInput) nameInput.value = provider.name;
+    if (familySelect) familySelect.value = provider.family || 'openai';
+    if (baseUrlInput) baseUrlInput.value = provider.baseUrl;
+    if (apiKeyInput) apiKeyInput.value = '';
+    if (apiKeyRequired) apiKeyRequired.checked = provider.apiKeyRequired !== false;
+    if (summary) summary.textContent = `Edit: ${provider.name}`;
+    setInterpreterProviderKeyHint(provider);
+}
+
+function handleSaveInterpreterProvider() {
+    const nameInput = document.getElementById('interpreterProviderName');
+    const familySelect = document.getElementById('interpreterProviderFamily');
+    const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
+    const apiKeyInput = document.getElementById('interpreterProviderApiKey');
+    const apiKeyRequired = document.getElementById('interpreterProviderApiKeyRequired');
+
+    const name = String(nameInput?.value || '').trim();
+    const family = String(familySelect?.value || 'openai');
+    const baseUrl = String(baseUrlInput?.value || '').trim();
+    const apiKeyEntered = String(apiKeyInput?.value || '');
+    const requiresKey = Boolean(apiKeyRequired?.checked);
+
+    if (!name) {
+        showToast('Please enter a provider name', 'error');
+        nameInput?.focus();
+        return;
+    }
+    if (!baseUrl) {
+        showToast('Please enter a base URL', 'error');
+        baseUrlInput?.focus();
+        return;
+    }
+
+    const config = getInterpreterConfig();
+
+    if (editingInterpreterProviderId) {
+        const provider = config.providers.find((p) => p.id === editingInterpreterProviderId);
+        if (provider) {
+            provider.name = name;
+            provider.family = family;
+            provider.baseUrl = baseUrl;
+            provider.apiKeyRequired = requiresKey;
+            // Blank key field preserves the saved key (see Clear Key action).
+            if (apiKeyEntered) {
+                provider.apiKey = apiKeyEntered;
+            }
+        }
+    } else {
+        config.providers.push({
+            id: buildInterpreterId('prov'),
+            name,
+            family,
+            baseUrl,
+            apiKey: apiKeyEntered,
+            apiKeyRequired: requiresKey
+        });
+    }
+
+    resetInterpreterProviderForm();
+    renderInterpreterManagers();
+    refreshInterpreterModelEditor();
+    persistInterpreterConfig(`Saved provider "${name}"`);
+}
+
+function handleClearInterpreterProviderKey() {
+    const apiKeyInput = document.getElementById('interpreterProviderApiKey');
+    if (apiKeyInput) {
+        apiKeyInput.value = '';
+    }
+
+    if (!editingInterpreterProviderId) {
+        return;
+    }
+    const config = getInterpreterConfig();
+    const provider = config.providers.find((p) => p.id === editingInterpreterProviderId);
+    if (provider) {
+        provider.apiKey = '';
+        setInterpreterProviderKeyHint(provider);
+        renderInterpreterProvidersList();
+        persistInterpreterConfig(`Cleared API key for "${provider.name}"`);
+    }
+}
+
+function removeInterpreterProvider(providerId) {
+    if (isSeededInterpreterProvider(providerId)) {
+        return;
+    }
+    const config = getInterpreterConfig();
+    const removed = config.providers.find((p) => p.id === providerId);
+    config.providers = config.providers.filter((p) => p.id !== providerId);
+    // Drop models that referenced the removed provider before rendering, so no
+    // stale "Unknown provider" cards linger until reload.
+    config.models = config.models.filter((m) => m.providerId !== providerId);
+
+    if (editingInterpreterProviderId === providerId) {
+        resetInterpreterProviderForm();
+    }
+
+    renderInterpreterManagers();
+    refreshInterpreterModelEditor();
+    persistInterpreterConfig(`Removed provider "${removed?.name || providerId}"`);
+}
+
+function refreshInterpreterModelEditor() {
+    const providerSelect = document.getElementById('interpreterModelProvider');
+    if (!providerSelect) {
+        return;
+    }
+    const config = getInterpreterConfig();
+    const previousValue = providerSelect.value;
+    providerSelect.innerHTML = '';
+    config.providers.forEach((provider) => {
+        const option = document.createElement('option');
+        option.value = provider.id;
+        option.textContent = provider.name;
+        providerSelect.appendChild(option);
+    });
+    if (config.providers.some((p) => p.id === previousValue)) {
+        providerSelect.value = previousValue;
+    }
+    refreshInterpreterModelIdDatalist();
+}
+
+function refreshInterpreterModelIdDatalist() {
+    const providerSelect = document.getElementById('interpreterModelProvider');
+    const datalist = document.getElementById('interpreterModelIdList');
+    if (!datalist) {
+        return;
+    }
+    datalist.innerHTML = '';
+    const presets = getInterpreterUtilsApi()?.PROVIDER_PRESETS || [];
+    const config = getInterpreterConfig();
+    const provider = config.providers.find((p) => p.id === providerSelect?.value);
+    const preset = presets.find((p) => provider && (p.id === provider.id || p.id === provider.presetId));
+    (preset?.popularModels || []).forEach((model) => {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.label = model.name;
+        datalist.appendChild(option);
+    });
+}
+
+// Clears the model editor fields WITHOUT touching <details>.open. Safe to call
+// from the editor's own toggle handler.
+function clearInterpreterModelFields() {
+    editingInterpreterModelId = null;
+    const nameInput = document.getElementById('interpreterModelName');
+    const modelIdInput = document.getElementById('interpreterModelModelId');
+    const enabledInput = document.getElementById('interpreterModelEnabled');
+    const summary = document.getElementById('interpreterModelEditorSummary');
+
+    if (nameInput) nameInput.value = '';
+    if (modelIdInput) modelIdInput.value = '';
+    if (enabledInput) enabledInput.checked = true;
+    if (summary) summary.textContent = 'Add Model';
+    refreshInterpreterModelEditor();
+}
+
+function resetInterpreterModelForm() {
+    clearInterpreterModelFields();
+    const editor = document.getElementById('interpreterModelEditor');
+    if (editor) editor.open = false;
+}
+
+function populateInterpreterModelForm(model) {
+    refreshInterpreterModelEditor();
+    const nameInput = document.getElementById('interpreterModelName');
+    const providerSelect = document.getElementById('interpreterModelProvider');
+    const modelIdInput = document.getElementById('interpreterModelModelId');
+    const enabledInput = document.getElementById('interpreterModelEnabled');
+    const summary = document.getElementById('interpreterModelEditorSummary');
+
+    if (nameInput) nameInput.value = model.name;
+    if (providerSelect) providerSelect.value = model.providerId;
+    if (modelIdInput) modelIdInput.value = model.providerModelId;
+    if (enabledInput) enabledInput.checked = model.enabled !== false;
+    if (summary) summary.textContent = `Edit: ${model.name}`;
+    refreshInterpreterModelIdDatalist();
+}
+
+function handleSaveInterpreterModel() {
+    const nameInput = document.getElementById('interpreterModelName');
+    const providerSelect = document.getElementById('interpreterModelProvider');
+    const modelIdInput = document.getElementById('interpreterModelModelId');
+    const enabledInput = document.getElementById('interpreterModelEnabled');
+
+    const name = String(nameInput?.value || '').trim();
+    const providerId = String(providerSelect?.value || '').trim();
+    const providerModelId = String(modelIdInput?.value || '').trim();
+    const enabled = Boolean(enabledInput?.checked);
+
+    if (!providerId) {
+        showToast('Please add a provider first', 'error');
+        return;
+    }
+    if (!providerModelId) {
+        showToast('Please enter a model ID', 'error');
+        modelIdInput?.focus();
+        return;
+    }
+
+    const config = getInterpreterConfig();
+    const finalName = name || providerModelId;
+
+    if (editingInterpreterModelId) {
+        const model = config.models.find((m) => m.id === editingInterpreterModelId);
+        if (model) {
+            model.name = finalName;
+            model.providerId = providerId;
+            model.providerModelId = providerModelId;
+            model.enabled = enabled;
+        }
+    } else {
+        config.models.push({
+            id: buildInterpreterId('model'),
+            providerId,
+            providerModelId,
+            name: finalName,
+            enabled
+        });
+    }
+
+    resetInterpreterModelForm();
+    renderInterpreterModelsList();
+    persistInterpreterConfig(`Saved model "${finalName}"`);
+}
+
+function removeInterpreterModel(modelId) {
+    const config = getInterpreterConfig();
+    const removed = config.models.find((m) => m.id === modelId);
+    config.models = config.models.filter((m) => m.id !== modelId);
+
+    if (editingInterpreterModelId === modelId) {
+        resetInterpreterModelForm();
+    }
+
+    renderInterpreterModelsList();
+    persistInterpreterConfig(`Removed model "${removed?.name || modelId}"`);
+}
+
+function initInterpreterControls() {
+    populateInterpreterProviderPresetSelect();
+
+    document.getElementById('interpreterProviderPreset')?.addEventListener('change', (event) => {
+        const presetId = event.target.value;
+        if (!presetId) {
+            return;
+        }
+        const preset = (getInterpreterUtilsApi()?.PROVIDER_PRESETS || []).find((p) => p.id === presetId);
+        if (!preset) {
+            return;
+        }
+        const nameInput = document.getElementById('interpreterProviderName');
+        const familySelect = document.getElementById('interpreterProviderFamily');
+        const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
+        const apiKeyRequired = document.getElementById('interpreterProviderApiKeyRequired');
+        if (nameInput) nameInput.value = preset.name;
+        if (familySelect) familySelect.value = preset.family;
+        if (baseUrlInput) baseUrlInput.value = preset.baseUrl;
+        if (apiKeyRequired) apiKeyRequired.checked = preset.apiKeyRequired !== false;
+    });
+
+    document.getElementById('interpreterSaveProvider')?.addEventListener('click', () => {
+        try {
+            handleSaveInterpreterProvider();
+        } catch (error) {
+            console.error('Failed to save provider:', error);
+            showToast('Failed to save provider', 'error');
+        }
+    });
+    document.getElementById('interpreterClearProviderKey')?.addEventListener('click', handleClearInterpreterProviderKey);
+    document.getElementById('interpreterCancelProvider')?.addEventListener('click', resetInterpreterProviderForm);
+
+    const providerEditor = document.getElementById('interpreterProviderEditor');
+    if (providerEditor) {
+        providerEditor.addEventListener('toggle', () => {
+            if (providerEditor.open && !editingInterpreterProviderId) {
+                clearInterpreterProviderFields();
+            }
+        });
+    }
+
+    document.getElementById('interpreterProvidersList')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-provider-id]');
+        if (!button) {
+            return;
+        }
+        const providerId = button.dataset.providerId;
+        if (button.dataset.action === 'edit-provider') {
+            const provider = getInterpreterConfig().providers.find((p) => p.id === providerId);
+            if (!provider) {
+                return;
+            }
+            editingInterpreterProviderId = providerId;
+            populateInterpreterProviderForm(provider);
+            const editor = document.getElementById('interpreterProviderEditor');
+            if (editor) editor.open = true;
+        } else if (button.dataset.action === 'remove-provider') {
+            removeInterpreterProvider(providerId);
+        }
+    });
+
+    document.getElementById('interpreterSaveModel')?.addEventListener('click', () => {
+        try {
+            handleSaveInterpreterModel();
+        } catch (error) {
+            console.error('Failed to save model:', error);
+            showToast('Failed to save model', 'error');
+        }
+    });
+    document.getElementById('interpreterCancelModel')?.addEventListener('click', resetInterpreterModelForm);
+    document.getElementById('interpreterModelProvider')?.addEventListener('change', refreshInterpreterModelIdDatalist);
+
+    const modelEditor = document.getElementById('interpreterModelEditor');
+    if (modelEditor) {
+        modelEditor.addEventListener('toggle', () => {
+            if (modelEditor.open && !editingInterpreterModelId) {
+                clearInterpreterModelFields();
+            }
+        });
+    }
+
+    document.getElementById('interpreterModelsList')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-model-id]');
+        if (!button) {
+            return;
+        }
+        const modelId = button.dataset.modelId;
+        if (button.dataset.action === 'edit-model') {
+            const model = getInterpreterConfig().models.find((m) => m.id === modelId);
+            if (!model) {
+                return;
+            }
+            editingInterpreterModelId = modelId;
+            populateInterpreterModelForm(model);
+            const editor = document.getElementById('interpreterModelEditor');
+            if (editor) editor.open = true;
+        } else if (button.dataset.action === 'remove-model') {
+            removeInterpreterModel(modelId);
+        }
+    });
+}
 
 	function getSiteRulesList() {
 	    return normalizeSiteRulesState(options?.siteRules);
@@ -2195,6 +2804,13 @@ const setCurrentChoice = result => {
     document.querySelector("[name='obsidianFolder']").value = options.obsidianFolder;
     document.querySelector("[name='sendToMaxUrlLength']").value = options.sendToMaxUrlLength;
 
+    const interpreterEnabledEl = document.querySelector("[name='interpreterEnabled']");
+    if (interpreterEnabledEl) interpreterEnabledEl.checked = options.interpreterEnabled === true;
+    const interpreterAutoRunEl = document.querySelector("[name='interpreterAutoRun']");
+    if (interpreterAutoRunEl) interpreterAutoRunEl.checked = options.interpreterAutoRun === true;
+    const defaultPromptContextEl = document.querySelector("[name='defaultPromptContext']");
+    if (defaultPromptContextEl) defaultPromptContextEl.value = options.defaultPromptContext || '';
+
     // Set preserveCodeFormatting checkbox
     document.querySelector("[name='preserveCodeFormatting']").checked = options.preserveCodeFormatting;
     document.querySelector("[name='autoDetectCodeLanguage']").checked = options.autoDetectCodeLanguage;
@@ -2341,11 +2957,17 @@ const restoreOptions = () => {
         browser.storage.sync.get(defaultOptions),
         loadLibrarySettingsState(),
         loadAgentBridgeSettingsState(),
-        loadAgentBridgeStatusState()
-    ]).then(([syncOptions, localLibrarySettings, localAgentBridgeSettings, localAgentBridgeStatus]) => {
+        loadAgentBridgeStatusState(),
+        (getInterpreterUtilsApi()?.loadInterpreterConfig?.() || Promise.resolve(null))
+    ]).then(([syncOptions, localLibrarySettings, localAgentBridgeSettings, localAgentBridgeStatus, loadedInterpreterConfig]) => {
         setCurrentChoice(syncOptions);
         setCurrentLibraryChoice(localLibrarySettings);
         setCurrentAgentBridgeChoice(localAgentBridgeSettings, localAgentBridgeStatus);
+        if (loadedInterpreterConfig) {
+            interpreterConfig = loadedInterpreterConfig;
+        }
+        renderInterpreterManagers();
+        refreshInterpreterModelEditor();
         refreshAgentBridgeStatusState().then((status) => {
             setCurrentAgentBridgeChoice(agentBridgeSettings, status);
         }).catch(onError);
@@ -2815,6 +3437,7 @@ const loaded = async () => {
 	    renderTemplatePreviews();
         initSendToControls();
         initWebhookTargetControls();
+        initInterpreterControls();
 
 	    // Restore saved options
 	    restoreOptions();
@@ -2855,6 +3478,7 @@ const loaded = async () => {
 		        if (input.closest('#siteRulesCard')) return;
                 if (input.closest('#defaultSendToTargetCard') || input.closest('#assistantTargetsCard')) return;
                 if (input.closest('#webhookTargetsCard')) return;
+                if (input.closest('#interpreterProvidersCard') || input.closest('#interpreterModelsCard')) return;
 		        // Skip permission panel buttons (they have their own handlers)
 		        if (['agentBridgePermContinue', 'agentBridgePermCancel', 'agentBridgePermRetry', 'agentBridgePermDismiss'].includes(input.id)) return;
 	        // Skip colorblind theme dropdown (has its own handlers)

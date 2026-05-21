@@ -87,7 +87,58 @@
     return chain.split(':').filter(Boolean).reduce((acc, name) => FILTERS[name](acc), value);
   }
 
+  // Interpreter prompt placeholders: {{prompt:"..."}} / {{"..."}}, optional
+  // trailing |filter chain. Kept in sync with interpreter-utils.createPromptRegex.
+  // A fresh instance per call — global-flag regexes carry stateful lastIndex.
+  function promptPlaceholderRegex() {
+    return /\{\{(?:prompt:)?"[\s\S]*?"(?:\|[^}]*)?\}\}/g;
+  }
+
+  // Swap every prompt placeholder for a collision-checked sentinel so that
+  // textReplace / generateValidFileName cannot delete or mangle it. The
+  // sentinel contains only [A-Za-z0-9_] so it survives filename sanitization.
+  // Returns { text, restore } — call restore() once the unsafe pass is done.
+  function protectPromptPlaceholders(str) {
+    const text = String(str == null ? '' : str);
+    if (!promptPlaceholderRegex().test(text)) {
+      return { text, restore: (value) => String(value == null ? '' : value) };
+    }
+
+    let base = '__MARKSNIP_PROMPT__';
+    while (text.includes(base)) {
+      base += 'X';
+    }
+
+    const map = [];
+    let index = 0;
+    const protectedText = text.replace(promptPlaceholderRegex(), (token) => {
+      const sentinel = base + (index++) + '__';
+      map.push([sentinel, token]);
+      return sentinel;
+    });
+
+    return {
+      text: protectedText,
+      restore(value) {
+        let result = String(value == null ? '' : value);
+        for (const [sentinel, token] of map) {
+          result = result.split(sentinel).join(token);
+        }
+        return result;
+      }
+    };
+  }
+
+  // Remove every interpreter prompt placeholder from a string. Used when the
+  // Interpreter feature is disabled, so a {{prompt:"..."}} that can never be
+  // resolved does not leak into the output.
+  function stripPromptPlaceholders(str) {
+    return String(str == null ? '' : str).replace(promptPlaceholderRegex(), '');
+  }
+
   function textReplace(string, article, disallowedChars = null, disallowedCharReplacement = '') {
+    const protectedPrompts = protectPromptPlaceholders(string);
+    string = protectedPrompts.text;
     const shouldSanitizeValues = disallowedChars !== null && disallowedChars !== undefined;
 
     const keys = Object.keys(article)
@@ -145,11 +196,15 @@
     const defaultRegex = /{(.*?)}/g;
     string = string.replace(defaultRegex, '');
 
-    return string;
+    return protectedPrompts.restore(string);
   }
 
   return {
     textReplace,
-    generateValidFileName
+    generateValidFileName,
+    protectPromptPlaceholders,
+    stripPromptPlaceholders,
+    applyFilters,
+    FILTERS
   };
 });

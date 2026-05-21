@@ -1604,6 +1604,97 @@ body {
     color: var(--text-tertiary);
 }
 
+/* Interpreter Section */
+.interpreter-section {
+    flex-shrink: 0;
+    margin: 0 var(--space-4) var(--space-3);
+    padding: var(--space-3);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-lg);
+    animation: fadeIn 300ms ease-out 120ms backwards;
+    transition: background-color var(--theme-transition), border-color var(--theme-transition);
+}
+
+.interpreter-section.done {
+    border-color: var(--accent);
+}
+
+.interpreter-section.error {
+    border-color: var(--border-medium);
+}
+
+.interpreter-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+}
+
+.interpreter-label {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.interpreter-timer {
+    margin-left: auto;
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+    background: var(--bg-tertiary);
+    padding: 2px 8px;
+    border-radius: 999px;
+    user-select: none;
+}
+
+.interpreter-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.interpreter-model-select {
+    flex: 1;
+    min-width: 0;
+    padding: var(--space-2) var(--space-3);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.interpreter-model-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+}
+
+.interpreter-btn {
+    flex-shrink: 0;
+}
+
+.interpreter-btn.processing {
+    opacity: 0.7;
+    cursor: progress;
+}
+
+.interpreter-btn.done {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+}
+
+.interpreter-error {
+    margin-top: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--danger, #c0392b);
+    line-height: 1.4;
+}
+
 /* Editor Section */
 .editor-section {
     flex: 1;

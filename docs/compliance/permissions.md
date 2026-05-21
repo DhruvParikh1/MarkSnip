@@ -107,4 +107,4 @@ The in-extension guide/help page. It is opened directly with the extension's own
 | `offscreen` | No | Yes |
 | `<all_urls>` | No | Yes |
 
-All content processing happens locally on your device. MarkSnip does not transmit page content, clipboard data, or browsing history to any external server.
+All content processing happens locally on your device by default. MarkSnip does not transmit page content, clipboard data, or browsing history to any external server unless you opt in to a feature that does so: the Interpreter feature sends a clip's Markdown to an LLM provider you configure, and the Agent Bridge feature sends it to a local CLI on your own machine. Both are off by default.

@@ -11,6 +11,7 @@ if (typeof importScripts === 'function') {
     'shared/default-options.js',
     'shared/template-utils.js',
     'shared/webhook-utils.js',
+    'shared/interpreter-utils.js',
     'shared/agent-bridge-state.js',
     'shared/obsidian-utils.js',
     'shared/library-export.js',
@@ -19,7 +20,7 @@ if (typeof importScripts === 'function') {
   );
 }
 
-const { textReplace, generateValidFileName } = globalThis.markSnipTemplateUtils;
+const { textReplace, generateValidFileName, protectPromptPlaceholders, stripPromptPlaceholders } = globalThis.markSnipTemplateUtils;
 
 // Log platform info
 browser.runtime.getPlatformInfo().then(async platformInfo => {
@@ -742,6 +743,9 @@ const {
 } = downloadTracker.getState();
 
 const WEBHOOK_FETCH_TIMEOUT_MS = 30000;
+const INTERPRETER_FETCH_TIMEOUT_MS = 120000;
+const INTERPRETER_RATE_LIMIT_MS = 60000;
+let lastInterpretRequestTime = 0;
 
 async function handleWebhookSend(message) {
   const { targetId, markdown, title, sourceUrl } = message;
@@ -810,6 +814,126 @@ async function handleWebhookSend(message) {
       return { success: false, error: 'Request timed out. The server did not respond within 30 seconds.' };
     }
     return { success: false, error: `Connection failed: ${error.message}` };
+  }
+}
+
+/**
+ * Handle an Interpreter request: send clipped content + prompts to the user's
+ * configured LLM provider and return the parsed prompt responses.
+ */
+async function handleInterpretRequest(message) {
+  const interpreterUtils = globalThis.markSnipInterpreterUtils;
+  if (!interpreterUtils) {
+    return { success: false, error: 'Interpreter module is unavailable' };
+  }
+
+  const modelId = String(message?.modelId || '').trim();
+  const promptVariables = Array.isArray(message?.promptVariables) ? message.promptVariables : [];
+  const promptContext = String(message?.promptContext || '');
+
+  if (!modelId) {
+    return { success: false, error: 'No interpreter model selected' };
+  }
+  if (promptVariables.length === 0) {
+    return { success: false, error: 'No prompt placeholders found' };
+  }
+
+  const config = await interpreterUtils.loadInterpreterConfig();
+  const model = config.models.find((m) => m.id === modelId);
+  if (!model) {
+    return { success: false, error: 'Selected interpreter model was not found' };
+  }
+  const provider = config.providers.find((p) => p.id === model.providerId);
+  if (!provider) {
+    return { success: false, error: `Provider not found for model ${model.name}` };
+  }
+  if (provider.apiKeyRequired && !provider.apiKey) {
+    return { success: false, error: `API key is not set for provider ${provider.name}` };
+  }
+
+  const now = Date.now();
+  if (now - lastInterpretRequestTime < INTERPRETER_RATE_LIMIT_MS) {
+    const waitSeconds = Math.ceil((INTERPRETER_RATE_LIMIT_MS - (now - lastInterpretRequestTime)) / 1000);
+    return {
+      success: false,
+      rateLimited: true,
+      error: `Rate limit cooldown. Please wait ${waitSeconds} seconds before trying again.`
+    };
+  }
+
+  let request;
+  try {
+    request = interpreterUtils.buildLLMRequest({ provider, model, promptContext, promptVariables });
+  } catch (error) {
+    return { success: false, error: error?.message || 'Failed to build interpreter request' };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), INTERPRETER_FETCH_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(request.url, {
+      method: 'POST',
+      headers: request.headers,
+      body: JSON.stringify(request.body),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let responseBody = '';
+      try {
+        responseBody = await response.text();
+      } catch {}
+
+      if (provider.family === 'ollama' && response.status === 403) {
+        return {
+          success: false,
+          status: 403,
+          error: 'Ollama rejected the request. Set OLLAMA_ORIGINS to allow browser-extension access, then retry.'
+        };
+      }
+
+      const detail = String(responseBody || '').trim().slice(0, 200);
+      return {
+        success: false,
+        status: response.status,
+        error: `${provider.name} error ${response.status}${detail ? ': ' + detail : ''}`
+      };
+    }
+
+    const responseText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      return { success: false, error: `Failed to parse response from ${provider.name}` };
+    }
+
+    lastInterpretRequestTime = Date.now();
+
+    const llmContent = interpreterUtils.extractLLMContent(provider, data);
+    const { promptResponses } = interpreterUtils.parseLLMResponse(llmContent, promptVariables);
+
+    if (!Array.isArray(promptResponses) || promptResponses.length === 0) {
+      return { success: false, error: `${provider.name} did not return a usable response` };
+    }
+
+    // parseLLMResponse fills missing keys with an empty string. Treat an
+    // incomplete answer as a failure so the user can retry rather than being
+    // left with unresolved placeholders.
+    const unanswered = promptResponses.filter((r) => !r || !String(r.user_response || '').trim());
+    if (unanswered.length > 0) {
+      return { success: false, error: `${provider.name} did not answer every prompt. Please try again.` };
+    }
+
+    return { success: true, promptResponses };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error?.name === 'AbortError') {
+      return { success: false, error: 'The interpreter request timed out.' };
+    }
+    return { success: false, error: `Connection failed: ${error?.message || 'unknown error'}` };
   }
 }
 
@@ -965,6 +1089,8 @@ async function handleMessages(message, sender, _sendResponse) {
       return Promise.resolve(batchState);
     case "webhook-send":
       return await handleWebhookSend(message);
+    case "interpret":
+      return await handleInterpretRequest(message);
   }
 }
 
@@ -3214,9 +3340,16 @@ async function toggleSetting(setting, options = null) {
 
 async function formatTitle(article, providedOptions = null) {
   const options = providedOptions || defaultOptions;
-  let title = textReplace(options.title, article, options.disallowedChars + '/', options.disallowedCharReplacement);
-  title = title.split('/').map(s => generateValidFileName(s, options.disallowedChars, options.disallowedCharReplacement)).join('/');
-  return title;
+  const titleTemplate = options.interpreterEnabled
+    ? options.title
+    : stripPromptPlaceholders(options.title);
+  let title = textReplace(titleTemplate, article, options.disallowedChars + '/', options.disallowedCharReplacement);
+  const protectedPrompts = protectPromptPlaceholders(title);
+  title = protectedPrompts.text
+    .split('/')
+    .map(s => generateValidFileName(s, options.disallowedChars, options.disallowedCharReplacement))
+    .join('/');
+  return protectedPrompts.restore(title);
 }
 
 function getArticlePageUrl(article, tab = null) {

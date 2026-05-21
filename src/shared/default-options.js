@@ -80,6 +80,10 @@ const defaultOptions = {
   editorTheme: 'default',
   uiLanguage: 'auto',
   siteRules: [],
+  interpreterEnabled: false,
+  interpreterAutoRun: false,
+  interpreterModelId: '',
+  defaultPromptContext: '{{content}}',
 }
 
 const LEGACY_DEFAULT_FRONTMATTER = "---\ncreated: {date:YYYY-MM-DDTHH:mm:ss} (UTC {date:Z})\ntags: [{keywords}]\nsource: {baseURI}\nauthor: {byline}\n---\n\n# {pageTitle}\n\n> ## Excerpt\n> {excerpt}\n\n---";

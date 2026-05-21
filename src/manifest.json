@@ -97,7 +97,8 @@
       "id": "marksnip@dhruvparikh",
       "strict_min_version": "121.0",
       "data_collection_permissions": {
-        "required": ["none"]
+        "required": ["none"],
+        "optional": ["websiteContent"]
       }
     }
   }

@@ -702,6 +702,12 @@ function createEffectiveMarkdownOptions(article, providedOptions = null, downloa
   }
 
   if (options.includeTemplate) {
+    // With the Interpreter disabled, a {{prompt:"..."}} can never be resolved,
+    // so drop it rather than leaking the raw token into the output.
+    if (!options.interpreterEnabled) {
+      options.frontmatter = stripPromptPlaceholders(options.frontmatter);
+      options.backmatter = stripPromptPlaceholders(options.backmatter);
+    }
     options.frontmatter = textReplace(options.frontmatter, article) + '\n';
     options.backmatter = '\n' + textReplace(options.backmatter, article);
   } else {
@@ -2014,10 +2020,17 @@ async function getArticleFromContent(tabId, selection = false, options = null) {
  */
 async function formatTitle(article, providedOptions = null) {
   const options = providedOptions || defaultOptions;
-  
-  let title = textReplace(options.title, article, options.disallowedChars + '/', options.disallowedCharReplacement);
-  title = title.split('/').map(s => generateValidFileName(s, options.disallowedChars, options.disallowedCharReplacement)).join('/');
-  return title;
+
+  const titleTemplate = options.interpreterEnabled
+    ? options.title
+    : stripPromptPlaceholders(options.title);
+  let title = textReplace(titleTemplate, article, options.disallowedChars + '/', options.disallowedCharReplacement);
+  const protectedPrompts = protectPromptPlaceholders(title);
+  title = protectedPrompts.text
+    .split('/')
+    .map(s => generateValidFileName(s, options.disallowedChars, options.disallowedCharReplacement))
+    .join('/');
+  return protectedPrompts.restore(title);
 }
 
 /**
@@ -2064,6 +2077,31 @@ function textReplace(string, article, disallowedChars = null, disallowedCharRepl
 */
 function generateValidFileName(title, disallowedChars = null, disallowedCharReplacement = '') {
   return getTemplateUtilsApi().generateValidFileName(title, disallowedChars, disallowedCharReplacement);
+}
+
+/**
+* Protect interpreter prompt placeholders before filename sanitization.
+*/
+function protectPromptPlaceholders(string) {
+  const api = getTemplateUtilsApi();
+  if (api && typeof api.protectPromptPlaceholders === 'function') {
+    return api.protectPromptPlaceholders(string);
+  }
+  return {
+    text: String(string == null ? '' : string),
+    restore: (value) => String(value == null ? '' : value)
+  };
+}
+
+/**
+* Remove interpreter prompt placeholders (used when the Interpreter is off).
+*/
+function stripPromptPlaceholders(string) {
+  const api = getTemplateUtilsApi();
+  if (api && typeof api.stripPromptPlaceholders === 'function') {
+    return api.stripPromptPlaceholders(string);
+  }
+  return String(string == null ? '' : string);
 }
 
 /**

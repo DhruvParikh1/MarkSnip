@@ -452,7 +452,12 @@ const dom = {
     textButton: document.getElementById('ddText'),
     htmlButton: document.getElementById('ddHtml'),
     printButton: document.getElementById('ddPrint'),
-    pdfButton: document.getElementById('ddPdf')
+    pdfButton: document.getElementById('ddPdf'),
+    interpreterSection: document.getElementById('interpreterSection'),
+    interpreterModelSelect: document.getElementById('interpreterModelSelect'),
+    interpretButton: document.getElementById('interpretBtn'),
+    interpreterTimer: document.getElementById('interpreterTimer'),
+    interpreterError: document.getElementById('interpreterError')
 };
 
 globalThis.cm = null;
@@ -2463,6 +2468,12 @@ const defaultOptions = {
     showThemeToggleInPopup: true,
     showUserGuideIcon: true,
     editorTheme: 'default',
+    interpreterEnabled: false,
+    interpreterAutoRun: false,
+    interpreterModelId: '',
+    defaultPromptContext: '{{content}}',
+    disallowedChars: '[]#^',
+    disallowedCharReplacement: '',
 }
 currentOptions = normalizePopupOptions({ ...defaultOptions });
 
@@ -3402,6 +3413,325 @@ async function maybeAutoSaveCurrentClip() {
         console.error('Failed to auto-save library item:', error);
     }
 }
+
+// ===== Interpreter =====
+// Detects {{prompt:"..."}} placeholders in a clip, sends content to the user's
+// LLM provider, and substitutes the responses back into the editor and title.
+let interpreterPromptVariables = [];
+let interpreterTimerId = null;
+let interpreterHasRun = false;
+
+function getInterpreterUtils() {
+    return globalThis.markSnipInterpreterUtils || null;
+}
+
+function getInterpreterTemplateUtils() {
+    return globalThis.markSnipTemplateUtils || null;
+}
+
+function setInterpreterSectionVisible(visible) {
+    if (dom.interpreterSection) {
+        dom.interpreterSection.style.display = visible ? '' : 'none';
+    }
+}
+
+function clearInterpreterTimer() {
+    if (interpreterTimerId !== null) {
+        clearInterval(interpreterTimerId);
+        interpreterTimerId = null;
+    }
+}
+
+function formatInterpreterDuration(ms) {
+    if (ms < 1000) {
+        return Math.round(ms) + 'ms';
+    }
+    return (ms / 1000).toFixed(1) + 's';
+}
+
+function setInterpreterBusy(busy) {
+    [dom.downloadButton, dom.copyButton].forEach((el) => {
+        if (el) {
+            el.disabled = busy;
+        }
+    });
+}
+
+function buildInterpreterPromptContext() {
+    const template = String(currentOptions?.defaultPromptContext || '{{content}}');
+    const content = String(currentClipState?.markdown || '');
+    if (template.includes('{{content}}')) {
+        return template.split('{{content}}').join(content);
+    }
+    return template || content;
+}
+
+function populateInterpreterModelSelect(enabledModels) {
+    const select = dom.interpreterModelSelect;
+    if (!select) {
+        return;
+    }
+    select.textContent = '';
+    enabledModels.forEach((model) => {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.name;
+        select.appendChild(option);
+    });
+    const preferred = currentOptions?.interpreterModelId;
+    select.value = preferred && enabledModels.some((m) => m.id === preferred)
+        ? preferred
+        : enabledModels[0].id;
+}
+
+function resetInterpreterButton() {
+    const btn = dom.interpretButton;
+    if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('processing', 'done', 'error');
+        btn.textContent = popupMessage('interpreterButton', null, 'Interpret');
+    }
+    if (dom.interpreterError) {
+        dom.interpreterError.hidden = true;
+        dom.interpreterError.textContent = '';
+    }
+    if (dom.interpreterTimer) {
+        dom.interpreterTimer.hidden = true;
+        dom.interpreterTimer.textContent = '';
+    }
+    if (dom.interpreterSection) {
+        dom.interpreterSection.classList.remove('done', 'error');
+    }
+}
+
+function setInterpreterError(messageText) {
+    if (dom.interpreterError) {
+        dom.interpreterError.textContent = messageText;
+        dom.interpreterError.hidden = false;
+    }
+    if (dom.interpreterSection) {
+        dom.interpreterSection.classList.add('error');
+    }
+}
+
+// Detect placeholders and prepare the interpreter panel. Returns a Promise so
+// the display.md handler can defer library auto-save until after an auto-run.
+async function maybeInitInterpreter(markdown, title) {
+    clearInterpreterTimer();
+    interpreterHasRun = false;
+    interpreterPromptVariables = [];
+
+    const utils = getInterpreterUtils();
+    if (!utils || !currentOptions?.interpreterEnabled) {
+        setInterpreterSectionVisible(false);
+        return;
+    }
+
+    const variables = utils.collectPromptVariables(String(markdown || ''), String(title || ''));
+    if (variables.length === 0) {
+        setInterpreterSectionVisible(false);
+        return;
+    }
+    interpreterPromptVariables = variables;
+
+    let config;
+    try {
+        config = await utils.loadInterpreterConfig();
+    } catch (error) {
+        console.error('Failed to load interpreter config:', error);
+        setInterpreterSectionVisible(false);
+        return;
+    }
+
+    const enabledModels = (config.models || []).filter((m) => m.enabled);
+    if (enabledModels.length === 0) {
+        setInterpreterSectionVisible(false);
+        return;
+    }
+
+    populateInterpreterModelSelect(enabledModels);
+    resetInterpreterButton();
+    setInterpreterSectionVisible(true);
+
+    if (currentOptions.interpreterAutoRun) {
+        if (dom.interpretButton) {
+            dom.interpretButton.style.display = 'none';
+        }
+        await runInterpreter();
+    } else if (dom.interpretButton) {
+        dom.interpretButton.style.display = '';
+    }
+}
+
+async function runInterpreter() {
+    const utils = getInterpreterUtils();
+    if (!utils || interpreterHasRun || interpreterPromptVariables.length === 0) {
+        return;
+    }
+
+    const modelId = dom.interpreterModelSelect?.value || '';
+    if (!modelId) {
+        setInterpreterError(popupMessage('interpreterNoModel', null, 'Select an interpreter model first.'));
+        return;
+    }
+
+    const btn = dom.interpretButton;
+    interpreterHasRun = true;
+
+    try {
+        await browser.storage.sync.set({ interpreterModelId: modelId });
+        currentOptions.interpreterModelId = modelId;
+    } catch (error) {
+        console.error('Failed to persist interpreter model:', error);
+    }
+
+    if (dom.interpreterError) {
+        dom.interpreterError.hidden = true;
+        dom.interpreterError.textContent = '';
+    }
+    dom.interpreterSection?.classList.remove('done', 'error');
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.remove('done', 'error');
+        btn.classList.add('processing');
+        btn.textContent = popupMessage('interpreterThinking', null, 'Thinking...');
+    }
+    setInterpreterBusy(true);
+
+    const startTime = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (dom.interpreterTimer) {
+        dom.interpreterTimer.hidden = false;
+        dom.interpreterTimer.textContent = '0ms';
+    }
+    clearInterpreterTimer();
+    interpreterTimerId = setInterval(() => {
+        const elapsed = (typeof performance !== 'undefined' ? performance.now() : Date.now()) - startTime;
+        if (dom.interpreterTimer) {
+            dom.interpreterTimer.textContent = formatInterpreterDuration(elapsed);
+        }
+    }, 100);
+
+    let response;
+    try {
+        response = await browser.runtime.sendMessage({
+            type: 'interpret',
+            modelId,
+            promptContext: buildInterpreterPromptContext(),
+            promptVariables: interpreterPromptVariables
+        });
+    } catch (error) {
+        response = { success: false, error: error?.message || 'Interpreter request failed' };
+    }
+
+    clearInterpreterTimer();
+
+    if (!response || response.success !== true) {
+        interpreterHasRun = false;
+        if (btn) {
+            btn.disabled = false;
+            btn.style.display = '';
+            btn.classList.remove('processing');
+            btn.classList.add('error');
+            btn.textContent = popupMessage('interpreterButton', null, 'Interpret');
+        }
+        if (dom.interpreterTimer) {
+            dom.interpreterTimer.hidden = true;
+        }
+        setInterpreterError(response?.error || popupMessage('interpreterError', null, 'Interpreter request failed.'));
+        setInterpreterBusy(false);
+        return;
+    }
+
+    const tmpl = getInterpreterTemplateUtils();
+    const newMarkdown = utils.replacePromptVariables(
+        currentClipState.markdown,
+        interpreterPromptVariables,
+        response.promptResponses
+    );
+    let newTitle = utils.replacePromptVariables(
+        currentClipState.title,
+        interpreterPromptVariables,
+        response.promptResponses
+    );
+    if (tmpl?.generateValidFileName) {
+        // Sanitize per "/" segment so title-folder separators are preserved,
+        // matching offscreen/service-worker formatTitle behavior.
+        newTitle = String(newTitle)
+            .split('/')
+            .map((segment) => tmpl.generateValidFileName(
+                segment,
+                currentOptions.disallowedChars,
+                currentOptions.disallowedCharReplacement
+            ))
+            .join('/');
+    }
+
+    setEditorValue(newMarkdown);
+    if (dom.titleInput) {
+        dom.titleInput.value = newTitle;
+    }
+    updateCurrentClipState({ ...currentClipState, markdown: newMarkdown, title: newTitle });
+    refreshEditor();
+
+    if (btn) {
+        btn.disabled = true;
+        btn.classList.remove('processing', 'error');
+        btn.classList.add('done');
+        btn.textContent = popupMessage('interpreterDone', null, 'Done');
+    }
+    dom.interpreterSection?.classList.add('done');
+    setInterpreterBusy(false);
+
+    // Re-save the substituted snapshot so Library never keeps a raw-placeholder
+    // copy. Clearing the URL lets maybeAutoSaveCurrentClip upsert it again.
+    try {
+        const api = getLibraryStateApi();
+        if (api && currentClipState.pageUrl) {
+            const normalizedUrl = api.normalizePageUrl(currentClipState.pageUrl);
+            if (normalizedUrl) {
+                autoSavedLibraryUrls.delete(normalizedUrl);
+            }
+        }
+        await maybeAutoSaveCurrentClip();
+    } catch (error) {
+        console.error('Failed to re-save interpreted clip to Library:', error);
+    }
+}
+
+// Guards an export action: if the interpreter is enabled and the content being
+// exported still has an unrun {{prompt:"..."}} placeholder, ask for confirmation.
+// Returns false only when the user chooses to cancel.
+function confirmInterpreterExport(content, title) {
+    const utils = getInterpreterUtils();
+    if (!utils || !currentOptions?.interpreterEnabled) {
+        return true;
+    }
+    if (!utils.hasPromptPlaceholders(String(content || ''), String(title || ''))) {
+        return true;
+    }
+    return window.confirm(popupMessage(
+        'interpreterUnresolvedExportWarning',
+        null,
+        'This clip still contains an interpreter prompt ({{prompt:"..."}}) that has not been run yet. Export it anyway?'
+    ));
+}
+
+dom.interpretButton?.addEventListener('click', () => {
+    runInterpreter().catch((error) => {
+        console.error('Interpreter run failed:', error);
+    });
+});
+
+dom.interpreterModelSelect?.addEventListener('change', (event) => {
+    const modelId = event.target?.value || '';
+    if (!modelId) {
+        return;
+    }
+    currentOptions.interpreterModelId = modelId;
+    browser.storage.sync.set({ interpreterModelId: modelId }).catch((error) => {
+        console.error('Failed to persist interpreter model:', error);
+    });
+});
 
 function getPopupBatchUtilsApi() {
     return globalThis.markSnipPopupBatchUtils || null;
@@ -4469,6 +4799,10 @@ async function handleSendToAction(targetId = currentOptions?.defaultSendToTarget
         return;
     }
 
+    if (!confirmInterpreterExport(content)) {
+        return;
+    }
+
     const target = resolveSendToTarget(targetId, currentOptions);
     const { launchUrl, fallbackUrl, requiresClipboardFallback } = buildAssistantLaunchUrls(target, content, currentOptions);
 
@@ -4513,6 +4847,10 @@ async function handleWebhookSendAction(targetId, { selectionOnly = false, trigge
             setPrimaryActionFeedback(triggerButton, 'Nothing to send', 'error');
             setTimeout(resetPrimaryActionFeedback, 1800);
         }
+        return;
+    }
+
+    if (!confirmInterpreterExport(content)) {
         return;
     }
 
@@ -4607,6 +4945,10 @@ async function exportCurrentContent(kind, { selectionOnly = false, closeAfter = 
     const markdown = selectionOnly ? getEditorSelection() : getEditorValue();
     const title = getCurrentExportTitle();
 
+    if (!confirmInterpreterExport(markdown, title)) {
+        return;
+    }
+
     if (exportKind === 'markdown') {
         await sendDownloadMessage(markdown, dom.titleInput?.value || '');
         if (closeAfter) {
@@ -4638,6 +4980,10 @@ async function handlePrimaryCopyAction({ selectionOnly = false, triggerButton = 
             setPrimaryActionFeedback(triggerButton, popupMessage('popupNothingToCopyFeedback', null, 'Nothing to copy'), 'error', 'copy');
             setTimeout(resetPrimaryActionFeedback, 1800);
         }
+        return;
+    }
+
+    if (!confirmInterpreterExport(textToCopy)) {
         return;
     }
 
@@ -4772,6 +5118,10 @@ async function copyToClipboard(e) {
             return;
         }
 
+        if (!confirmInterpreterExport(textToCopy)) {
+            return;
+        }
+
         await navigator.clipboard.writeText(textToCopy);
         await recordSuccessfulCopyMetric();
 
@@ -4817,6 +5167,9 @@ function copySelectionToClipboard(e) {
     if (!editorHasSelection() || !copySelButton) return;
 
     const selectedText = getEditorSelection();
+    if (!confirmInterpreterExport(selectedText)) {
+        return;
+    }
     navigator.clipboard.writeText(selectedText).then(async () => {
         await recordSuccessfulCopyMetric();
 
@@ -4870,11 +5223,16 @@ async function sendToObsidian(e) {
         }
 
         // Get markdown content
+        const title = dom.titleInput?.value || popupMessage('popupUntitledFallback', null, 'Untitled');
+
+        if (!confirmInterpreterExport(getEditorValue(), title)) {
+            return;
+        }
+
         const markdown = markSnipObsidian.prepareMarkdownForObsidian(
             getEditorValue(),
             sourceImageMap || {}
         );
-        const title = dom.titleInput?.value || popupMessage('popupUntitledFallback', null, 'Untitled');
 
         const currentTab = await getActiveTab();
         if (!currentTab?.id) {
@@ -4954,9 +5312,16 @@ function notify(message) {
             });
         }
         dom.spinner.style.display = 'none';
-        maybeAutoSaveCurrentClip().catch((error) => {
-            console.error('Failed during popup library auto-save:', error);
-        });
+        // Chain library auto-save off the interpreter: when auto-run is active
+        // the save must capture substituted content, not the raw placeholders.
+        maybeInitInterpreter(message.markdown, message.article?.title)
+            .catch((error) => {
+                console.error('Failed to initialize interpreter:', error);
+            })
+            .then(() => maybeAutoSaveCurrentClip())
+            .catch((error) => {
+                console.error('Failed during popup library auto-save:', error);
+            });
         scheduleDeferredLibraryWarmup();
 
         if (!shouldRevealMainView && activePopupView === 'main') {
