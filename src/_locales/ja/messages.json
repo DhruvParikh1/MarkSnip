@@ -177,7 +177,7 @@
     "description": "Shown when the Test-first dry run cannot capture the page state"
   },
   "extensionName": {
-    "message": "MarkSnip - Markdown ウェブクリッパー",
+    "message": "MarkSnip - ウェブページを Markdown に変換するクリッパー",
     "description": "The name of the extension"
   },
   "extensionDescription": {

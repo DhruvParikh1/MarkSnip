@@ -126,7 +126,7 @@ const runtimeMock = {
     return `chrome-extension://test-extension-id/${path}`;
   }),
   getManifest: jest.fn(() => ({
-    name: 'MarkSnip - Markdown Web Clipper',
+    name: 'MarkSnip - Webpage to Markdown Clipper',
     version: '4.0.0',
     manifest_version: 3
   }))

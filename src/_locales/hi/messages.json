@@ -177,7 +177,7 @@
     "description": "Shown when the Test-first dry run cannot capture the page state"
   },
   "extensionName": {
-    "message": "MarkSnip - मार्कडाउन वेब क्लिपर",
+    "message": "MarkSnip - वेबपेज से मार्कडाउन क्लिपर",
     "description": "The name of the extension"
   },
   "extensionDescription": {

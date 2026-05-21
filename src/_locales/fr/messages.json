@@ -177,7 +177,7 @@
     "description": "Shown when the Test-first dry run cannot capture the page state"
   },
   "extensionName": {
-    "message": "MarkSnip - Outil de capture web Markdown",
+    "message": "MarkSnip - Capture de page web en Markdown",
     "description": "The name of the extension"
   },
   "extensionDescription": {

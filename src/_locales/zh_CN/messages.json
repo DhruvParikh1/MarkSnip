@@ -177,7 +177,7 @@
     "description": "Shown when the Test-first dry run cannot capture the page state"
   },
   "extensionName": {
-    "message": "MarkSnip - Markdown 网页剪藏",
+    "message": "MarkSnip - 网页转 Markdown 剪藏",
     "description": "The name of the extension"
   },
   "extensionDescription": {

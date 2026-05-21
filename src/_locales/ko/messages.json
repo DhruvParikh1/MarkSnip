@@ -177,7 +177,7 @@
     "description": "Shown when the Test-first dry run cannot capture the page state"
   },
   "extensionName": {
-    "message": "MarkSnip - 마크다운 웹 클리퍼",
+    "message": "MarkSnip - 웹페이지를 마크다운으로 변환하는 클리퍼",
     "description": "The name of the extension"
   },
   "extensionDescription": {

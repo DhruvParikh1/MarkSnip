@@ -177,7 +177,7 @@
     "description": "Shown when the Test-first dry run cannot capture the page state"
   },
   "extensionName": {
-    "message": "MarkSnip - Ritagliatore web per Markdown",
+    "message": "MarkSnip - Ritagliatore di pagine web in Markdown",
     "description": "The name of the extension"
   },
   "extensionDescription": {
