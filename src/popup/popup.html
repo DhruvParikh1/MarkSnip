@@ -270,21 +270,7 @@
 
     <!-- Title Input -->
     <section class="title-section">
-      <label for="title" class="input-label">Title</label>
-      <input type="text" id="title" class="title-input" placeholder="Document title...">
-    </section>
-
-    <!-- Interpreter Section -->
-    <section class="interpreter-section" id="interpreterSection" style="display: none;">
-      <div class="interpreter-header">
-        <span class="interpreter-label" data-i18n="interpreterSectionTitle">Interpreter</span>
-        <span id="interpreterTimer" class="interpreter-timer" hidden></span>
-      </div>
-      <div class="interpreter-controls">
-        <select id="interpreterModelSelect" class="interpreter-model-select" aria-label="Interpreter model"></select>
-        <button id="interpretBtn" class="btn btn-secondary interpreter-btn" type="button" data-i18n="interpreterButton">Interpret</button>
-      </div>
-      <div id="interpreterError" class="interpreter-error" role="alert" hidden></div>
+      <input type="text" id="title" class="title-input" placeholder="Document title..." aria-label="Document title">
     </section>
 
     <!-- Editor Section -->
@@ -322,6 +308,24 @@
           <div class="markdown-body"></div>
         </div>
       </div>
+    </section>
+
+    <!-- Interpreter -->
+    <section class="interpreter-bar" id="interpreterSection" style="display: none;" aria-label="Interpreter">
+      <div class="interpreter-bar__row">
+        <div class="interpreter-model" id="interpreterModelWrap">
+          <button type="button" class="interpreter-model-btn" id="interpreterModelBtn" aria-haspopup="listbox" aria-expanded="false">
+            <span class="interpreter-model-label" id="interpreterModelBtnLabel">Select model</span>
+            <span class="interpreter-model__chevron" aria-hidden="true">&rsaquo;</span>
+          </button>
+          <ul class="interpreter-model-menu" id="interpreterModelMenu" role="listbox" hidden></ul>
+        </div>
+        <div class="interpreter-bar__actions">
+          <span id="interpreterTimer" class="interpreter-timer" hidden></span>
+          <button id="interpretBtn" class="interpreter-btn" type="button" data-i18n="interpreterButton">Interpret</button>
+        </div>
+      </div>
+      <div id="interpreterError" class="interpreter-error" role="alert" hidden></div>
     </section>
 
     <!-- Action Buttons -->

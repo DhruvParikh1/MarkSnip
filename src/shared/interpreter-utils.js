@@ -127,39 +127,9 @@
     return out;
   }
 
-  function seededProviders() {
-    return PROVIDER_PRESETS.map((preset) => ({
-      id: preset.id,
-      name: preset.name,
-      family: preset.family,
-      baseUrl: preset.baseUrl,
-      apiKey: '',
-      apiKeyRequired: preset.apiKeyRequired === true,
-      presetId: preset.id
-    }));
-  }
-
-  function seededModels() {
-    return PROVIDER_PRESETS.map((preset) => {
-      const first = preset.popularModels[0];
-      return {
-        id: 'model-' + preset.id + '-default',
-        providerId: preset.id,
-        providerModelId: first.id,
-        name: preset.name + ' - ' + first.name,
-        enabled: true
-      };
-    });
-  }
-
-  function buildDefaultInterpreterConfig() {
-    return {
-      providers: seededProviders(),
-      models: seededModels()
-    };
-  }
-
-  const DEFAULT_INTERPRETER_CONFIG = buildDefaultInterpreterConfig();
+  // Interpreter starts with nothing configured. PROVIDER_PRESETS only seed the
+  // "Add Provider" form; they are not auto-added to a user's config.
+  const DEFAULT_INTERPRETER_CONFIG = { providers: [], models: [] };
 
   function getBrowser() {
     if (typeof browser !== 'undefined' && browser && browser.storage) {
@@ -519,8 +489,9 @@
     };
   }
 
-  // Coerce stored config into a valid shape: re-merge missing seeded
-  // providers, drop malformed entries, drop models with no resolvable provider.
+  // Coerce stored config into a valid shape: drop malformed entries and drop
+  // models whose provider no longer exists. Nothing is auto-seeded — the
+  // interpreter is empty until the user adds providers and models themselves.
   function normalizeInterpreterConfig(raw) {
     const source = raw && typeof raw === 'object' ? raw : {};
 
@@ -529,25 +500,13 @@
       : [];
 
     const providerIds = new Set(providers.map((p) => p.id));
-    seededProviders().forEach((seed) => {
-      if (!providerIds.has(seed.id)) {
-        providers.push(seed);
-        providerIds.add(seed.id);
-      }
-    });
 
-    let models;
-    if (Array.isArray(source.models)) {
-      // An explicit array is respected even when empty — a user who removes
-      // every model must not have seeded models silently re-added on save.
-      models = source.models
+    const models = Array.isArray(source.models)
+      ? source.models
         .map(normalizeModel)
         .filter(Boolean)
-        .filter((model) => providerIds.has(model.providerId));
-    } else {
-      // No stored models at all: first run / missing config.
-      models = seededModels();
-    }
+        .filter((model) => providerIds.has(model.providerId))
+      : [];
 
     return { providers, models };
   }

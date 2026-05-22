@@ -941,6 +941,7 @@ function initWebhookTargetControls() {
 let interpreterConfig = null;
 let editingInterpreterProviderId = null;
 let editingInterpreterModelId = null;
+let interpreterClearProviderKeyFlag = false;
 
 function getInterpreterUtilsApi() {
     return globalThis.markSnipInterpreterUtils || null;
@@ -956,9 +957,8 @@ function getInterpreterConfig() {
     return interpreterConfig;
 }
 
-function isSeededInterpreterProvider(providerId) {
-    const presets = getInterpreterUtilsApi()?.PROVIDER_PRESETS || [];
-    return presets.some((preset) => preset.id === providerId);
+function getInterpreterPresets() {
+    return getInterpreterUtilsApi()?.PROVIDER_PRESETS || [];
 }
 
 async function persistInterpreterConfig(feedback) {
@@ -993,7 +993,7 @@ function renderInterpreterProvidersList() {
     if (config.providers.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'assistant-targets-empty';
-        empty.textContent = 'No providers configured yet.';
+        empty.textContent = 'No providers yet. Click "Add Provider" to configure one.';
         list.appendChild(empty);
         return;
     }
@@ -1009,10 +1009,8 @@ function renderInterpreterProvidersList() {
         header.className = 'assistant-target-item__header';
 
         const badge = document.createElement('span');
-        badge.className = 'webhook-method-badge';
-        badge.textContent = provider.apiKey
-            ? 'KEY SET'
-            : (provider.apiKeyRequired ? 'NO KEY' : 'NO AUTH');
+        badge.className = 'interpreter-state-badge ' + (provider.apiKey ? 'is-on' : 'is-off');
+        badge.textContent = provider.apiKey ? 'KEY SET' : 'NO KEY';
 
         const name = document.createElement('h4');
         name.className = 'assistant-target-item__name';
@@ -1039,18 +1037,17 @@ function renderInterpreterProvidersList() {
         editButton.dataset.action = 'edit-provider';
         editButton.textContent = 'Edit';
         editButton.setAttribute('aria-label', `Edit ${provider.name}`);
-        actions.appendChild(editButton);
 
-        if (!isSeededInterpreterProvider(provider.id)) {
-            const removeButton = document.createElement('button');
-            removeButton.type = 'button';
-            removeButton.className = 'btn btn-secondary btn-sm assistant-target-item__remove';
-            removeButton.dataset.providerId = provider.id;
-            removeButton.dataset.action = 'remove-provider';
-            removeButton.textContent = 'Remove';
-            removeButton.setAttribute('aria-label', `Remove ${provider.name}`);
-            actions.appendChild(removeButton);
-        }
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-secondary btn-sm assistant-target-item__remove';
+        removeButton.dataset.providerId = provider.id;
+        removeButton.dataset.action = 'remove-provider';
+        removeButton.textContent = 'Remove';
+        removeButton.setAttribute('aria-label', `Remove ${provider.name}`);
+
+        actions.appendChild(editButton);
+        actions.appendChild(removeButton);
 
         item.appendChild(body);
         item.appendChild(actions);
@@ -1069,13 +1066,14 @@ function renderInterpreterModelsList() {
     if (config.models.length === 0) {
         const empty = document.createElement('p');
         empty.className = 'assistant-targets-empty';
-        empty.textContent = 'No models configured yet.';
+        empty.textContent = 'No models yet. Click "Add Model" to add one.';
         list.appendChild(empty);
         return;
     }
 
     config.models.forEach((model) => {
         const provider = config.providers.find((p) => p.id === model.providerId);
+        const modelLabel = model.providerModelId || model.name;
 
         const item = document.createElement('article');
         item.className = 'assistant-target-item';
@@ -1087,19 +1085,19 @@ function renderInterpreterModelsList() {
         header.className = 'assistant-target-item__header';
 
         const badge = document.createElement('span');
-        badge.className = 'webhook-method-badge';
+        badge.className = 'interpreter-state-badge ' + (model.enabled ? 'is-on' : 'is-off');
         badge.textContent = model.enabled ? 'ON' : 'OFF';
 
         const name = document.createElement('h4');
         name.className = 'assistant-target-item__name';
-        name.textContent = model.name;
+        name.textContent = modelLabel;
 
         header.appendChild(badge);
         header.appendChild(name);
 
         const meta = document.createElement('code');
         meta.className = 'assistant-target-item__meta';
-        meta.textContent = `${provider ? provider.name : 'Unknown provider'} / ${model.providerModelId}`;
+        meta.textContent = provider ? provider.name : 'Unknown provider';
 
         body.appendChild(header);
         body.appendChild(meta);
@@ -1113,7 +1111,7 @@ function renderInterpreterModelsList() {
         editButton.dataset.modelId = model.id;
         editButton.dataset.action = 'edit-model';
         editButton.textContent = 'Edit';
-        editButton.setAttribute('aria-label', `Edit ${model.name}`);
+        editButton.setAttribute('aria-label', `Edit ${modelLabel}`);
 
         const removeButton = document.createElement('button');
         removeButton.type = 'button';
@@ -1121,7 +1119,7 @@ function renderInterpreterModelsList() {
         removeButton.dataset.modelId = model.id;
         removeButton.dataset.action = 'remove-model';
         removeButton.textContent = 'Remove';
-        removeButton.setAttribute('aria-label', `Remove ${model.name}`);
+        removeButton.setAttribute('aria-label', `Remove ${modelLabel}`);
 
         actions.appendChild(editButton);
         actions.appendChild(removeButton);
@@ -1137,96 +1135,169 @@ function renderInterpreterManagers() {
     renderInterpreterModelsList();
 }
 
-function populateInterpreterProviderPresetSelect() {
+function getInterpreterPresetById(presetId) {
+    return getInterpreterPresets().find((preset) => preset.id === presetId) || null;
+}
+
+function populateProviderPresetSelect() {
     const select = document.getElementById('interpreterProviderPreset');
     if (!select) {
         return;
     }
-    const presets = getInterpreterUtilsApi()?.PROVIDER_PRESETS || [];
-    select.innerHTML = '<option value="">Custom provider</option>';
-    presets.forEach((preset) => {
+    select.innerHTML = '';
+    getInterpreterPresets().forEach((preset) => {
         const option = document.createElement('option');
         option.value = preset.id;
         option.textContent = preset.name;
         select.appendChild(option);
     });
+    const customOption = document.createElement('option');
+    customOption.value = 'custom';
+    customOption.textContent = 'Custom';
+    select.appendChild(customOption);
 }
 
-function setInterpreterProviderKeyHint(provider) {
+// Show/hide the Name + API Format fields and refresh the API-key hint to match
+// the chosen provider preset (or reveal them for a custom provider).
+function applyProviderPresetToForm(presetId) {
+    const nameGroup = document.getElementById('interpreterProviderNameGroup');
+    const familyGroup = document.getElementById('interpreterProviderFamilyGroup');
+    const requiresKeyGroup = document.getElementById('interpreterProviderRequiresKeyGroup');
+    const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
     const hint = document.getElementById('interpreterProviderApiKeyHint');
-    if (!hint) {
+    const isCustom = presetId === 'custom';
+
+    if (nameGroup) nameGroup.hidden = !isCustom;
+    if (familyGroup) familyGroup.hidden = !isCustom;
+    if (requiresKeyGroup) requiresKeyGroup.hidden = !isCustom;
+
+    if (isCustom) {
+        if (hint) hint.textContent = 'Your API key for this provider. Stored locally on this device only.';
         return;
     }
-    if (provider && provider.apiKey) {
-        hint.textContent = 'A key is saved. Leave blank to keep it, or type a new key to replace it.';
-    } else if (provider) {
-        hint.textContent = 'No key saved yet. Stored locally on this device only.';
-    } else {
-        hint.textContent = 'Stored locally on this device only.';
+
+    const preset = getInterpreterPresetById(presetId);
+    if (!preset) {
+        return;
+    }
+    if (baseUrlInput) baseUrlInput.value = preset.baseUrl;
+    if (hint) {
+        hint.textContent = 'Your API key for this provider. ';
+        if (preset.apiKeyUrl) {
+            const link = document.createElement('a');
+            link.href = preset.apiKeyUrl;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            link.textContent = `Get your ${preset.name} API key here.`;
+            hint.appendChild(link);
+        } else {
+            hint.appendChild(document.createTextNode('Stored locally on this device only.'));
+        }
     }
 }
 
-// Clears the provider editor fields WITHOUT touching <details>.open. Safe to
-// call from the editor's own toggle handler.
-function clearInterpreterProviderFields() {
-    editingInterpreterProviderId = null;
+function closeInterpreterDialog(dialogId) {
+    const dialog = document.getElementById(dialogId);
+    if (dialog && typeof dialog.close === 'function' && dialog.open) {
+        dialog.close();
+    }
+}
+
+function openInterpreterProviderDialog(provider) {
+    const dialog = document.getElementById('interpreterProviderDialog');
+    if (!dialog) {
+        return;
+    }
+    editingInterpreterProviderId = provider ? provider.id : null;
+    interpreterClearProviderKeyFlag = false;
+
+    const title = document.getElementById('interpreterProviderDialogTitle');
+    if (title) title.textContent = provider ? 'Edit provider' : 'Add provider';
+
     const presetSelect = document.getElementById('interpreterProviderPreset');
     const nameInput = document.getElementById('interpreterProviderName');
     const familySelect = document.getElementById('interpreterProviderFamily');
+    const requiresKeyInput = document.getElementById('interpreterProviderRequiresKey');
     const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
     const apiKeyInput = document.getElementById('interpreterProviderApiKey');
-    const apiKeyRequired = document.getElementById('interpreterProviderApiKeyRequired');
-    const summary = document.getElementById('interpreterProviderEditorSummary');
+    const clearKeyButton = document.getElementById('interpreterClearProviderKey');
 
-    if (presetSelect) { presetSelect.value = ''; presetSelect.style.display = ''; }
-    if (nameInput) nameInput.value = '';
-    if (familySelect) familySelect.value = 'openai';
-    if (baseUrlInput) baseUrlInput.value = '';
+    let presetId;
+    if (provider) {
+        presetId = provider.presetId && getInterpreterPresetById(provider.presetId)
+            ? provider.presetId
+            : 'custom';
+    } else {
+        presetId = getInterpreterPresets()[0]?.id || 'custom';
+    }
+    if (presetSelect) presetSelect.value = presetId;
+    applyProviderPresetToForm(presetId);
+
+    // The API key field is always left blank; a saved key is preserved unless
+    // the user types a replacement or explicitly clears it.
     if (apiKeyInput) apiKeyInput.value = '';
-    if (apiKeyRequired) apiKeyRequired.checked = true;
-    if (summary) summary.textContent = 'Add Provider';
-    setInterpreterProviderKeyHint(null);
+
+    if (provider) {
+        if (presetId === 'custom') {
+            if (nameInput) nameInput.value = provider.name || '';
+            if (familySelect) familySelect.value = provider.family || 'openai';
+            if (requiresKeyInput) requiresKeyInput.checked = provider.apiKeyRequired !== false;
+        }
+        if (baseUrlInput) baseUrlInput.value = provider.baseUrl || '';
+        if (apiKeyInput) {
+            apiKeyInput.placeholder = provider.apiKey
+                ? 'Leave blank to keep the saved key'
+                : 'API key';
+        }
+        if (clearKeyButton) clearKeyButton.hidden = !provider.apiKey;
+    } else {
+        if (nameInput) nameInput.value = '';
+        if (familySelect) familySelect.value = 'openai';
+        if (requiresKeyInput) requiresKeyInput.checked = true;
+        if (apiKeyInput) apiKeyInput.placeholder = 'API key';
+        if (clearKeyButton) clearKeyButton.hidden = true;
+    }
+
+    dialog.showModal();
 }
 
-function resetInterpreterProviderForm() {
-    clearInterpreterProviderFields();
-    const editor = document.getElementById('interpreterProviderEditor');
-    if (editor) editor.open = false;
-}
-
-function populateInterpreterProviderForm(provider) {
-    const presetSelect = document.getElementById('interpreterProviderPreset');
-    const nameInput = document.getElementById('interpreterProviderName');
-    const familySelect = document.getElementById('interpreterProviderFamily');
-    const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
+// Flags the saved key for removal on the next Save (edit mode only).
+function handleClearInterpreterProviderKey() {
+    interpreterClearProviderKeyFlag = true;
     const apiKeyInput = document.getElementById('interpreterProviderApiKey');
-    const apiKeyRequired = document.getElementById('interpreterProviderApiKeyRequired');
-    const summary = document.getElementById('interpreterProviderEditorSummary');
-
-    if (presetSelect) presetSelect.style.display = 'none';
-    if (nameInput) nameInput.value = provider.name;
-    if (familySelect) familySelect.value = provider.family || 'openai';
-    if (baseUrlInput) baseUrlInput.value = provider.baseUrl;
-    if (apiKeyInput) apiKeyInput.value = '';
-    if (apiKeyRequired) apiKeyRequired.checked = provider.apiKeyRequired !== false;
-    if (summary) summary.textContent = `Edit: ${provider.name}`;
-    setInterpreterProviderKeyHint(provider);
+    const clearKeyButton = document.getElementById('interpreterClearProviderKey');
+    if (apiKeyInput) {
+        apiKeyInput.value = '';
+        apiKeyInput.placeholder = 'Saved key will be removed on Save';
+    }
+    if (clearKeyButton) clearKeyButton.hidden = true;
 }
 
 function handleSaveInterpreterProvider() {
+    const presetSelect = document.getElementById('interpreterProviderPreset');
     const nameInput = document.getElementById('interpreterProviderName');
     const familySelect = document.getElementById('interpreterProviderFamily');
+    const requiresKeyInput = document.getElementById('interpreterProviderRequiresKey');
     const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
     const apiKeyInput = document.getElementById('interpreterProviderApiKey');
-    const apiKeyRequired = document.getElementById('interpreterProviderApiKeyRequired');
 
-    const name = String(nameInput?.value || '').trim();
-    const family = String(familySelect?.value || 'openai');
+    const presetId = String(presetSelect?.value || 'custom');
+    const isCustom = presetId === 'custom';
+    const preset = isCustom ? null : getInterpreterPresetById(presetId);
+
+    const name = isCustom
+        ? String(nameInput?.value || '').trim()
+        : (preset ? preset.name : '');
+    const family = isCustom
+        ? String(familySelect?.value || 'openai')
+        : (preset ? preset.family : 'openai');
     const baseUrl = String(baseUrlInput?.value || '').trim();
     const apiKeyEntered = String(apiKeyInput?.value || '');
-    const requiresKey = Boolean(apiKeyRequired?.checked);
+    const apiKeyRequired = isCustom
+        ? Boolean(requiresKeyInput?.checked)
+        : (preset ? preset.apiKeyRequired !== false : false);
 
-    if (!name) {
+    if (isCustom && !name) {
         showToast('Please enter a provider name', 'error');
         nameInput?.focus();
         return;
@@ -1238,165 +1309,119 @@ function handleSaveInterpreterProvider() {
     }
 
     const config = getInterpreterConfig();
-
     if (editingInterpreterProviderId) {
         const provider = config.providers.find((p) => p.id === editingInterpreterProviderId);
         if (provider) {
+            // A typed value replaces the key; an untouched field keeps the
+            // saved key unless the user pressed "Clear saved key".
+            let apiKey = provider.apiKey || '';
+            if (apiKeyEntered) {
+                apiKey = apiKeyEntered;
+            } else if (interpreterClearProviderKeyFlag) {
+                apiKey = '';
+            }
             provider.name = name;
             provider.family = family;
             provider.baseUrl = baseUrl;
-            provider.apiKeyRequired = requiresKey;
-            // Blank key field preserves the saved key (see Clear Key action).
-            if (apiKeyEntered) {
-                provider.apiKey = apiKeyEntered;
-            }
+            provider.apiKey = apiKey;
+            provider.apiKeyRequired = apiKeyRequired;
+            provider.presetId = isCustom ? undefined : presetId;
         }
     } else {
-        config.providers.push({
+        const newProvider = {
             id: buildInterpreterId('prov'),
             name,
             family,
             baseUrl,
             apiKey: apiKeyEntered,
-            apiKeyRequired: requiresKey
-        });
+            apiKeyRequired
+        };
+        if (!isCustom) {
+            newProvider.presetId = presetId;
+        }
+        config.providers.push(newProvider);
     }
 
-    resetInterpreterProviderForm();
+    closeInterpreterDialog('interpreterProviderDialog');
     renderInterpreterManagers();
-    refreshInterpreterModelEditor();
     persistInterpreterConfig(`Saved provider "${name}"`);
 }
 
-function handleClearInterpreterProviderKey() {
-    const apiKeyInput = document.getElementById('interpreterProviderApiKey');
-    if (apiKeyInput) {
-        apiKeyInput.value = '';
-    }
-
-    if (!editingInterpreterProviderId) {
-        return;
-    }
-    const config = getInterpreterConfig();
-    const provider = config.providers.find((p) => p.id === editingInterpreterProviderId);
-    if (provider) {
-        provider.apiKey = '';
-        setInterpreterProviderKeyHint(provider);
-        renderInterpreterProvidersList();
-        persistInterpreterConfig(`Cleared API key for "${provider.name}"`);
-    }
-}
-
 function removeInterpreterProvider(providerId) {
-    if (isSeededInterpreterProvider(providerId)) {
-        return;
-    }
     const config = getInterpreterConfig();
     const removed = config.providers.find((p) => p.id === providerId);
     config.providers = config.providers.filter((p) => p.id !== providerId);
-    // Drop models that referenced the removed provider before rendering, so no
-    // stale "Unknown provider" cards linger until reload.
+    // Drop models that referenced the removed provider so no stale cards linger.
     config.models = config.models.filter((m) => m.providerId !== providerId);
 
-    if (editingInterpreterProviderId === providerId) {
-        resetInterpreterProviderForm();
-    }
-
     renderInterpreterManagers();
-    refreshInterpreterModelEditor();
     persistInterpreterConfig(`Removed provider "${removed?.name || providerId}"`);
 }
 
-function refreshInterpreterModelEditor() {
-    const providerSelect = document.getElementById('interpreterModelProvider');
-    if (!providerSelect) {
+function refreshModelProviderSelect() {
+    const select = document.getElementById('interpreterModelProvider');
+    if (!select) {
         return;
     }
     const config = getInterpreterConfig();
-    const previousValue = providerSelect.value;
-    providerSelect.innerHTML = '';
+    const previousValue = select.value;
+    select.innerHTML = '';
     config.providers.forEach((provider) => {
         const option = document.createElement('option');
         option.value = provider.id;
         option.textContent = provider.name;
-        providerSelect.appendChild(option);
+        select.appendChild(option);
     });
     if (config.providers.some((p) => p.id === previousValue)) {
-        providerSelect.value = previousValue;
+        select.value = previousValue;
     }
-    refreshInterpreterModelIdDatalist();
 }
 
-function refreshInterpreterModelIdDatalist() {
-    const providerSelect = document.getElementById('interpreterModelProvider');
-    const datalist = document.getElementById('interpreterModelIdList');
-    if (!datalist) {
+
+function openInterpreterModelDialog(model) {
+    const config = getInterpreterConfig();
+    if (config.providers.length === 0) {
+        showToast('Add a provider first', 'error');
         return;
     }
-    datalist.innerHTML = '';
-    const presets = getInterpreterUtilsApi()?.PROVIDER_PRESETS || [];
-    const config = getInterpreterConfig();
-    const provider = config.providers.find((p) => p.id === providerSelect?.value);
-    const preset = presets.find((p) => provider && (p.id === provider.id || p.id === provider.presetId));
-    (preset?.popularModels || []).forEach((model) => {
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.label = model.name;
-        datalist.appendChild(option);
-    });
-}
+    const dialog = document.getElementById('interpreterModelDialog');
+    if (!dialog) {
+        return;
+    }
+    editingInterpreterModelId = model ? model.id : null;
 
-// Clears the model editor fields WITHOUT touching <details>.open. Safe to call
-// from the editor's own toggle handler.
-function clearInterpreterModelFields() {
-    editingInterpreterModelId = null;
-    const nameInput = document.getElementById('interpreterModelName');
-    const modelIdInput = document.getElementById('interpreterModelModelId');
-    const enabledInput = document.getElementById('interpreterModelEnabled');
-    const summary = document.getElementById('interpreterModelEditorSummary');
+    const title = document.getElementById('interpreterModelDialogTitle');
+    if (title) title.textContent = model ? 'Edit model' : 'Add model';
 
-    if (nameInput) nameInput.value = '';
-    if (modelIdInput) modelIdInput.value = '';
-    if (enabledInput) enabledInput.checked = true;
-    if (summary) summary.textContent = 'Add Model';
-    refreshInterpreterModelEditor();
-}
-
-function resetInterpreterModelForm() {
-    clearInterpreterModelFields();
-    const editor = document.getElementById('interpreterModelEditor');
-    if (editor) editor.open = false;
-}
-
-function populateInterpreterModelForm(model) {
-    refreshInterpreterModelEditor();
-    const nameInput = document.getElementById('interpreterModelName');
+    refreshModelProviderSelect();
     const providerSelect = document.getElementById('interpreterModelProvider');
     const modelIdInput = document.getElementById('interpreterModelModelId');
     const enabledInput = document.getElementById('interpreterModelEnabled');
-    const summary = document.getElementById('interpreterModelEditorSummary');
 
-    if (nameInput) nameInput.value = model.name;
-    if (providerSelect) providerSelect.value = model.providerId;
-    if (modelIdInput) modelIdInput.value = model.providerModelId;
-    if (enabledInput) enabledInput.checked = model.enabled !== false;
-    if (summary) summary.textContent = `Edit: ${model.name}`;
-    refreshInterpreterModelIdDatalist();
+    if (model) {
+        if (providerSelect && config.providers.some((p) => p.id === model.providerId)) {
+            providerSelect.value = model.providerId;
+        }
+        if (modelIdInput) modelIdInput.value = model.providerModelId || '';
+        if (enabledInput) enabledInput.checked = model.enabled !== false;
+    } else {
+        if (modelIdInput) modelIdInput.value = '';
+        if (enabledInput) enabledInput.checked = true;
+    }
+    dialog.showModal();
 }
 
 function handleSaveInterpreterModel() {
-    const nameInput = document.getElementById('interpreterModelName');
     const providerSelect = document.getElementById('interpreterModelProvider');
     const modelIdInput = document.getElementById('interpreterModelModelId');
     const enabledInput = document.getElementById('interpreterModelEnabled');
 
-    const name = String(nameInput?.value || '').trim();
     const providerId = String(providerSelect?.value || '').trim();
     const providerModelId = String(modelIdInput?.value || '').trim();
     const enabled = Boolean(enabledInput?.checked);
 
     if (!providerId) {
-        showToast('Please add a provider first', 'error');
+        showToast('Please select a provider', 'error');
         return;
     }
     if (!providerModelId) {
@@ -1406,14 +1431,12 @@ function handleSaveInterpreterModel() {
     }
 
     const config = getInterpreterConfig();
-    const finalName = name || providerModelId;
-
     if (editingInterpreterModelId) {
         const model = config.models.find((m) => m.id === editingInterpreterModelId);
         if (model) {
-            model.name = finalName;
             model.providerId = providerId;
             model.providerModelId = providerModelId;
+            model.name = providerModelId;
             model.enabled = enabled;
         }
     } else {
@@ -1421,14 +1444,14 @@ function handleSaveInterpreterModel() {
             id: buildInterpreterId('model'),
             providerId,
             providerModelId,
-            name: finalName,
+            name: providerModelId,
             enabled
         });
     }
 
-    resetInterpreterModelForm();
+    closeInterpreterDialog('interpreterModelDialog');
     renderInterpreterModelsList();
-    persistInterpreterConfig(`Saved model "${finalName}"`);
+    persistInterpreterConfig(`Saved model "${providerModelId}"`);
 }
 
 function removeInterpreterModel(modelId) {
@@ -1436,36 +1459,23 @@ function removeInterpreterModel(modelId) {
     const removed = config.models.find((m) => m.id === modelId);
     config.models = config.models.filter((m) => m.id !== modelId);
 
-    if (editingInterpreterModelId === modelId) {
-        resetInterpreterModelForm();
-    }
-
     renderInterpreterModelsList();
-    persistInterpreterConfig(`Removed model "${removed?.name || modelId}"`);
+    persistInterpreterConfig(`Removed model "${removed?.providerModelId || modelId}"`);
 }
 
 function initInterpreterControls() {
-    populateInterpreterProviderPresetSelect();
+    populateProviderPresetSelect();
 
-    document.getElementById('interpreterProviderPreset')?.addEventListener('change', (event) => {
-        const presetId = event.target.value;
-        if (!presetId) {
-            return;
-        }
-        const preset = (getInterpreterUtilsApi()?.PROVIDER_PRESETS || []).find((p) => p.id === presetId);
-        if (!preset) {
-            return;
-        }
-        const nameInput = document.getElementById('interpreterProviderName');
-        const familySelect = document.getElementById('interpreterProviderFamily');
-        const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
-        const apiKeyRequired = document.getElementById('interpreterProviderApiKeyRequired');
-        if (nameInput) nameInput.value = preset.name;
-        if (familySelect) familySelect.value = preset.family;
-        if (baseUrlInput) baseUrlInput.value = preset.baseUrl;
-        if (apiKeyRequired) apiKeyRequired.checked = preset.apiKeyRequired !== false;
+    document.getElementById('interpreterAddProviderBtn')?.addEventListener('click', () => {
+        openInterpreterProviderDialog(null);
+    });
+    document.getElementById('interpreterAddModelBtn')?.addEventListener('click', () => {
+        openInterpreterModelDialog(null);
     });
 
+    document.getElementById('interpreterProviderPreset')?.addEventListener('change', (event) => {
+        applyProviderPresetToForm(event.target.value);
+    });
     document.getElementById('interpreterSaveProvider')?.addEventListener('click', () => {
         try {
             handleSaveInterpreterProvider();
@@ -1474,37 +1484,10 @@ function initInterpreterControls() {
             showToast('Failed to save provider', 'error');
         }
     });
-    document.getElementById('interpreterClearProviderKey')?.addEventListener('click', handleClearInterpreterProviderKey);
-    document.getElementById('interpreterCancelProvider')?.addEventListener('click', resetInterpreterProviderForm);
-
-    const providerEditor = document.getElementById('interpreterProviderEditor');
-    if (providerEditor) {
-        providerEditor.addEventListener('toggle', () => {
-            if (providerEditor.open && !editingInterpreterProviderId) {
-                clearInterpreterProviderFields();
-            }
-        });
-    }
-
-    document.getElementById('interpreterProvidersList')?.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-provider-id]');
-        if (!button) {
-            return;
-        }
-        const providerId = button.dataset.providerId;
-        if (button.dataset.action === 'edit-provider') {
-            const provider = getInterpreterConfig().providers.find((p) => p.id === providerId);
-            if (!provider) {
-                return;
-            }
-            editingInterpreterProviderId = providerId;
-            populateInterpreterProviderForm(provider);
-            const editor = document.getElementById('interpreterProviderEditor');
-            if (editor) editor.open = true;
-        } else if (button.dataset.action === 'remove-provider') {
-            removeInterpreterProvider(providerId);
-        }
+    document.getElementById('interpreterCancelProvider')?.addEventListener('click', () => {
+        closeInterpreterDialog('interpreterProviderDialog');
     });
+    document.getElementById('interpreterClearProviderKey')?.addEventListener('click', handleClearInterpreterProviderKey);
 
     document.getElementById('interpreterSaveModel')?.addEventListener('click', () => {
         try {
@@ -1514,17 +1497,35 @@ function initInterpreterControls() {
             showToast('Failed to save model', 'error');
         }
     });
-    document.getElementById('interpreterCancelModel')?.addEventListener('click', resetInterpreterModelForm);
-    document.getElementById('interpreterModelProvider')?.addEventListener('change', refreshInterpreterModelIdDatalist);
+    document.getElementById('interpreterCancelModel')?.addEventListener('click', () => {
+        closeInterpreterDialog('interpreterModelDialog');
+    });
 
-    const modelEditor = document.getElementById('interpreterModelEditor');
-    if (modelEditor) {
-        modelEditor.addEventListener('toggle', () => {
-            if (modelEditor.open && !editingInterpreterModelId) {
-                clearInterpreterModelFields();
+    // Clicking the dim backdrop closes a dialog.
+    ['interpreterProviderDialog', 'interpreterModelDialog'].forEach((dialogId) => {
+        const dialog = document.getElementById(dialogId);
+        dialog?.addEventListener('click', (event) => {
+            if (event.target === dialog) {
+                dialog.close();
             }
         });
-    }
+    });
+
+    document.getElementById('interpreterProvidersList')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-provider-id]');
+        if (!button) {
+            return;
+        }
+        const providerId = button.dataset.providerId;
+        if (button.dataset.action === 'edit-provider') {
+            const provider = getInterpreterConfig().providers.find((p) => p.id === providerId);
+            if (provider) {
+                openInterpreterProviderDialog(provider);
+            }
+        } else if (button.dataset.action === 'remove-provider') {
+            removeInterpreterProvider(providerId);
+        }
+    });
 
     document.getElementById('interpreterModelsList')?.addEventListener('click', (event) => {
         const button = event.target.closest('[data-model-id]');
@@ -1534,13 +1535,9 @@ function initInterpreterControls() {
         const modelId = button.dataset.modelId;
         if (button.dataset.action === 'edit-model') {
             const model = getInterpreterConfig().models.find((m) => m.id === modelId);
-            if (!model) {
-                return;
+            if (model) {
+                openInterpreterModelDialog(model);
             }
-            editingInterpreterModelId = modelId;
-            populateInterpreterModelForm(model);
-            const editor = document.getElementById('interpreterModelEditor');
-            if (editor) editor.open = true;
         } else if (button.dataset.action === 'remove-model') {
             removeInterpreterModel(modelId);
         }
@@ -2967,7 +2964,6 @@ const restoreOptions = () => {
             interpreterConfig = loadedInterpreterConfig;
         }
         renderInterpreterManagers();
-        refreshInterpreterModelEditor();
         refreshAgentBridgeStatusState().then((status) => {
             setCurrentAgentBridgeChoice(agentBridgeSettings, status);
         }).catch(onError);
@@ -3479,6 +3475,7 @@ const loaded = async () => {
                 if (input.closest('#defaultSendToTargetCard') || input.closest('#assistantTargetsCard')) return;
                 if (input.closest('#webhookTargetsCard')) return;
                 if (input.closest('#interpreterProvidersCard') || input.closest('#interpreterModelsCard')) return;
+                if (input.closest('#interpreterProviderDialog') || input.closest('#interpreterModelDialog')) return;
 		        // Skip permission panel buttons (they have their own handlers)
 		        if (['agentBridgePermContinue', 'agentBridgePermCancel', 'agentBridgePermRetry', 'agentBridgePermDismiss'].includes(input.id)) return;
 	        // Skip colorblind theme dropdown (has its own handlers)

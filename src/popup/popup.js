@@ -454,7 +454,10 @@ const dom = {
     printButton: document.getElementById('ddPrint'),
     pdfButton: document.getElementById('ddPdf'),
     interpreterSection: document.getElementById('interpreterSection'),
-    interpreterModelSelect: document.getElementById('interpreterModelSelect'),
+    interpreterModelWrap: document.getElementById('interpreterModelWrap'),
+    interpreterModelBtn: document.getElementById('interpreterModelBtn'),
+    interpreterModelBtnLabel: document.getElementById('interpreterModelBtnLabel'),
+    interpreterModelMenu: document.getElementById('interpreterModelMenu'),
     interpretButton: document.getElementById('interpretBtn'),
     interpreterTimer: document.getElementById('interpreterTimer'),
     interpreterError: document.getElementById('interpreterError')
@@ -3420,6 +3423,7 @@ async function maybeAutoSaveCurrentClip() {
 let interpreterPromptVariables = [];
 let interpreterTimerId = null;
 let interpreterHasRun = false;
+let selectedInterpreterModelId = '';
 
 function getInterpreterUtils() {
     return globalThis.markSnipInterpreterUtils || null;
@@ -3466,22 +3470,38 @@ function buildInterpreterPromptContext() {
     return template || content;
 }
 
-function populateInterpreterModelSelect(enabledModels) {
-    const select = dom.interpreterModelSelect;
-    if (!select) {
-        return;
-    }
-    select.textContent = '';
-    enabledModels.forEach((model) => {
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = model.name;
-        select.appendChild(option);
+function closeInterpreterModelMenu() {
+    if (dom.interpreterModelMenu) dom.interpreterModelMenu.hidden = true;
+    if (dom.interpreterModelBtn) dom.interpreterModelBtn.setAttribute('aria-expanded', 'false');
+}
+
+function setInterpreterModelSelection(modelId, label) {
+    selectedInterpreterModelId = modelId;
+    if (dom.interpreterModelBtnLabel) dom.interpreterModelBtnLabel.textContent = label;
+    dom.interpreterModelMenu?.querySelectorAll('li').forEach((li) => {
+        li.setAttribute('aria-selected', li.dataset.modelId === modelId ? 'true' : 'false');
     });
+}
+
+function populateInterpreterModelSelect(enabledModels) {
+    const menu = dom.interpreterModelMenu;
+    if (!menu) return;
+
+    menu.textContent = '';
+    enabledModels.forEach((model) => {
+        const li = document.createElement('li');
+        li.setAttribute('role', 'option');
+        li.setAttribute('aria-selected', 'false');
+        li.dataset.modelId = model.id;
+        li.textContent = model.providerModelId || model.name;
+        menu.appendChild(li);
+    });
+
     const preferred = currentOptions?.interpreterModelId;
-    select.value = preferred && enabledModels.some((m) => m.id === preferred)
-        ? preferred
-        : enabledModels[0].id;
+    const activeModel = preferred && enabledModels.some((m) => m.id === preferred)
+        ? enabledModels.find((m) => m.id === preferred)
+        : enabledModels[0];
+    setInterpreterModelSelection(activeModel.id, activeModel.providerModelId || activeModel.name);
 }
 
 function resetInterpreterButton() {
@@ -3569,7 +3589,7 @@ async function runInterpreter() {
         return;
     }
 
-    const modelId = dom.interpreterModelSelect?.value || '';
+    const modelId = selectedInterpreterModelId || '';
     if (!modelId) {
         setInterpreterError(popupMessage('interpreterNoModel', null, 'Select an interpreter model first.'));
         return;
@@ -3722,15 +3742,31 @@ dom.interpretButton?.addEventListener('click', () => {
     });
 });
 
-dom.interpreterModelSelect?.addEventListener('change', (event) => {
-    const modelId = event.target?.value || '';
-    if (!modelId) {
-        return;
-    }
+dom.interpreterModelBtn?.addEventListener('click', () => {
+    const menu = dom.interpreterModelMenu;
+    const btn = dom.interpreterModelBtn;
+    if (!menu || !btn) return;
+    const isOpen = !menu.hidden;
+    menu.hidden = isOpen;
+    btn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+});
+
+dom.interpreterModelMenu?.addEventListener('click', (event) => {
+    const li = event.target.closest('li[data-model-id]');
+    if (!li) return;
+    const modelId = li.dataset.modelId;
+    setInterpreterModelSelection(modelId, li.textContent);
+    closeInterpreterModelMenu();
     currentOptions.interpreterModelId = modelId;
     browser.storage.sync.set({ interpreterModelId: modelId }).catch((error) => {
         console.error('Failed to persist interpreter model:', error);
     });
+});
+
+document.addEventListener('click', (event) => {
+    if (!dom.interpreterModelWrap?.contains(event.target)) {
+        closeInterpreterModelMenu();
+    }
 });
 
 function getPopupBatchUtilsApi() {

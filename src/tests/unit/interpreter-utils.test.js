@@ -189,25 +189,36 @@ describe('interpreter-utils', () => {
   });
 
   describe('normalizeInterpreterConfig', () => {
-    test('returns the seeded defaults for null input', () => {
+    test('returns an empty config for null input (nothing is auto-seeded)', () => {
       const config = interpreter.normalizeInterpreterConfig(null);
-      expect(config.providers).toHaveLength(interpreter.PROVIDER_PRESETS.length);
-      expect(config.models.length).toBeGreaterThan(0);
+      expect(config).toEqual({ providers: [], models: [] });
     });
 
-    test('re-merges missing seeded providers', () => {
+    test('DEFAULT_INTERPRETER_CONFIG is empty', () => {
+      expect(interpreter.DEFAULT_INTERPRETER_CONFIG.providers).toEqual([]);
+      expect(interpreter.DEFAULT_INTERPRETER_CONFIG.models).toEqual([]);
+    });
+
+    test('does not re-seed providers or models for an empty stored config', () => {
       const config = interpreter.normalizeInterpreterConfig({ providers: [], models: [] });
-      const ids = config.providers.map((p) => p.id);
-      interpreter.PROVIDER_PRESETS.forEach((preset) => {
-        expect(ids).toContain(preset.id);
+      expect(config.providers).toEqual([]);
+      expect(config.models).toEqual([]);
+    });
+
+    test('keeps valid stored providers and models', () => {
+      const config = interpreter.normalizeInterpreterConfig({
+        providers: [{ id: 'p1', name: 'P1', family: 'openai', baseUrl: 'u', apiKey: 'k', apiKeyRequired: true }],
+        models: [{ id: 'm1', providerId: 'p1', providerModelId: 'gpt-x', name: 'gpt-x', enabled: true }]
       });
+      expect(config.providers).toHaveLength(1);
+      expect(config.models).toHaveLength(1);
     });
 
     test('drops models whose provider cannot be resolved', () => {
       const config = interpreter.normalizeInterpreterConfig({
-        providers: [{ id: 'anthropic', name: 'Anthropic', family: 'anthropic', baseUrl: 'u', apiKey: '', apiKeyRequired: true }],
+        providers: [{ id: 'p1', name: 'P1', family: 'anthropic', baseUrl: 'u', apiKey: '', apiKeyRequired: true }],
         models: [
-          { id: 'm1', providerId: 'anthropic', providerModelId: 'claude', name: 'Claude', enabled: true },
+          { id: 'm1', providerId: 'p1', providerModelId: 'claude', name: 'Claude', enabled: true },
           { id: 'm2', providerId: 'ghost-provider', providerModelId: 'x', name: 'Orphan', enabled: true }
         ]
       });
@@ -223,16 +234,6 @@ describe('interpreter-utils', () => {
       });
       const custom = config.providers.find((p) => p.id === 'custom');
       expect(custom.family).toBe('openai');
-    });
-
-    test('respects an explicitly empty models array (no reseeding)', () => {
-      const config = interpreter.normalizeInterpreterConfig({ providers: [], models: [] });
-      expect(config.models).toEqual([]);
-    });
-
-    test('seeds models when the models key is absent (incomplete config)', () => {
-      const config = interpreter.normalizeInterpreterConfig({ providers: [] });
-      expect(config.models.length).toBeGreaterThan(0);
     });
   });
 
