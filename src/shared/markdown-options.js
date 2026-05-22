@@ -10,6 +10,10 @@
     return String(value || '');
   }
 
+  function fallbackStripPromptPlaceholders(value) {
+    return String(value || '').replace(/\{\{(?:prompt:)?"[\s\S]*?"(?:\|[^}]*)?\}\}/g, '');
+  }
+
   function identity(value) {
     return value;
   }
@@ -25,7 +29,8 @@
     } catch {
       return {
         textReplace: fallbackTextReplace,
-        generateValidFileName: identity
+        generateValidFileName: identity,
+        stripPromptPlaceholders: fallbackStripPromptPlaceholders
       };
     }
   }
@@ -34,6 +39,9 @@
     const templateUtils = getTemplateUtils();
     const textReplace = templateUtils.textReplace;
     const generateValidFileName = templateUtils.generateValidFileName;
+    const stripPromptPlaceholders = typeof templateUtils.stripPromptPlaceholders === 'function'
+      ? templateUtils.stripPromptPlaceholders
+      : fallbackStripPromptPlaceholders;
 
     const baseOptions = providedOptions || root.defaultOptions || {};
     const options = {
@@ -53,6 +61,10 @@
     }
 
     if (options.includeTemplate) {
+      if (!options.interpreterEnabled) {
+        options.frontmatter = stripPromptPlaceholders(options.frontmatter);
+        options.backmatter = stripPromptPlaceholders(options.backmatter);
+      }
       options.frontmatter = textReplace(options.frontmatter, article) + '\n';
       options.backmatter = '\n' + textReplace(options.backmatter, article);
     } else {

@@ -65,6 +65,38 @@ describe('Offscreen markdown option handling', () => {
     expect(originalOptions.imagePrefix).toBe('{pageTitle}/images');
   });
 
+  test('strips prompt placeholders from frontmatter and backmatter when interpreter is disabled', () => {
+    const derivedOptions = createEffectiveMarkdownOptions(article, {
+      includeTemplate: true,
+      interpreterEnabled: false,
+      downloadImages: false,
+      frontmatter: 'tags: {{prompt:"Pick tags"}}\ntitle: {pageTitle}',
+      backmatter: 'next: {{"Follow up"|kebab}}',
+      imagePrefix: '',
+      disallowedChars: '[]#^',
+      tableFormatting: {}
+    }, null);
+
+    expect(derivedOptions.frontmatter).toBe('tags: \ntitle: Doc/Page Title\n');
+    expect(derivedOptions.backmatter).toBe('\nnext: ');
+  });
+
+  test('preserves prompt placeholders in frontmatter and backmatter when interpreter is enabled', () => {
+    const derivedOptions = createEffectiveMarkdownOptions(article, {
+      includeTemplate: true,
+      interpreterEnabled: true,
+      downloadImages: false,
+      frontmatter: 'tags: {{prompt:"Pick tags"}}',
+      backmatter: 'next: {{"Follow up"|kebab}}',
+      imagePrefix: '',
+      disallowedChars: '[]#^',
+      tableFormatting: {}
+    }, null);
+
+    expect(derivedOptions.frontmatter).toBe('tags: {{prompt:"Pick tags"}}\n');
+    expect(derivedOptions.backmatter).toBe('\nnext: {{"Follow up"|kebab}}');
+  });
+
   test('honors downloadImages override parameter', () => {
     const originalOptions = {
       includeTemplate: false,
