@@ -4113,5 +4113,45 @@
   "interpreterUnresolvedExportWarning": {
     "message": "This clip still contains an interpreter prompt ({{prompt:\"...\"}}) that has not been run yet. Export it anyway?",
     "description": "Confirmation shown when exporting a clip that still has an unresolved interpreter prompt"
+  },
+  "interpreterExportWarningTitle": {
+    "message": "Unrun interpreter prompt",
+    "description": "Title of the popup export-warning dialog"
+  },
+  "interpreterExportWarningDismiss": {
+    "message": "Don't warn me about this again",
+    "description": "Checkbox to suppress the export warning"
+  },
+  "interpreterExportWarningCancel": {
+    "message": "Cancel",
+    "description": "Cancel button in the export-warning dialog"
+  },
+  "interpreterExportWarningProceed": {
+    "message": "Export anyway",
+    "description": "Confirm button in the export-warning dialog"
+  },
+  "optionsInterpreterExportWarning": {
+    "message": "Warn before exporting unrun prompts",
+    "description": "Label for the export-warning toggle in Interpreter options"
+  },
+  "optionsInterpreterExportWarningHint": {
+    "message": "Shows a confirmation if you download, copy, or send a clip that still contains an unrun {{prompt:\"...\"}} placeholder.",
+    "description": "Hint for the export-warning toggle"
+  },
+  "optionsInterpreterPopularModels": {
+    "message": "Popular models",
+    "description": "Label for the guided model picker in the Add Model dialog"
+  },
+  "optionsInterpreterPopularModelsHint": {
+    "message": "Pick one to fill the Model ID, or enter your own below.",
+    "description": "Hint for the guided model picker"
+  },
+  "optionsInterpreterModelIdHint": {
+    "message": "The provider's model identifier, e.g. gemini-flash-latest.",
+    "description": "Hint for the model ID field in the Add Model dialog"
+  },
+  "optionsInterpreterModelsListLink": {
+    "message": "Browse available models.",
+    "description": "Link text to the provider model documentation"
   }
 }

@@ -86,6 +86,53 @@ describe('interpreter-utils', () => {
       expect(req.headers['HTTP-Referer']).toEqual(expect.any(String));
       expect(req.headers['X-Title']).toBe('MarkSnip');
     });
+
+    test('builds an Azure request with the selected deployment in the URL', () => {
+      const provider = { id: 'azure-openai', family: 'azure', baseUrl: 'https://x.openai.azure.com/openai/deployments/{deployment-id}/chat/completions?api-version=2024-10-21', apiKey: 'az-key' };
+      const model = { providerModelId: 'gpt-4o-prod' };
+      const req = interpreter.buildLLMRequest({ provider, model, promptContext: 'CTX', promptVariables });
+
+      expect(req.url).toBe('https://x.openai.azure.com/openai/deployments/gpt-4o-prod/chat/completions?api-version=2024-10-21');
+      expect(req.headers['api-key']).toBe('az-key');
+      expect(req.headers.Authorization).toBeUndefined();
+      expect(req.body.model).toBeUndefined();
+      expect(req.body.messages).toHaveLength(3);
+    });
+
+    test('builds a Hugging Face request, substituting {model-id} in the URL', () => {
+      const provider = { id: 'huggingface', family: 'huggingface', baseUrl: 'https://api-inference.huggingface.co/models/{model-id}/chat/completions', apiKey: 'hf-key' };
+      const model = { providerModelId: 'meta-llama/Llama-3' };
+      const req = interpreter.buildLLMRequest({ provider, model, promptContext: 'CTX', promptVariables });
+
+      expect(req.url).toBe('https://api-inference.huggingface.co/models/meta-llama/Llama-3/chat/completions');
+      expect(req.headers.Authorization).toBe('Bearer hf-key');
+      expect(req.body.model).toBe('meta-llama/Llama-3');
+    });
+  });
+
+  describe('parsePresetProviders', () => {
+    test('parses a providers.json object into a preset array', () => {
+      const presets = interpreter.parsePresetProviders({
+        version: '2026-01-01',
+        anthropic: {
+          id: 'anthropic', name: 'Anthropic', family: 'anthropic',
+          baseUrl: 'https://api.anthropic.com/v1/messages', apiKeyRequired: true,
+          popularModels: [{ id: 'claude-x', name: 'Claude X' }]
+        },
+        custom: { id: 'custom', name: 'Custom', family: 'mystery', baseUrl: 'u' }
+      });
+      expect(presets).toHaveLength(2);
+      const anthropic = presets.find((p) => p.id === 'anthropic');
+      expect(anthropic.family).toBe('anthropic');
+      expect(anthropic.popularModels).toHaveLength(1);
+      // Unknown family coerced to openai.
+      expect(presets.find((p) => p.id === 'custom').family).toBe('openai');
+    });
+
+    test('returns null for an empty or invalid object', () => {
+      expect(interpreter.parsePresetProviders(null)).toBeNull();
+      expect(interpreter.parsePresetProviders({ version: '1' })).toBeNull();
+    });
   });
 
   describe('parseLLMResponse', () => {
@@ -234,6 +281,18 @@ describe('interpreter-utils', () => {
       });
       const custom = config.providers.find((p) => p.id === 'custom');
       expect(custom.family).toBe('openai');
+    });
+
+    test('keeps the azure and huggingface provider families', () => {
+      const config = interpreter.normalizeInterpreterConfig({
+        providers: [
+          { id: 'a', name: 'A', family: 'azure', baseUrl: 'u', apiKey: '', apiKeyRequired: true },
+          { id: 'h', name: 'H', family: 'huggingface', baseUrl: 'u', apiKey: '', apiKeyRequired: true }
+        ],
+        models: []
+      });
+      expect(config.providers.find((p) => p.id === 'a').family).toBe('azure');
+      expect(config.providers.find((p) => p.id === 'h').family).toBe('huggingface');
     });
   });
 

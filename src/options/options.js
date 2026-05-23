@@ -942,6 +942,8 @@ let interpreterConfig = null;
 let editingInterpreterProviderId = null;
 let editingInterpreterModelId = null;
 let interpreterClearProviderKeyFlag = false;
+let interpreterPresets = null;
+let interpreterDraggedModelId = null;
 
 function getInterpreterUtilsApi() {
     return globalThis.markSnipInterpreterUtils || null;
@@ -958,6 +960,9 @@ function getInterpreterConfig() {
 }
 
 function getInterpreterPresets() {
+    if (Array.isArray(interpreterPresets) && interpreterPresets.length) {
+        return interpreterPresets;
+    }
     return getInterpreterUtilsApi()?.PROVIDER_PRESETS || [];
 }
 
@@ -1076,34 +1081,46 @@ function renderInterpreterModelsList() {
         const modelLabel = model.providerModelId || model.name;
 
         const item = document.createElement('article');
-        item.className = 'assistant-target-item';
+        item.className = 'assistant-target-item interpreter-model-row';
+        item.draggable = true;
+        item.dataset.modelId = model.id;
+
+        const handle = document.createElement('span');
+        handle.className = 'interpreter-drag-handle';
+        handle.setAttribute('aria-hidden', 'true');
+        handle.title = 'Drag to reorder';
 
         const body = document.createElement('div');
         body.className = 'assistant-target-item__body';
-
-        const header = document.createElement('div');
-        header.className = 'assistant-target-item__header';
-
-        const badge = document.createElement('span');
-        badge.className = 'interpreter-state-badge ' + (model.enabled ? 'is-on' : 'is-off');
-        badge.textContent = model.enabled ? 'ON' : 'OFF';
 
         const name = document.createElement('h4');
         name.className = 'assistant-target-item__name';
         name.textContent = modelLabel;
 
-        header.appendChild(badge);
-        header.appendChild(name);
-
         const meta = document.createElement('code');
         meta.className = 'assistant-target-item__meta';
         meta.textContent = provider ? provider.name : 'Unknown provider';
 
-        body.appendChild(header);
+        body.appendChild(name);
         body.appendChild(meta);
 
         const actions = document.createElement('div');
         actions.className = 'assistant-target-item__actions';
+
+        // Inline enable/disable toggle — flips model.enabled without the modal.
+        const toggle = document.createElement('label');
+        toggle.className = 'toggle-switch interpreter-row-toggle';
+        toggle.title = model.enabled ? 'Shown in popup' : 'Hidden from popup';
+        const toggleInput = document.createElement('input');
+        toggleInput.type = 'checkbox';
+        toggleInput.checked = model.enabled !== false;
+        toggleInput.dataset.modelId = model.id;
+        toggleInput.dataset.action = 'toggle-model';
+        toggleInput.setAttribute('aria-label', `Show ${modelLabel} in popup`);
+        const slider = document.createElement('span');
+        slider.className = 'toggle-slider';
+        toggle.appendChild(toggleInput);
+        toggle.appendChild(slider);
 
         const editButton = document.createElement('button');
         editButton.type = 'button';
@@ -1121,13 +1138,33 @@ function renderInterpreterModelsList() {
         removeButton.textContent = 'Remove';
         removeButton.setAttribute('aria-label', `Remove ${modelLabel}`);
 
+        actions.appendChild(toggle);
         actions.appendChild(editButton);
         actions.appendChild(removeButton);
 
+        item.appendChild(handle);
         item.appendChild(body);
         item.appendChild(actions);
         list.appendChild(item);
     });
+}
+
+// Move a model next to another in config order (drag-and-drop reorder). The
+// stored order is the order shown in the popup's model dropdown.
+function reorderInterpreterModels(draggedId, targetId) {
+    if (!draggedId || !targetId || draggedId === targetId) {
+        return;
+    }
+    const config = getInterpreterConfig();
+    const from = config.models.findIndex((m) => m.id === draggedId);
+    const to = config.models.findIndex((m) => m.id === targetId);
+    if (from === -1 || to === -1) {
+        return;
+    }
+    const [moved] = config.models.splice(from, 1);
+    config.models.splice(to, 0, moved);
+    renderInterpreterModelsList();
+    persistInterpreterConfig();
 }
 
 function renderInterpreterManagers() {
@@ -1308,6 +1345,27 @@ function handleSaveInterpreterProvider() {
         return;
     }
 
+    // Reject unfilled {placeholder} tokens. Hugging Face's {model-id} and
+    // Azure's {deployment-id} are resolved from the selected model at request
+    // time; anything else (e.g. Azure {resource-name}) must be filled in here.
+    if (family === 'azure' && !baseUrl.includes('{deployment-id}')) {
+        showToast('Azure base URLs must include {deployment-id}; each model supplies its deployment name.', 'error');
+        baseUrlInput?.focus();
+        return;
+    }
+    let baseUrlPlaceholderCheck = baseUrl;
+    if (family === 'huggingface') {
+        baseUrlPlaceholderCheck = baseUrlPlaceholderCheck.split('{model-id}').join('');
+    }
+    if (family === 'azure') {
+        baseUrlPlaceholderCheck = baseUrlPlaceholderCheck.split('{deployment-id}').join('');
+    }
+    if (/\{[^}]+\}/.test(baseUrlPlaceholderCheck)) {
+        showToast('Replace the remaining {placeholder} values in the base URL before saving.', 'error');
+        baseUrlInput?.focus();
+        return;
+    }
+
     const config = getInterpreterConfig();
     if (editingInterpreterProviderId) {
         const provider = config.providers.find((p) => p.id === editingInterpreterProviderId);
@@ -1350,10 +1408,18 @@ function handleSaveInterpreterProvider() {
 function removeInterpreterProvider(providerId) {
     const config = getInterpreterConfig();
     const removed = config.providers.find((p) => p.id === providerId);
-    config.providers = config.providers.filter((p) => p.id !== providerId);
-    // Drop models that referenced the removed provider so no stale cards linger.
-    config.models = config.models.filter((m) => m.providerId !== providerId);
 
+    // Protect against orphaning models: block removal while any model uses it.
+    const dependents = config.models.filter((m) => m.providerId === providerId);
+    if (dependents.length > 0) {
+        showToast(
+            `Can't remove "${removed?.name || 'this provider'}" — ${dependents.length} model(s) still use it. Remove those models first.`,
+            'error'
+        );
+        return;
+    }
+
+    config.providers = config.providers.filter((p) => p.id !== providerId);
     renderInterpreterManagers();
     persistInterpreterConfig(`Removed provider "${removed?.name || providerId}"`);
 }
@@ -1377,6 +1443,60 @@ function refreshModelProviderSelect() {
     }
 }
 
+
+// Guided picker — clickable chips for the selected provider's popular models.
+function renderInterpreterModelPicker(providerId) {
+    const group = document.getElementById('interpreterModelPickerGroup');
+    const picker = document.getElementById('interpreterModelPicker');
+    if (!group || !picker) {
+        return;
+    }
+    picker.innerHTML = '';
+    const provider = getInterpreterConfig().providers.find((p) => p.id === providerId);
+    const preset = provider && provider.presetId ? getInterpreterPresetById(provider.presetId) : null;
+    const models = preset && Array.isArray(preset.popularModels) ? preset.popularModels : [];
+    if (models.length === 0) {
+        group.hidden = true;
+        return;
+    }
+    group.hidden = false;
+    models.forEach((m) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'interpreter-model-chip';
+        chip.dataset.modelPickId = m.id;
+        chip.textContent = m.name;
+        chip.title = m.id;
+        picker.appendChild(chip);
+    });
+}
+
+function updateInterpreterModelIdHint(providerId) {
+    const hint = document.getElementById('interpreterModelModelIdHint');
+    if (!hint) {
+        return;
+    }
+    hint.textContent = optionsMessage(
+        'optionsInterpreterModelIdHint',
+        null,
+        "The provider's model identifier, e.g. gemini-flash-latest."
+    ) + ' ';
+    const provider = getInterpreterConfig().providers.find((p) => p.id === providerId);
+    const preset = provider && provider.presetId ? getInterpreterPresetById(provider.presetId) : null;
+    if (preset && preset.modelsList) {
+        const link = document.createElement('a');
+        link.href = preset.modelsList;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = optionsMessage('optionsInterpreterModelsListLink', null, 'Browse available models.');
+        hint.appendChild(link);
+    }
+}
+
+function refreshInterpreterModelDialogForProvider(providerId) {
+    renderInterpreterModelPicker(providerId);
+    updateInterpreterModelIdHint(providerId);
+}
 
 function openInterpreterModelDialog(model) {
     const config = getInterpreterConfig();
@@ -1408,6 +1528,7 @@ function openInterpreterModelDialog(model) {
         if (modelIdInput) modelIdInput.value = '';
         if (enabledInput) enabledInput.checked = true;
     }
+    refreshInterpreterModelDialogForProvider(providerSelect ? providerSelect.value : '');
     dialog.showModal();
 }
 
@@ -1465,6 +1586,20 @@ function removeInterpreterModel(modelId) {
 
 function initInterpreterControls() {
     populateProviderPresetSelect();
+
+    // Refresh presets from the remote providers.json; falls back silently.
+    // Only each provider's popular-model list changes (see mergePresets) — the
+    // provider set and names are bundled-constant, so the preset <select> is
+    // NOT rebuilt here. Rebuilding it could reset the selection of an open
+    // Add/Edit Provider dialog mid-edit; the model picker reads presets live.
+    const interpreterUtils = getInterpreterUtilsApi();
+    if (interpreterUtils && typeof interpreterUtils.getPresetProviders === 'function') {
+        interpreterUtils.getPresetProviders().then((presets) => {
+            if (Array.isArray(presets) && presets.length) {
+                interpreterPresets = presets;
+            }
+        }).catch(() => {});
+    }
 
     document.getElementById('interpreterAddProviderBtn')?.addEventListener('click', () => {
         openInterpreterProviderDialog(null);
@@ -1528,7 +1663,7 @@ function initInterpreterControls() {
     });
 
     document.getElementById('interpreterModelsList')?.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-model-id]');
+        const button = event.target.closest('button[data-model-id]');
         if (!button) {
             return;
         }
@@ -1540,6 +1675,82 @@ function initInterpreterControls() {
             }
         } else if (button.dataset.action === 'remove-model') {
             removeInterpreterModel(modelId);
+        }
+    });
+
+    // Inline model enable/disable toggle.
+    document.getElementById('interpreterModelsList')?.addEventListener('change', (event) => {
+        const input = event.target.closest('[data-action="toggle-model"]');
+        if (!input) {
+            return;
+        }
+        const model = getInterpreterConfig().models.find((m) => m.id === input.dataset.modelId);
+        if (model) {
+            model.enabled = input.checked;
+            persistInterpreterConfig();
+        }
+    });
+
+    // Drag-and-drop model reordering — stored order drives the popup dropdown.
+    const modelsList = document.getElementById('interpreterModelsList');
+    if (modelsList) {
+        modelsList.addEventListener('dragstart', (event) => {
+            const row = event.target.closest('.interpreter-model-row');
+            if (!row) {
+                return;
+            }
+            interpreterDraggedModelId = row.dataset.modelId;
+            row.classList.add('is-dragging');
+            if (event.dataTransfer) {
+                event.dataTransfer.effectAllowed = 'move';
+            }
+        });
+        modelsList.addEventListener('dragend', () => {
+            interpreterDraggedModelId = null;
+            modelsList.querySelectorAll('.is-dragging, .is-drop-target').forEach((el) => {
+                el.classList.remove('is-dragging', 'is-drop-target');
+            });
+        });
+        modelsList.addEventListener('dragover', (event) => {
+            if (!interpreterDraggedModelId) {
+                return;
+            }
+            event.preventDefault();
+            if (event.dataTransfer) {
+                event.dataTransfer.dropEffect = 'move';
+            }
+            const row = event.target.closest('.interpreter-model-row');
+            modelsList.querySelectorAll('.is-drop-target').forEach((el) => {
+                if (el !== row) {
+                    el.classList.remove('is-drop-target');
+                }
+            });
+            if (row && row.dataset.modelId !== interpreterDraggedModelId) {
+                row.classList.add('is-drop-target');
+            }
+        });
+        modelsList.addEventListener('drop', (event) => {
+            event.preventDefault();
+            const row = event.target.closest('.interpreter-model-row');
+            if (row && interpreterDraggedModelId) {
+                reorderInterpreterModels(interpreterDraggedModelId, row.dataset.modelId);
+            }
+        });
+    }
+
+    // Model dialog: provider change refreshes the guided picker; chip clicks
+    // fill the Model ID field.
+    document.getElementById('interpreterModelProvider')?.addEventListener('change', (event) => {
+        refreshInterpreterModelDialogForProvider(event.target.value);
+    });
+    document.getElementById('interpreterModelPicker')?.addEventListener('click', (event) => {
+        const chip = event.target.closest('[data-model-pick-id]');
+        if (!chip) {
+            return;
+        }
+        const modelIdInput = document.getElementById('interpreterModelModelId');
+        if (modelIdInput) {
+            modelIdInput.value = chip.dataset.modelPickId;
         }
     });
 }
@@ -2807,6 +3018,8 @@ const setCurrentChoice = result => {
     if (interpreterAutoRunEl) interpreterAutoRunEl.checked = options.interpreterAutoRun === true;
     const defaultPromptContextEl = document.querySelector("[name='defaultPromptContext']");
     if (defaultPromptContextEl) defaultPromptContextEl.value = options.defaultPromptContext || '';
+    const interpreterExportWarningEl = document.querySelector("[name='interpreterExportWarning']");
+    if (interpreterExportWarningEl) interpreterExportWarningEl.checked = options.interpreterExportWarning !== false;
 
     // Set preserveCodeFormatting checkbox
     document.querySelector("[name='preserveCodeFormatting']").checked = options.preserveCodeFormatting;

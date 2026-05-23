@@ -4717,3 +4717,66 @@ kbd + kbd { margin-left: 2px; }
 .popup-toast__retry:hover {
     opacity: 1;
 }
+
+/* Interpreter export-warning modal — centered via transform so a global
+   `* { margin: 0 }` reset cannot break the UA dialog centering. */
+.export-warning-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    width: calc(100% - var(--space-4) * 2);
+    max-width: 320px;
+    color: var(--text-primary);
+}
+
+.export-warning-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.export-warning-dialog__panel {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-lg);
+}
+
+.export-warning-dialog__title {
+    margin: 0;
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    color: var(--text-primary);
+}
+
+.export-warning-dialog__text {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.export-warning-dialog__text code {
+    font-size: var(--text-xs);
+}
+
+.export-warning-dialog__check {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.export-warning-dialog__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}

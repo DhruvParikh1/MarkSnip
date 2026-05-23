@@ -9,6 +9,10 @@
   'use strict';
 
   const INTERPRETER_STORAGE_KEY = 'interpreterConfig';
+  // Remote provider catalog — refreshed without shipping an extension update.
+  const PROVIDERS_URL = 'https://raw.githubusercontent.com/DhruvParikh1/markdownload-extension-updated/main/providers.json';
+  const PRESETS_CACHE_KEY = 'interpreterProviderPresets';
+  const PRESETS_CACHE_TTL = 21600000; // 6 hours
 
   // Prompt placeholder syntax: {{prompt:"..."}} or {{"..."}}, optionally with a
   // trailing |filter chain. Kept identical to the protector regex in
@@ -25,8 +29,9 @@
     'responses concise. For example, your response should look like: ' +
     '{"prompts_responses":{"prompt_1":"tag1, tag2, tag3","prompt_2":"- bullet1\n- bullet 2\n- bullet3"}}';
 
-  // Built-in provider presets. baseUrls verbatim from obsidian-clipper
-  // providers.json. `family` drives request routing and is immutable.
+  // Bundled provider presets — the offline fallback for getPresetProviders().
+  // The remote providers.json (same shape) is preferred when reachable.
+  // `family` drives request routing and is immutable.
   const PROVIDER_PRESETS = [
     {
       id: 'anthropic',
@@ -35,11 +40,11 @@
       baseUrl: 'https://api.anthropic.com/v1/messages',
       apiKeyRequired: true,
       apiKeyUrl: 'https://console.anthropic.com/settings/keys',
+      modelsList: 'https://platform.claude.com/docs/en/about-claude/models/overview',
       popularModels: [
-        { id: 'claude-haiku-4-5', name: 'Claude 4.5 Haiku' },
-        { id: 'claude-3-5-haiku-latest', name: 'Claude 3.5 Haiku' },
-        { id: 'claude-sonnet-4-5', name: 'Claude 4.5 Sonnet' },
-        { id: 'claude-opus-4-5', name: 'Claude 4.5 Opus' }
+        { id: 'claude-opus-4-7', name: 'Claude 4.7 Opus' },
+        { id: 'claude-sonnet-4-6', name: 'Claude 4.6 Sonnet' },
+        { id: 'claude-haiku-4-5', name: 'Claude 4.5 Haiku' }
       ]
     },
     {
@@ -49,11 +54,42 @@
       baseUrl: 'https://api.openai.com/v1/chat/completions',
       apiKeyRequired: true,
       apiKeyUrl: 'https://platform.openai.com/api-keys',
+      modelsList: 'https://platform.openai.com/docs/models',
       popularModels: [
-        { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+        { id: 'gpt-5.5-pro', name: 'GPT-5.5 Pro' },
+        { id: 'gpt-5.5', name: 'GPT-5.5' },
+        { id: 'gpt-5.5-instant', name: 'GPT-5.5 Instant' },
+        { id: 'gpt-5.4', name: 'GPT-5.4' },
         { id: 'gpt-4o', name: 'GPT-4o' },
-        { id: 'gpt-5-mini', name: 'GPT-5 Mini' },
-        { id: 'gpt-5', name: 'GPT-5' }
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini' }
+      ]
+    },
+    {
+      id: 'azure-openai',
+      name: 'Azure OpenAI',
+      family: 'azure',
+      baseUrl: 'https://{resource-name}.openai.azure.com/openai/deployments/{deployment-id}/chat/completions?api-version=2024-10-21',
+      apiKeyRequired: true,
+      apiKeyUrl: 'https://oai.azure.com/portal/',
+      modelsList: 'https://learn.microsoft.com/en-us/azure/ai-services/openai/concepts/models',
+      popularModels: [
+        { id: 'gpt-5.5-pro', name: 'GPT-5.5 Pro' },
+        { id: 'gpt-5.5', name: 'GPT-5.5' },
+        { id: 'gpt-4o', name: 'GPT-4o' },
+        { id: 'gpt-4o-mini', name: 'GPT-4o Mini' }
+      ]
+    },
+    {
+      id: 'deepseek',
+      name: 'DeepSeek',
+      family: 'openai',
+      baseUrl: 'https://api.deepseek.com/v1/chat/completions',
+      apiKeyRequired: true,
+      apiKeyUrl: 'https://platform.deepseek.com/api_keys',
+      modelsList: 'https://api-docs.deepseek.com/quick_start/pricing',
+      popularModels: [
+        { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+        { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' }
       ]
     },
     {
@@ -63,10 +99,35 @@
       baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
       apiKeyRequired: true,
       apiKeyUrl: 'https://aistudio.google.com/apikey',
+      modelsList: 'https://ai.google.dev/gemini-api/docs/models',
       popularModels: [
-        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-        { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite' },
-        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' }
+        { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash' },
+        { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (Preview)' },
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' }
+      ]
+    },
+    {
+      id: 'huggingface',
+      name: 'Hugging Face',
+      family: 'huggingface',
+      baseUrl: 'https://api-inference.huggingface.co/models/{model-id}/chat/completions',
+      apiKeyRequired: true,
+      apiKeyUrl: 'https://huggingface.co/settings/tokens',
+      modelsList: 'https://huggingface.co/models',
+      popularModels: []
+    },
+    {
+      id: 'meta',
+      name: 'Meta',
+      family: 'openai',
+      baseUrl: 'https://api.llama.com/v1/chat/completions',
+      apiKeyRequired: true,
+      apiKeyUrl: 'https://llama.developer.meta.com',
+      modelsList: 'https://llama.developer.meta.com/docs/models',
+      popularModels: [
+        { id: 'Llama-3.3-8B-Instruct', name: 'Llama 3.3 8B' },
+        { id: 'Llama-3.3-70B-Instruct', name: 'Llama 3.3 70B' }
       ]
     },
     {
@@ -76,6 +137,7 @@
       baseUrl: 'http://127.0.0.1:11434/api/chat',
       apiKeyRequired: false,
       apiKeyUrl: '',
+      modelsList: 'https://ollama.com/models',
       popularModels: [
         { id: 'llama3.2', name: 'Llama 3.2 3B' },
         { id: 'llama3.2:1b', name: 'Llama 3.2 1B' },
@@ -89,12 +151,44 @@
       baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
       apiKeyRequired: true,
       apiKeyUrl: 'https://openrouter.ai/settings/keys',
+      modelsList: 'https://openrouter.ai/models',
       popularModels: [
-        { id: 'meta-llama/llama-3.2-3b-instruct', name: 'Llama 3.2 3B Instruct' },
-        { id: 'meta-llama/llama-3.2-1b-instruct', name: 'Llama 3.2 1B Instruct' }
+        { id: 'deepseek/deepseek-v4-pro', name: 'DeepSeek V4 Pro (OpenRouter)' },
+        { id: 'google/gemini-3.5-flash', name: 'Gemini 3.5 Flash (OpenRouter)' },
+        { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B Instruct (OpenRouter)' },
+        { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet (OpenRouter)' }
+      ]
+    },
+    {
+      id: 'perplexity',
+      name: 'Perplexity',
+      family: 'openai',
+      baseUrl: 'https://api.perplexity.ai/chat/completions',
+      apiKeyRequired: true,
+      apiKeyUrl: 'https://www.perplexity.ai/settings/api',
+      modelsList: 'https://docs.perplexity.ai/getting-started/models',
+      popularModels: [
+        { id: 'sonar', name: 'Sonar' },
+        { id: 'sonar-pro', name: 'Sonar Pro' },
+        { id: 'sonar-reasoning', name: 'Sonar Reasoning' }
+      ]
+    },
+    {
+      id: 'xai',
+      name: 'xAI',
+      family: 'openai',
+      baseUrl: 'https://api.x.ai/v1/chat/completions',
+      apiKeyRequired: true,
+      apiKeyUrl: 'https://console.x.ai/team/default/api-keys',
+      modelsList: 'https://docs.x.ai/docs/models',
+      popularModels: [
+        { id: 'grok-4.3', name: 'Grok 4.3' },
+        { id: 'grok-build-0.1', name: "Grok Build 0.1" }
       ]
     }
   ];
+
+  const VALID_PROVIDER_FAMILIES = ['anthropic', 'openai', 'ollama', 'azure', 'huggingface'];
 
   const OPENROUTER_REFERER = 'https://github.com/DhruvParikh1/markdownload-extension-updated';
   const OPENROUTER_TITLE = 'MarkSnip';
@@ -234,7 +328,7 @@
     const family = provider.family || 'openai';
     const promptContent = buildPromptContent(promptVariables);
     const contextText = String(promptContext || '');
-    const url = String(provider.baseUrl || '').trim();
+    let url = String(provider.baseUrl || '').trim();
     const headers = { 'Content-Type': 'application/json' };
     let body;
 
@@ -265,6 +359,39 @@
         temperature: 0.5,
         stream: false
       };
+    } else if (family === 'azure') {
+      // Azure deployments embed the selected model/deployment in the URL; the
+      // body omits `model`.
+      if (!url.includes('{deployment-id}')) {
+        throw new Error('Azure base URL must include {deployment-id} so the selected model can supply the deployment name');
+      }
+      url = url.replace('{deployment-id}', encodeURIComponent(model.providerModelId || ''));
+      body = {
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: contextText },
+          { role: 'user', content: JSON.stringify(promptContent) }
+        ],
+        max_tokens: 1600,
+        stream: false
+      };
+      headers['api-key'] = provider.apiKey || '';
+    } else if (family === 'huggingface') {
+      // Hugging Face base URLs may carry a {model-id} placeholder.
+      url = url.replace('{model-id}', model.providerModelId || '');
+      body = {
+        model: model.providerModelId,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: contextText },
+          { role: 'user', content: JSON.stringify(promptContent) }
+        ],
+        max_tokens: 1600,
+        stream: false
+      };
+      if (provider.apiKey) {
+        headers.Authorization = 'Bearer ' + provider.apiKey;
+      }
     } else {
       body = {
         model: model.providerModelId,
@@ -454,7 +581,7 @@
     if (!id) {
       return null;
     }
-    const family = raw.family === 'anthropic' || raw.family === 'ollama'
+    const family = ['anthropic', 'ollama', 'azure', 'huggingface'].indexOf(raw.family) !== -1
       ? raw.family
       : 'openai';
     const provider = {
@@ -511,6 +638,124 @@
     return { providers, models };
   }
 
+  // Parse a providers.json object ({version, <id>:{...}}) into a preset array.
+  function parsePresetProviders(data) {
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
+    const presets = [];
+    Object.keys(data).forEach((key) => {
+      if (key === 'version') {
+        return;
+      }
+      const entry = data[key];
+      if (!entry || typeof entry !== 'object') {
+        return;
+      }
+      const id = String(entry.id || key).trim();
+      if (!id) {
+        return;
+      }
+      presets.push({
+        id,
+        name: String(entry.name || id),
+        family: VALID_PROVIDER_FAMILIES.indexOf(entry.family) !== -1 ? entry.family : 'openai',
+        baseUrl: String(entry.baseUrl || ''),
+        apiKeyRequired: entry.apiKeyRequired !== false,
+        apiKeyUrl: String(entry.apiKeyUrl || ''),
+        modelsList: String(entry.modelsList || ''),
+        popularModels: Array.isArray(entry.popularModels)
+          ? entry.popularModels
+            .filter((m) => m && m.id)
+            .map((m) => ({ id: String(m.id), name: String(m.name || m.id) }))
+          : []
+      });
+    });
+    return presets.length ? presets : null;
+  }
+
+  let presetsMemoryCache = null;
+  let presetsFetchedAt = 0;
+
+  // Security boundary: request routing (baseUrl, family, apiKeyUrl, modelsList,
+  // the provider set itself) ALWAYS comes from the bundled PROVIDER_PRESETS.
+  // The remote providers.json may only refresh the `popularModels` list of an
+  // already-bundled provider — so a changed/compromised remote catalog can
+  // never redirect a trusted provider's requests or introduce a new endpoint.
+  function mergePresets(remotePresets) {
+    const merged = clone(PROVIDER_PRESETS);
+    if (!Array.isArray(remotePresets)) {
+      return merged;
+    }
+    const remoteById = {};
+    remotePresets.forEach((preset) => {
+      if (preset && preset.id) {
+        remoteById[preset.id] = preset;
+      }
+    });
+    merged.forEach((preset) => {
+      const remote = remoteById[preset.id];
+      if (remote && Array.isArray(remote.popularModels) && remote.popularModels.length) {
+        preset.popularModels = remote.popularModels
+          .filter((m) => m && m.id)
+          .map((m) => ({ id: String(m.id), name: String(m.name || m.id) }));
+      }
+    });
+    return merged;
+  }
+
+  // Provider presets — the bundled list with each provider's popular-model
+  // list refreshed from the remote providers.json (cached in storage.local).
+  // Never rejects; routing data stays bundled (see mergePresets).
+  async function getPresetProviders() {
+    const now = Date.now();
+    if (presetsMemoryCache && (now - presetsFetchedAt) < PRESETS_CACHE_TTL) {
+      return presetsMemoryCache;
+    }
+
+    const api = getBrowser();
+    let cached = null;
+    if (api && api.storage && api.storage.local) {
+      try {
+        const stored = await api.storage.local.get(PRESETS_CACHE_KEY);
+        cached = stored ? stored[PRESETS_CACHE_KEY] : null;
+      } catch {}
+    }
+
+    if (cached && Array.isArray(cached.presets) && (now - (cached.fetchedAt || 0)) < PRESETS_CACHE_TTL) {
+      presetsMemoryCache = mergePresets(cached.presets);
+      presetsFetchedAt = cached.fetchedAt || now;
+      return presetsMemoryCache;
+    }
+
+    try {
+      const response = await fetch(PROVIDERS_URL, { cache: 'no-cache' });
+      if (response.ok) {
+        const data = await response.json();
+        const parsed = parsePresetProviders(data);
+        if (parsed) {
+          presetsMemoryCache = mergePresets(parsed);
+          presetsFetchedAt = now;
+          if (api && api.storage && api.storage.local) {
+            try {
+              await api.storage.local.set({
+                [PRESETS_CACHE_KEY]: { presets: parsed, fetchedAt: now, version: String(data.version || '') }
+              });
+            } catch {}
+          }
+          return presetsMemoryCache;
+        }
+      }
+    } catch {}
+
+    if (cached && Array.isArray(cached.presets) && cached.presets.length) {
+      presetsMemoryCache = mergePresets(cached.presets);
+      presetsFetchedAt = now;
+      return presetsMemoryCache;
+    }
+    return clone(PROVIDER_PRESETS);
+  }
+
   function loadInterpreterConfig() {
     const api = getBrowser();
     if (!api || !api.storage || !api.storage.local) {
@@ -535,6 +780,8 @@
     SYSTEM_PROMPT,
     PROVIDER_PRESETS,
     DEFAULT_INTERPRETER_CONFIG,
+    getPresetProviders,
+    parsePresetProviders,
     createPromptRegex,
     collectPromptVariables,
     hasPromptPlaceholders,

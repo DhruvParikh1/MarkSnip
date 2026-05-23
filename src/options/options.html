@@ -1955,7 +1955,7 @@ const helloWorld = () => {
 
                 <div class="setting-card" id="interpreterGeneralCard"
                     data-search-keywords="interpreter,llm,ai,prompt,gpt,claude,gemini,ollama,openrouter,auto run,prompt context"
-                    data-setting-key="interpreterEnabled,interpreterAutoRun,defaultPromptContext">
+                    data-setting-key="interpreterEnabled,interpreterAutoRun,interpreterExportWarning,defaultPromptContext">
                     <h3 class="card-title">Interpreter</h3>
                     <p class="card-desc">When enabled, clipping a page that contains <code>{{prompt:"..."}}</code> placeholders shows an Interpreter panel in the popup. Add <code>{{prompt:"Summarize this"}}</code> to your templates in the Templates section.</p>
                     <div class="toggle-row">
@@ -1974,6 +1974,16 @@ const helloWorld = () => {
                         </div>
                         <label class="toggle-switch">
                             <input name="interpreterAutoRun" id="interpreterAutoRun" type="checkbox" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <label class="toggle-label-text" for="interpreterExportWarning" data-i18n="optionsInterpreterExportWarning">Warn before exporting unrun prompts</label>
+                            <p class="toggle-hint" data-i18n="optionsInterpreterExportWarningHint">Shows a confirmation if you download, copy, or send a clip that still contains an unrun {{prompt:"..."}} placeholder.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input name="interpreterExportWarning" id="interpreterExportWarning" type="checkbox" />
                             <span class="toggle-slider"></span>
                         </label>
                     </div>
@@ -2026,6 +2036,8 @@ const helloWorld = () => {
                                 <option value="openai">OpenAI-compatible</option>
                                 <option value="anthropic">Anthropic</option>
                                 <option value="ollama">Ollama</option>
+                                <option value="azure">Azure OpenAI</option>
+                                <option value="huggingface">Hugging Face</option>
                             </select>
                         </div>
 
@@ -2073,9 +2085,15 @@ const helloWorld = () => {
                             <select id="interpreterModelProvider" class="text-input interpreter-select"></select>
                         </div>
 
+                        <div class="input-group" id="interpreterModelPickerGroup" hidden>
+                            <label class="input-label" data-i18n="optionsInterpreterPopularModels">Popular models</label>
+                            <p class="input-hint" data-i18n="optionsInterpreterPopularModelsHint">Pick one to fill the Model ID, or enter your own below.</p>
+                            <div id="interpreterModelPicker" class="interpreter-model-picker"></div>
+                        </div>
+
                         <div class="input-group">
                             <label class="input-label" for="interpreterModelModelId" data-i18n="optionsInterpreterModelId">Model ID</label>
-                            <p class="input-hint">The provider's model identifier, e.g. gemini-flash-latest.</p>
+                            <p class="input-hint" id="interpreterModelModelIdHint" data-i18n="optionsInterpreterModelIdHint">The provider’s model identifier, e.g. gemini-flash-latest.</p>
                             <input type="text" id="interpreterModelModelId" class="text-input" placeholder="gemini-flash-latest" spellcheck="false" />
                         </div>
 

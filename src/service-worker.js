@@ -868,6 +868,15 @@ async function handleInterpretRequest(message) {
     return { success: false, error: error?.message || 'Failed to build interpreter request' };
   }
 
+  // Guard against an unfilled {placeholder} in the endpoint (e.g. an Azure
+  // provider saved before its {resource-name}/{deployment-id} were set).
+  if (/\{[^}]+\}/.test(request.url)) {
+    return {
+      success: false,
+      error: `The base URL for ${provider.name} still has an unfilled {placeholder}. Edit the provider in Settings.`
+    };
+  }
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), INTERPRETER_FETCH_TIMEOUT_MS);
 

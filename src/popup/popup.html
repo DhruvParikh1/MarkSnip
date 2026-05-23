@@ -722,6 +722,21 @@
     </div>
   </div>
 
+  <dialog id="interpreterExportWarningDialog" class="export-warning-dialog">
+    <div class="export-warning-dialog__panel">
+      <h2 class="export-warning-dialog__title" id="interpreterExportWarningTitle">Unrun interpreter prompt</h2>
+      <p class="export-warning-dialog__text" id="interpreterExportWarningText">This clip still contains an interpreter prompt that hasn't been run yet. Export it anyway?</p>
+      <label class="export-warning-dialog__check">
+        <input type="checkbox" id="interpreterExportWarningDismiss" />
+        <span id="interpreterExportWarningDismissLabel">Don't warn me about this again</span>
+      </label>
+      <div class="export-warning-dialog__actions">
+        <button type="button" id="interpreterExportWarningCancel" class="btn btn-secondary">Cancel</button>
+        <button type="button" id="interpreterExportWarningProceed" class="btn btn-primary">Export anyway</button>
+      </div>
+    </div>
+  </dialog>
+
   <script type="application/javascript" src="../browser-polyfill.min.js"></script>
   <script type="application/javascript" src="../shared/i18n.js"></script>
   <script type="application/javascript" src="lib/codemirror.js"></script>

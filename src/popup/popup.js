@@ -460,7 +460,14 @@ const dom = {
     interpreterModelMenu: document.getElementById('interpreterModelMenu'),
     interpretButton: document.getElementById('interpretBtn'),
     interpreterTimer: document.getElementById('interpreterTimer'),
-    interpreterError: document.getElementById('interpreterError')
+    interpreterError: document.getElementById('interpreterError'),
+    interpreterExportWarningDialog: document.getElementById('interpreterExportWarningDialog'),
+    interpreterExportWarningTitle: document.getElementById('interpreterExportWarningTitle'),
+    interpreterExportWarningText: document.getElementById('interpreterExportWarningText'),
+    interpreterExportWarningDismiss: document.getElementById('interpreterExportWarningDismiss'),
+    interpreterExportWarningDismissLabel: document.getElementById('interpreterExportWarningDismissLabel'),
+    interpreterExportWarningCancel: document.getElementById('interpreterExportWarningCancel'),
+    interpreterExportWarningProceed: document.getElementById('interpreterExportWarningProceed')
 };
 
 globalThis.cm = null;
@@ -2475,6 +2482,7 @@ const defaultOptions = {
     interpreterAutoRun: false,
     interpreterModelId: '',
     defaultPromptContext: '{{content}}',
+    interpreterExportWarning: true,
     disallowedChars: '[]#^',
     disallowedCharReplacement: '',
 }
@@ -3718,22 +3726,98 @@ async function runInterpreter() {
     }
 }
 
-// Guards an export action: if the interpreter is enabled and the content being
-// exported still has an unrun {{prompt:"..."}} placeholder, ask for confirmation.
-// Returns false only when the user chooses to cancel.
+// Custom in-popup confirmation modal — replaces window.confirm() so the warning
+// matches the extension UI. Resolves true to proceed, false to cancel.
+function showInterpreterExportWarning() {
+    return new Promise((resolve) => {
+        const dialog = dom.interpreterExportWarningDialog;
+        const cancelBtn = dom.interpreterExportWarningCancel;
+        const proceedBtn = dom.interpreterExportWarningProceed;
+        const dismissCheckbox = dom.interpreterExportWarningDismiss;
+
+        if (!dialog || !cancelBtn || !proceedBtn || typeof dialog.showModal !== 'function') {
+            resolve(true);
+            return;
+        }
+
+        if (dismissCheckbox) {
+            dismissCheckbox.checked = false;
+        }
+
+        // Localize the dialog text (the popup has no data-i18n pass).
+        if (dom.interpreterExportWarningTitle) {
+            dom.interpreterExportWarningTitle.textContent = popupMessage(
+                'interpreterExportWarningTitle', null, 'Unrun interpreter prompt');
+        }
+        if (dom.interpreterExportWarningText) {
+            dom.interpreterExportWarningText.textContent = popupMessage(
+                'interpreterUnresolvedExportWarning', null,
+                'This clip still contains an interpreter prompt that has not been run yet. Export it anyway?');
+        }
+        if (dom.interpreterExportWarningDismissLabel) {
+            dom.interpreterExportWarningDismissLabel.textContent = popupMessage(
+                'interpreterExportWarningDismiss', null, "Don't warn me about this again");
+        }
+        cancelBtn.textContent = popupMessage('interpreterExportWarningCancel', null, 'Cancel');
+        proceedBtn.textContent = popupMessage('interpreterExportWarningProceed', null, 'Export anyway');
+
+        let settled = false;
+
+        function finish(proceed) {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            cancelBtn.removeEventListener('click', onCancel);
+            proceedBtn.removeEventListener('click', onProceed);
+            dialog.removeEventListener('cancel', onCancel);
+            dialog.removeEventListener('click', onBackdrop);
+            if (dialog.open) {
+                dialog.close();
+            }
+            if (proceed && dismissCheckbox && dismissCheckbox.checked) {
+                currentOptions.interpreterExportWarning = false;
+                browser.storage.sync.set({ interpreterExportWarning: false }).catch((error) => {
+                    console.error('Failed to save export-warning preference:', error);
+                });
+            }
+            resolve(proceed);
+        }
+        function onCancel(event) {
+            if (event) {
+                event.preventDefault();
+            }
+            finish(false);
+        }
+        function onProceed() {
+            finish(true);
+        }
+        function onBackdrop(event) {
+            if (event.target === dialog) {
+                finish(false);
+            }
+        }
+
+        cancelBtn.addEventListener('click', onCancel);
+        proceedBtn.addEventListener('click', onProceed);
+        dialog.addEventListener('cancel', onCancel);
+        dialog.addEventListener('click', onBackdrop);
+        dialog.showModal();
+    });
+}
+
+// Guards an export action: if the interpreter is enabled, the warning has not
+// been disabled, and the content still has an unrun {{prompt:"..."}}
+// placeholder, ask for confirmation. Resolves false only when the user cancels.
 function confirmInterpreterExport(content, title) {
     const utils = getInterpreterUtils();
-    if (!utils || !currentOptions?.interpreterEnabled) {
-        return true;
+    if (!utils || !currentOptions?.interpreterEnabled || currentOptions?.interpreterExportWarning === false) {
+        return Promise.resolve(true);
     }
     if (!utils.hasPromptPlaceholders(String(content || ''), String(title || ''))) {
-        return true;
+        return Promise.resolve(true);
     }
-    return window.confirm(popupMessage(
-        'interpreterUnresolvedExportWarning',
-        null,
-        'This clip still contains an interpreter prompt ({{prompt:"..."}}) that has not been run yet. Export it anyway?'
-    ));
+    return showInterpreterExportWarning();
 }
 
 dom.interpretButton?.addEventListener('click', () => {
@@ -4835,7 +4919,7 @@ async function handleSendToAction(targetId = currentOptions?.defaultSendToTarget
         return;
     }
 
-    if (!confirmInterpreterExport(content)) {
+    if (!(await confirmInterpreterExport(content))) {
         return;
     }
 
@@ -4886,7 +4970,7 @@ async function handleWebhookSendAction(targetId, { selectionOnly = false, trigge
         return;
     }
 
-    if (!confirmInterpreterExport(content)) {
+    if (!(await confirmInterpreterExport(content))) {
         return;
     }
 
@@ -4981,7 +5065,7 @@ async function exportCurrentContent(kind, { selectionOnly = false, closeAfter = 
     const markdown = selectionOnly ? getEditorSelection() : getEditorValue();
     const title = getCurrentExportTitle();
 
-    if (!confirmInterpreterExport(markdown, title)) {
+    if (!(await confirmInterpreterExport(markdown, title))) {
         return;
     }
 
@@ -5019,7 +5103,7 @@ async function handlePrimaryCopyAction({ selectionOnly = false, triggerButton = 
         return;
     }
 
-    if (!confirmInterpreterExport(textToCopy)) {
+    if (!(await confirmInterpreterExport(textToCopy))) {
         return;
     }
 
@@ -5154,7 +5238,7 @@ async function copyToClipboard(e) {
             return;
         }
 
-        if (!confirmInterpreterExport(textToCopy)) {
+        if (!(await confirmInterpreterExport(textToCopy))) {
             return;
         }
 
@@ -5197,13 +5281,13 @@ async function copyToClipboard(e) {
     }
 }
 
-function copySelectionToClipboard(e) {
+async function copySelectionToClipboard(e) {
     e.preventDefault();
     const copySelButton = dom.copySelectionButton;
     if (!editorHasSelection() || !copySelButton) return;
 
     const selectedText = getEditorSelection();
-    if (!confirmInterpreterExport(selectedText)) {
+    if (!(await confirmInterpreterExport(selectedText))) {
         return;
     }
     navigator.clipboard.writeText(selectedText).then(async () => {
@@ -5261,7 +5345,7 @@ async function sendToObsidian(e) {
         // Get markdown content
         const title = dom.titleInput?.value || popupMessage('popupUntitledFallback', null, 'Untitled');
 
-        if (!confirmInterpreterExport(getEditorValue(), title)) {
+        if (!(await confirmInterpreterExport(getEditorValue(), title))) {
             return;
         }
 
