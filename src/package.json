@@ -3,6 +3,7 @@
   "scripts": {
     "npminstall": "npm install",
     "generate:release-highlights": "node scripts/generate-release-highlights.js",
+    "audit:i18n": "node scripts/audit-i18n.js",
     "build:browser-manifests": "node scripts/generate-browser-manifests.js",
     "build:manifests": "npm run generate:release-highlights && npm run build:browser-manifests",
     "build": "npm run build:manifests && web-ext build -s .build/firefox",

@@ -142,11 +142,30 @@ npm ci
 - `npm run test:unit` - Unit tests
 - `npm run test:integration` - Integration tests
 - `npm run test:e2e` - Playwright end-to-end tests
+- `npm run audit:i18n` - Audit locale key parity and exact-English fallback strings
 - `npm run build:manifests` - Generate browser-specific manifests
 - `npm run build` - Firefox package build via `web-ext`
 - `npm run build:chrome` - Chrome ZIP package
 - `npm run build:all` - Build Firefox + Chrome artifacts
 - `go build ./cmd/marksnip` and `go build ./cmd/marksnip-native-host` from `native/` - Agent Bridge companion
+
+### i18n audit
+
+Use the locale audit to check key parity and exact-English fallback strings:
+
+```bash
+npm run audit:i18n
+```
+
+Useful options:
+
+```bash
+npm run audit:i18n -- --json
+npm run audit:i18n -- --locale de,fr,pt_BR
+npm run audit:i18n -- --include-invariants
+npm run audit:i18n -- --fail-on-untranslated
+npm run audit:i18n -- --allow-key someIntentionalEnglishKey
+```
 
 ## Build Architecture
 
