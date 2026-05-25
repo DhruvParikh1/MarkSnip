@@ -1127,7 +1127,7 @@ body {
 
 .header-actions {
     display: flex;
-    gap: var(--space-2);
+    gap: 2px;
 }
 
 :root.hide-popup-theme-toggle .icon-btn--theme {
@@ -1138,11 +1138,11 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     padding: 0;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: transparent;
+    border: 1px solid transparent;
     border-radius: var(--radius-md);
     color: var(--text-inverse);
     cursor: pointer;
@@ -1181,8 +1181,7 @@ body {
 
 @media (hover: hover) and (pointer: fine) {
     .icon-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.14);
     }
 }
 
@@ -1191,9 +1190,7 @@ body {
 }
 
 .icon-btn.active {
-    background: rgba(255, 255, 255, 0.24);
-    border-color: rgba(255, 255, 255, 0.38);
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .guide-dropdown-wrap { position: relative; }
@@ -1258,10 +1255,6 @@ body {
         background var(--theme-transition),
         border-color var(--theme-transition),
         box-shadow var(--theme-transition);
-}
-
-.quick-actions-row {
-    grid-template-columns: minmax(0, 0.75fr) 1px minmax(0, 0.78fr) minmax(0, 1fr) auto;
 }
 
 .toggle-row.is-picker-hidden {
@@ -2837,7 +2830,7 @@ body {
 .library-header .icon-btn {
     color: var(--text-primary);
     background: var(--bg-primary);
-    border-color: var(--border-light);
+    border: 1px solid var(--border-light);
 }
 
 .library-header .icon-btn:hover {
@@ -3417,16 +3410,12 @@ body {
 }
 
 :root.special-theme-openai .header .icon-btn {
-    background: rgba(8,8,8,0.04);
-    border-color: rgba(8,8,8,0.1);
     color: #080808;
 }
 
 :root.special-theme-openai .header .icon-btn:hover,
 :root.special-theme-openai .header .icon-btn.active {
     background: rgba(8,8,8,0.08);
-    border-color: rgba(8,8,8,0.16);
-    box-shadow: inset 0 0 0 1px rgba(8,8,8,0.04);
 }
 
 :root.theme-dark.special-theme-openai .header {
@@ -3444,16 +3433,12 @@ body {
 }
 
 :root.theme-dark.special-theme-openai .header .icon-btn {
-    background: rgba(255,255,255,0.04);
-    border-color: rgba(255,255,255,0.08);
     color: #ECECF1;
 }
 
 :root.theme-dark.special-theme-openai .header .icon-btn:hover,
 :root.theme-dark.special-theme-openai .header .icon-btn.active {
     background: rgba(255,255,255,0.08);
-    border-color: rgba(255,255,255,0.14);
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
 }
 
 :root.theme-dark.special-theme-openai .editor-btn:hover {
@@ -3503,16 +3488,12 @@ body {
     }
 
     :root.theme-system.special-theme-openai .header .icon-btn {
-        background: rgba(255,255,255,0.04);
-        border-color: rgba(255,255,255,0.08);
         color: #ECECF1;
     }
 
     :root.theme-system.special-theme-openai .header .icon-btn:hover,
     :root.theme-system.special-theme-openai .header .icon-btn.active {
         background: rgba(255,255,255,0.08);
-        border-color: rgba(255,255,255,0.14);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
     }
 
     :root.theme-system.special-theme-openai .editor-btn:hover {
@@ -3548,17 +3529,13 @@ body {
 }
 
 :root.special-theme-atla .header .icon-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.15);
     color: #EDD9B8;
 }
 
 :root.special-theme-atla .header .icon-btn:hover,
 :root.special-theme-atla .header .icon-btn.active {
     background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.2);
     color: #F4EDD8;
-    box-shadow: none;
 }
 
 :root.special-theme-atla .settings-panel {
@@ -3672,15 +3649,12 @@ body {
 }
 
 :root.theme-dark.special-theme-atla .header .icon-btn {
-    background: rgba(255, 255, 255, 0.06);
-    border-color: rgba(255, 255, 255, 0.12);
     color: #E8A020;
 }
 
 :root.theme-dark.special-theme-atla .header .icon-btn:hover,
 :root.theme-dark.special-theme-atla .header .icon-btn.active {
     background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.16);
     color: #F5C030;
 }
 
@@ -3795,15 +3769,12 @@ body {
     }
 
     :root.theme-system.special-theme-atla .header .icon-btn {
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.12);
         color: #E8A020;
     }
 
     :root.theme-system.special-theme-atla .header .icon-btn:hover,
     :root.theme-system.special-theme-atla .header .icon-btn.active {
         background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.16);
         color: #F5C030;
     }
 
@@ -3933,8 +3904,6 @@ body {
 
 :root.special-theme-ben10 .header .icon-btn,
 :root.theme-dark.special-theme-ben10 .header .icon-btn {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.15);
     color: #7aaa7a;
 }
 
@@ -3943,9 +3912,7 @@ body {
 :root.theme-dark.special-theme-ben10 .header .icon-btn:hover,
 :root.theme-dark.special-theme-ben10 .header .icon-btn.active {
     background: #328336;
-    border-color: #328336;
     color: #fbfbfd;
-    box-shadow: none;
 }
 
 :root.special-theme-ben10 .settings-panel {
@@ -4268,17 +4235,13 @@ body {
     }
 
     :root.theme-system.special-theme-ben10 .header .icon-btn {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(255, 255, 255, 0.15);
         color: #7aaa7a;
     }
 
     :root.theme-system.special-theme-ben10 .header .icon-btn:hover,
     :root.theme-system.special-theme-ben10 .header .icon-btn.active {
         background: #328336;
-        border-color: #328336;
         color: #fbfbfd;
-        box-shadow: none;
     }
 
     :root.theme-system.special-theme-ben10 .settings-panel {

@@ -4335,6 +4335,11 @@ input[type="file"] {
     margin-top: var(--space-4);
 }
 
+/* Breathing room between the last toggle divider and the first input group. */
+#highlighterGroup .toggle-row + .input-group {
+    margin-top: var(--space-4);
+}
+
 /* Styled <select> with a custom chevron (native arrow varies by OS). */
 .interpreter-select {
     appearance: none;
