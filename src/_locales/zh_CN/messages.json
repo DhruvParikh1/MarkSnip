@@ -20,7 +20,7 @@
     "description": "Title for the in-page Click & Clip picker panel"
   },
   "clickClipWarning": {
-    "message": "将点击您标记的按钮。请避免在提交表单或进行购买的页面上使用。",
+    "message": "会自动点击您标记的按钮。请勿在含敏感信息或支付页面中使用。",
     "description": "Safety warning shown in the Click & Clip panel"
   },
   "clickClipPickInfo": {
@@ -49,7 +49,7 @@
     "description": "Pattern option: tabbed content"
   },
   "clickClipPatternAccordion": {
-    "message": "手风琴",
+    "message": "伸展面板",
     "description": "Pattern option: accordion / expandable sections"
   },
   "clickClipPatternLoadMore": {
@@ -97,7 +97,7 @@
     "description": "Tooltip for removing a trigger from the list"
   },
   "clickClipRejectLink": {
-    "message": "该链接将跳转到其他页面——请对链接使用批量处理功能。",
+    "message": "该链接会跳转到其他页面，请改用“批量链接”功能处理。",
     "description": "Shown when the user tries to tag a real navigational link"
   },
   "clickClipRunning": {
@@ -143,7 +143,7 @@
     "description": "Status while the captured items are being saved"
   },
   "clickClipSuccess": {
-    "message": "完成——已剪辑 $COUNT$ 个项目。",
+    "message": "已完成——已剪藏 $COUNT$ 个项目。",
     "description": "Success message after a Click & Clip run",
     "placeholders": {
       "count": {
@@ -164,7 +164,7 @@
     "description": "Status during the Test-first dry run"
   },
   "clickClipTestResult": {
-    "message": "已准备好剪辑此页面状态（$COUNT$ 个字符）。",
+    "message": "当前页面状态已可剪藏（$COUNT$ 个字符）。",
     "description": "Result of the Test-first page-state dry run",
     "placeholders": {
       "count": {
@@ -237,7 +237,7 @@
     "description": "Context menu item"
   },
   "contextToggleTemplate": {
-    "message": "包含顶部/底部模板",
+    "message": "包含页眉/页脚模板",
     "description": "Context menu item"
   },
   "contextToggleImages": {
@@ -316,7 +316,7 @@
     }
   },
   "notifSupportMessage": {
-    "message": "MarkSnip 已帮助导出超过 $MILESTONE$ 个页面。如果它对您有帮助，请支持我们的持续开发。",
+    "message": "MarkSnip 已帮你导出超过 $MILESTONE$ 个页面。如果您觉得有帮助，请支持我们。",
     "description": "Message for support milestone notification",
     "placeholders": {
       "milestone": {
@@ -325,23 +325,23 @@
     }
   },
   "notifReviewTitle": {
-    "message": "喜欢 MarkSnip 吗？",
+    "message": "爱了吗？",
     "description": "Title for review request notification"
   },
   "notifReviewMessage": {
-    "message": "快速评价可以帮助其他人发现 MarkSnip，只需不到一分钟的时间。",
+    "message": "为了更多人知道 MarkSnip，求好评！（差评也行）",
     "description": "Message for review request notification"
   },
   "notifActionBuyCoffee": {
-    "message": "请我喝杯咖啡",
+    "message": "KFC V 我 50",
     "description": "Notification action button"
   },
   "notifActionReleaseNotes": {
-    "message": "查看发布说明",
+    "message": "更新日志",
     "description": "Notification action button"
   },
   "notifActionLeaveReview": {
-    "message": "留下评价",
+    "message": "求点评",
     "description": "Notification action button"
   },
   "popupLoadingText": {
@@ -425,7 +425,7 @@
     "description": "Tooltip for export dropdown arrow"
   },
   "popupSendToLabel": {
-    "message": "发送至",
+    "message": "发送到",
     "description": "Dropdown section label"
   },
   "popupExportAsLabel": {
@@ -469,7 +469,7 @@
     "description": "Selection action label for PDF export"
   },
   "popupExportPdfNote": {
-    "message": "通过打印",
+    "message": "通过浏览器打印",
     "description": "Note next to Save as PDF option"
   },
   "popupExportPrint": {
@@ -485,7 +485,7 @@
     "description": "Placeholder for batch URLs textarea"
   },
   "popupProgressProcessing": {
-    "message": "正在处理...",
+    "message": "处理中...",
     "description": "Progress indicator status"
   },
   "popupCancelBtn": {
@@ -505,7 +505,7 @@
     "description": "Title for the batch capture method step"
   },
   "popupBatchCaptureMethodDesc": {
-    "message": "选择您希望提供来源的方式。",
+    "message": "选择提供来源的方式。",
     "description": "Description for the batch capture method step"
   },
   "popupBatchCaptureMethodAria": {
@@ -549,7 +549,7 @@
     "description": "Button label for activating the link picker from batch mode"
   },
   "popupBatchPickNote": {
-    "message": "链接将从活动标签页中收集。",
+    "message": "链接将从当前标签页中收集。",
     "description": "Note explaining where picked batch links come from"
   },
   "popupBatchNoLinksTitle": {
@@ -565,7 +565,7 @@
     "description": "Title for the batch Click & Clip explanation panel"
   },
   "popupBatchClickPanelDesc": {
-    "message": "启动后，元素选取器将在活动标签页中打开。点击元素将其加入队列，然后从页面内面板完成操作。",
+    "message": "启动后，元素选取器将在当前标签页中打开。点击元素将其加入队列，然后通过页面内面板完成操作。",
     "description": "Description for the batch Click & Clip explanation panel"
   },
   "popupBatchOutputFormatTitle": {
@@ -621,7 +621,7 @@
     "description": "Title for the Click & Clip step"
   },
   "popupBatchStepElementsDesc": {
-    "message": "Click & Clip 直接在活动标签页上运行。",
+    "message": "Click & Clip 直接在当前标签页上运行。",
     "description": "Description for the Click & Clip step"
   },
   "popupBatchStartClickClipBtn": {
@@ -785,11 +785,11 @@
     "description": "Dropdown link label"
   },
   "popupAlertNoLinksSelected": {
-    "message": "未选择任何链接。请在点击“完成”前选择包含链接的元素。",
+    "message": "未选择任何链接。请先选择包含链接的元素，再点击“完成”。",
     "description": "Alert message when no links are selected in picker"
   },
   "popupAlertFailedToActivateLinkPicker": {
-    "message": "无法激活链接拾取器。请重试。",
+    "message": "无法激活链接选取器。请重试。",
     "description": "Alert message when link picker fails to activate"
   },
   "optionsTitle": {
@@ -817,7 +817,7 @@
     "description": "Sidebar tab label"
   },
   "optionsTabExports": {
-    "message": "导出与集成",
+    "message": "导出与第三方集成",
     "description": "Sidebar tab label"
   },
   "optionsTabLibrary": {
@@ -833,7 +833,7 @@
     "description": "Sidebar tab label"
   },
   "optionsTabSiteRules": {
-    "message": "站点规则",
+    "message": "网站规则",
     "description": "Sidebar tab label"
   },
   "optionsTabImportExport": {
@@ -853,15 +853,15 @@
     "description": "Sidebar category label"
   },
   "optionsBuyCoffeeLink": {
-    "message": "请我喝杯咖啡",
+    "message": "KFC V 我 50",
     "description": "Sidebar link label"
   },
   "optionsLeaveReviewLink": {
-    "message": "留下评价",
+    "message": "求好评！",
     "description": "Sidebar link label"
   },
   "optionsReportIssueLink": {
-    "message": "报告问题",
+    "message": "问题反馈",
     "description": "Sidebar link label"
   },
   "optionsSectionTemplatesTitle": {
@@ -869,11 +869,11 @@
     "description": "Section title"
   },
   "optionsSectionTemplatesDesc": {
-    "message": "为您的剪藏 Markdown 文件配置标题、顶部模板和底部模板。",
+    "message": "为您剪藏的 Markdown 文件设置标题、页眉和页脚模板。",
     "description": "Section description"
   },
   "optionsTemplateVarRefTitle": {
-    "message": "模板变量参考",
+    "message": "变量模板参考",
     "description": "Summary title for variable reference details"
   },
   "optionsTitleTemplateLabel": {
@@ -889,7 +889,7 @@
     "description": "Setting card title"
   },
   "optionsDisallowedCharsDesc": {
-    "message": "要在标题/文件名中剥离或替换的字符 - 除了 /、?、<、>、\\\\、:、*、|、\" 之外",
+    "message": "想要在标题/文件名中移除或替换的字符——请在 /、?、<、>、\\\\、:、*、|、\" 的基础上追加",
     "description": "Setting description"
   },
   "optionsDisallowedCharsAdditional": {
@@ -901,11 +901,11 @@
     "description": "Input label"
   },
   "optionsDisallowedCharsReplacementPlaceholder": {
-    "message": "留空以剥离",
+    "message": "留空则直接删除",
     "description": "Input placeholder"
   },
   "optionsFrontmatterLabel": {
-    "message": "顶部模板 (Front-matter)",
+    "message": "页眉模板 (Front-matter)",
     "description": "Setting card title"
   },
   "optionsFrontmatterInput": {
@@ -921,11 +921,11 @@
     "description": "Preview section meta label"
   },
   "optionsPreviewHint": {
-    "message": "预览使用示例元数据和当前日期/时间。",
+    "message": "预览示例元数据和当前日期/时间。",
     "description": "Hint text for preview"
   },
   "optionsBackmatterLabel": {
-    "message": "底部模板 (Back-matter)",
+    "message": "页脚模板 (Back-matter)",
     "description": "Setting card title"
   },
   "optionsBackmatterInput": {
@@ -933,27 +933,27 @@
     "description": "Input label"
   },
   "optionsIncludeTemplateToggle": {
-    "message": "将顶部/底部模板附加到剪藏文本",
+    "message": "将页眉/页脚模板附加到剪藏文本",
     "description": "Toggle label"
   },
   "optionsIncludeTemplateHint": {
-    "message": "与弹窗的“模板”开关相同。启用后，每个剪藏都将包含您的顶部模板和底部模板。",
+    "message": "与弹窗的“模板”开关相同。启用后，每个剪藏都将包含您的页眉模板和页脚模板。",
     "description": "Toggle hint"
   },
   "optionsSectionAppearanceTitle": {
-    "message": "外观",
+    "message": "皮肤与主题",
     "description": "Section title"
   },
   "optionsSectionAppearanceDesc": {
-    "message": "自定义 MarkSnip 弹窗的外观。",
+    "message": "自定义 MarkSnip 弹窗的皮肤与主题。",
     "description": "Section description"
   },
   "optionsColorModeTitle": {
-    "message": "颜色模式",
+    "message": "夜间模式",
     "description": "Setting card title"
   },
   "optionsColorModeSystem": {
-    "message": "系统默认",
+    "message": "跟随系统",
     "description": "Radio button label"
   },
   "optionsColorModeLight": {
@@ -965,19 +965,19 @@
     "description": "Radio button label"
   },
   "optionsShowThemeToggle": {
-    "message": "在弹窗头部显示快速主题切换",
+    "message": "在弹窗头部显示主题快捷切换",
     "description": "Toggle label"
   },
   "optionsShowThemeToggleHint": {
-    "message": "在弹窗头部添加一个按钮，用于一键切换浅色和深色模式。",
+    "message": "在弹窗顶部添加“夜间模式”切换按钮。",
     "description": "Toggle hint"
   },
   "optionsSpecialThemesTitle": {
-    "message": "特殊主题",
+    "message": "内置主题",
     "description": "Setting card title"
   },
   "optionsSpecialThemesDesc": {
-    "message": "在弹窗、选项页面、指南和编辑器中应用定制的美学风格。",
+    "message": "在弹窗、选项页、文档和编辑器中应用内置主题皮肤。",
     "description": "Setting description"
   },
   "optionsThemeNone": {
@@ -985,7 +985,7 @@
     "description": "Radio button label"
   },
   "optionsThemeColorBlind": {
-    "message": "色盲友好",
+    "message": "高对比度",
     "description": "Radio button label"
   },
   "optionsThemeClaude": {
@@ -1009,7 +1009,7 @@
     "description": "Radio button label"
   },
   "optionsColorBlindProfile": {
-    "message": "色盲配置文件",
+    "message": "高对比度（色盲友好）配置",
     "description": "Input label"
   },
   "optionsColorBlindDeuteranopia": {
@@ -1025,7 +1025,7 @@
     "description": "Dropdown option"
   },
   "optionsColorBlindHint": {
-    "message": "在弹窗、选项页面、指南和编辑器中使用 WCAG AA 标准的调色板。",
+    "message": "在弹窗、选项页、文档和编辑器中使用 WCAG AA 标准的配色方案。",
     "description": "Hint text"
   },
   "optionsShowThemeIcon": {
@@ -1033,7 +1033,7 @@
     "description": "Toggle label"
   },
   "optionsShowThemeIconHint": {
-    "message": "当使用支持的特殊主题时，在头部显示吉祥物图标。",
+    "message": "当使用支持的内置主题时，在顶部显示吉祥物图标。",
     "description": "Toggle hint"
   },
   "optionsAccentColorTitle": {
@@ -1041,27 +1041,27 @@
     "description": "Setting card title"
   },
   "optionsAccentThemeNote": {
-    "message": "特殊主题处于活动状态时，将控制强调色。",
+    "message": "启用内置主题时，强调色跟随主题。",
     "description": "Note text"
   },
   "optionsAccentSage": {
-    "message": "🌿 鼠尾草绿",
+    "message": "🌿 原谅绿",
     "description": "Radio button label"
   },
   "optionsAccentOcean": {
-    "message": "🌊 海洋蓝",
+    "message": "🌊 真的蓝",
     "description": "Radio button label"
   },
   "optionsAccentSlate": {
-    "message": "🪨 石板灰",
+    "message": "🪨 心如死灰",
     "description": "Radio button label"
   },
   "optionsAccentRose": {
-    "message": "🌹 玫瑰红",
+    "message": "🌹 姨妈红",
     "description": "Radio button label"
   },
   "optionsAccentAmber": {
-    "message": "🍯 琥珀黄",
+    "message": "🍯 老八黄",
     "description": "Radio button label"
   },
   "optionsEditorThemeTitle": {
@@ -1069,11 +1069,11 @@
     "description": "Setting card title"
   },
   "optionsEditorThemeDesc": {
-    "message": "为弹窗中的 Markdown 编辑器选择一种语法高亮主题。",
+    "message": "选择弹窗中的 Markdown 编辑器语法高亮主题。",
     "description": "Setting description"
   },
   "optionsEditorThemeLockNote": {
-    "message": "特殊主题处于活动状态时，将提供其自带的浅色和深色编辑器主题。",
+    "message": "启用内置主题时，将使用该主题自带的浅色和深色编辑器主题。",
     "description": "Note text"
   },
   "optionsEditorThemeDefault": {
@@ -1081,31 +1081,31 @@
     "description": "Radio button label"
   },
   "optionsEditorThemeDracula": {
-    "message": "🧛 Dracula",
+    "message": "🧛 Dracula 暗夜",
     "description": "Radio button label"
   },
   "optionsEditorThemeMaterial": {
-    "message": "🎨 Material",
+    "message": "🎨 Material 现代",
     "description": "Radio button label"
   },
   "optionsEditorThemeMonokai": {
-    "message": "🌙 Monokai",
+    "message": "🌙 Monokai 霓虹",
     "description": "Radio button label"
   },
   "optionsEditorThemeNord": {
-    "message": "❄️ Nord",
+    "message": "❄️ Nord 极光",
     "description": "Radio button label"
   },
   "optionsEditorThemeSolarized": {
-    "message": "☀️ Solarized",
+    "message": "☀️ Solarized 护眼",
     "description": "Radio button label"
   },
   "optionsEditorThemeTwilight": {
-    "message": "🌆 Twilight",
+    "message": "🌆 Twilight 暮光",
     "description": "Radio button label"
   },
   "optionsEditorThemeDarkOnlyNote": {
-    "message": "仅支持深色模式 — 在浅色模式下会回退到默认主题",
+    "message": "仅支持深色模式 — 浅色模式下会降级为默认主题",
     "description": "Tooltip note for dark-only themes"
   },
   "optionsPopupBehaviorTitle": {
@@ -1117,7 +1117,7 @@
     "description": "Toggle label"
   },
   "optionsCompactModeHint": {
-    "message": "隐藏快速设置面板并减少内边距，呈现极简弹窗。头部仍可访问设置图标。",
+    "message": "隐藏快捷设置面板并减少内边距，使弹窗更精简。设置图标仍可在头部访问。",
     "description": "Toggle hint"
   },
   "optionsShowUserGuideIcon": {
@@ -1125,23 +1125,23 @@
     "description": "Toggle label"
   },
   "optionsShowUserGuideIconHint": {
-    "message": "在弹窗头部显示用户指南按钮，以便快速获取帮助。",
+    "message": "弹窗顶部显示用户指南按钮，以快速寻求帮助。",
     "description": "Toggle hint"
   },
   "optionsSectionExportsTitle": {
-    "message": "导出与集成",
+    "message": "导出与第三方集成",
     "description": "Section title"
   },
   "optionsSectionExportsDesc": {
-    "message": "配置文件的导出方式，并管理与 Obsidian、助手以及 Agent Bridge 的集成。",
+    "message": "配置剪藏导出方式，并管理与 Obsidian、AI 助理、Agent Bridge、WebHook 等第三方集成。",
     "description": "Section description"
   },
   "optionsEnableContextMenus": {
-    "message": "启用上下文菜单",
+    "message": "在右键菜单中显示",
     "description": "Toggle label"
   },
   "optionsEnableContextMenusHint": {
-    "message": "显示右键菜单项以剪藏页面、选区、链接和标签页。",
+    "message": "在右键菜单中显示剪藏选项，以便快速剪藏页面、选区、链接和标签页。",
     "description": "Toggle hint"
   },
   "optionsEnableBatchProcessing": {
@@ -1153,11 +1153,11 @@
     "description": "Toggle hint"
   },
   "optionsDefaultPopupActionTitle": {
-    "message": "默认弹窗操作",
+    "message": "弹窗配置",
     "description": "Setting card title"
   },
   "optionsDefaultPopupActionDesc": {
-    "message": "控制弹窗的主操作按钮和选区操作按钮。上下文菜单、快捷键、批量导出、库导出、Agent Bridge 和 Obsidian 仍保持基于 Markdown 的操作。",
+    "message": "控制弹窗的主按钮和选区操作按钮。上下文菜单、快捷键、批量导出、库导出、Agent Bridge、Obsidian 和 WebHook 仍默认使用 Markdown 格式。",
     "description": "Setting description"
   },
   "optionsExportCopy": {
@@ -1189,11 +1189,11 @@
     "description": "Setting card title"
   },
   "optionsDownloadModeDesc": {
-    "message": "下载 Markdown 文件的方法。如果您在使用 Downloads API 时遇到问题（有时会与其他下载扩展发生冲突，导致生成随机文件名等症状），请将其设置为“内容链接”。",
+    "message": "下载 Markdown 文件的方式。如果使用 Downloads API 时遇到问题（有时会与其他下载扩展冲突，导致生成随机文件名等问题），请换成“内容链接”模式。",
     "description": "Setting description"
   },
   "optionsDownloadModeNote": {
-    "message": "注意：“内容链接”模式将禁用某些功能，例如下载图片或在文件名中使用子文件夹。",
+    "message": "注意：“内容链接”模式无法使用某些功能，如下载图片或在文件名中使用子文件夹。",
     "description": "Note text"
   },
   "optionsDownloadModeApi": {
@@ -1209,15 +1209,15 @@
     "description": "Toggle label"
   },
   "optionsSaveAsHint": {
-    "message": "无视浏览器设置",
+    "message": "不受浏览器设置影响",
     "description": "Toggle hint"
   },
   "optionsDownloadImagesToggle": {
-    "message": "在 Markdown 文件旁边下载图片",
+    "message": "同时下载 Markdown 中的图片",
     "description": "Toggle label"
   },
   "optionsDownloadImagesHint": {
-    "message": "在 Downloads API 模式下，图片文件也会被保存，并且 Markdown 中的图片链接将被重写为这些本地文件。",
+    "message": "启用 Downloads API 模式时，图片也会一并保存，Markdown 中的图片链接会自动改写为本地文件链接。",
     "description": "Toggle hint"
   },
   "optionsImagePrefixLabel": {
@@ -1225,15 +1225,15 @@
     "description": "Input label"
   },
   "optionsClipsFolderTitle": {
-    "message": "剪藏文件夹",
+    "message": "剪藏目录",
     "description": "Setting card title"
   },
   "optionsClipsFolderLabel": {
-    "message": "Downloads/ 目录下用于存储 MarkSnip 剪藏的文件夹",
+    "message": "Downloads/ 目录下用于保存 MarkSnip 剪藏的文件夹",
     "description": "Input label"
   },
   "optionsDefaultAssistantTargetTitle": {
-    "message": "默认助手目标",
+    "message": "默认目标助手",
     "description": "Setting card title"
   },
   "optionsDefaultAssistantTargetDesc": {
@@ -1277,7 +1277,7 @@
     "description": "Setting card title"
   },
   "optionsAssistantUrlLengthDesc": {
-    "message": "“发送给助手”链接的高级设置。如果生成的助手 URL 超过此值，MarkSnip 将把 Markdown 复制到您的剪贴板，并转而打开助手的着陆页。默认值：3600。不建议修改此设置。",
+    "message": "“发送给助手”链接的高级设置。如果生成的助手 URL 超过此长度，MarkSnip 会改为将 Markdown 复制到剪贴板，并打开助手首页。默认值：3600。不建议修改。",
     "description": "Setting description"
   },
   "optionsMaxUrlLengthLabel": {
@@ -1337,7 +1337,7 @@
     "description": "Setting card title"
   },
   "optionsObsidianIntegrationDesc": {
-    "message": "为了与 Obsidian 集成，您需要安装并启用社区插件 Advanced Obsidian URI。该插件通过使用剪贴板作为创建新文件的来源，帮助绕过 URL 中的字符限制。以此方式发送的图片仍为远程链接；附件文件不会被复制到您的库中。",
+    "message": "为了与 Obsidian 集成，您需要安装并启用社区插件 Advanced Obsidian URI。该插件自动读取剪贴板内容以创建新文件，帮助绕过 URL 中的字符限制。以此方式发送的图片仍为网络链接；附件文件不会被复制到您的仓库中。",
     "description": "Setting description"
   },
   "optionsEnableObsidian": {
@@ -1349,7 +1349,7 @@
     "description": "Heading in guide"
   },
   "guideQuickStart1": {
-    "message": "点击浏览器工具栏中的 MarkSnip 图标以打开弹窗。",
+    "message": "点击浏览器工具栏中的 MarkSnip 图标打开弹窗。",
     "description": "Instruction step"
   },
   "guideQuickStart2": {
@@ -1369,7 +1369,7 @@
     "description": "Welcome banner title"
   },
   "guideWelcomeDesc1": {
-    "message": "感谢您安装 MarkSnip。本指南将帮助您开始将网页剪藏为干净的 Markdown。",
+    "message": "感谢您安装 MarkSnip。本指南将帮助您开始将网页剪藏为整洁的 Markdown。",
     "description": "Welcome text"
   },
   "guideWelcomeDesc2": {
@@ -1405,11 +1405,11 @@
     "description": "FAQ answer"
   },
   "optionsObsidianVaultLabel": {
-    "message": "Obsidian 库名称 (Vault Name)",
+    "message": "Obsidian 仓库名称 (Vault Name)",
     "description": "Label for Obsidian Vault Name"
   },
   "optionsObsidianVaultPlaceholder": {
-    "message": "如果留空，将使用主库。请指定它。",
+    "message": "如果留空，将使用主仓库。请指定仓库名称。",
     "description": "Placeholder for Obsidian Vault Name"
   },
   "optionsObsidianFolderLabel": {
@@ -1425,7 +1425,7 @@
     "description": "Title for Agent Bridge section"
   },
   "optionsAgentBridgeDesc": {
-    "message": "安装一次本地 MarkSnip 伴侣程序，然后允许本地工具直接拉取当前页面的 Markdown，而无需使用下载功能。",
+    "message": "安装一次本地 MarkSnip 辅助程序，然后即可让本地工具直接获取当前页面的 Markdown，无需使用下载功能。",
     "description": "Description for Agent Bridge"
   },
   "optionsAgentBridgeEnableLabel": {
@@ -1433,15 +1433,15 @@
     "description": "Label to enable Agent Bridge"
   },
   "optionsAgentBridgeEnableHint": {
-    "message": "关闭时，MarkSnip 将不会打开本地伴侣连接。",
+    "message": "关闭时，MarkSnip 将不会打开本地辅助程序连接。",
     "description": "Hint for Agent Bridge toggle"
   },
   "optionsAgentBridgePermPreflightTitle": {
-    "message": "启用本地伴侣访问权限？",
+    "message": "启用本地辅助程序访问权限？",
     "description": "Title for Agent Bridge permission preflight"
   },
   "optionsAgentBridgePermPreflightDesc": {
-    "message": "MarkSnip 即将请求浏览器允许与本地 MarkSnip 伴侣通信。",
+    "message": "MarkSnip 即将请求浏览器允许与本地 MarkSnip 辅助程序通信。",
     "description": "Description for Agent Bridge permission preflight"
   },
   "optionsAgentBridgePermBullet1": {
@@ -1485,7 +1485,7 @@
     "description": "Disabled status text for Agent Bridge"
   },
   "optionsAgentBridgeStatusHint": {
-    "message": "启用 Agent Bridge 以允许 MarkSnip 连接到本地伴侣。",
+    "message": "启用 Agent Bridge 以允许 MarkSnip 连接到本地辅助程序。",
     "description": "Hint for Agent Bridge status"
   },
   "optionsAgentBridgeCheckStatus": {
@@ -1525,7 +1525,7 @@
     "description": "Title for Library section"
   },
   "optionsLibrarySectionDesc": {
-    "message": "管理仅在这个浏览器本地保存剪藏的弹窗库。",
+    "message": "管理弹窗中的库，剪藏仅保存在此浏览器的本地存储中。",
     "description": "Description for Library section"
   },
   "optionsLibraryEnableLabel": {
@@ -1541,7 +1541,7 @@
     "description": "Label for automatic save option"
   },
   "optionsLibraryAutoSaveHint": {
-    "message": "关闭时，弹窗的库将显示一个手动的<strong>保存剪藏</strong>按钮。",
+    "message": "关闭后，弹窗库将显示<strong>保存剪藏</strong>按钮，需手动保存。",
     "description": "Hint for automatic save option"
   },
   "optionsLibraryItemsToKeepTitle": {
@@ -1557,7 +1557,7 @@
     "description": "Label for saved clip limit"
   },
   "optionsLibraryItemsToKeepNote": {
-    "message": "库的设置包含在设置导入/导出中。但已保存的库项目仍然仅限本地，不被包含在内。",
+    "message": "库设置包含在设置的导入/导出中，但已保存的库项目仅限本地，不会导出。",
     "description": "Note for Library Items to Keep"
   },
   "optionsLibraryClearTitle": {
@@ -1609,7 +1609,7 @@
     "description": "Option for Indented code blocks"
   },
   "optionsCodeBlocksFenced": {
-    "message": "围栏 (Fenced)",
+    "message": " (Fenced)",
     "description": "Option for Fenced code blocks"
   },
   "optionsPreserveCodeFormattingLabel": {
@@ -1617,7 +1617,7 @@
     "description": "Label to preserve code block HTML formatting"
   },
   "optionsPreserveCodeFormattingHint": {
-    "message": "启用后，保留代码块内原始的 HTML 格式。这对于保持确切的视觉格式很有用，但可能会使 Markdown 难以阅读和在其他工具中使用。禁用（默认）时，生成干净的代码块。",
+    "message": "启用后，保留代码块内原始的 HTML 格式。这对于保持精确的视觉格式很有用，但可能会使 Markdown 难以阅读和在其他工具中使用。禁用（默认）时，生成整洁的代码块。",
     "description": "Hint to preserve code block HTML formatting"
   },
   "optionsAutoDetectCodeLanguageLabel": {
@@ -1625,11 +1625,11 @@
     "description": "Label to auto-detect code block language"
   },
   "optionsAutoDetectCodeLanguageHint": {
-    "message": "当没有显式的语言时，使用 highlight.js 推断围栏代码块的语言。如果代码片段经常被标记为错误的语言，请禁用此项。",
+    "message": "当没有显式的语言时，使用 highlight.js 推断代码块的语言。如果代码片段经常被标记为错误的语言，请禁用此项。",
     "description": "Hint to auto-detect code block language"
   },
   "optionsCodeBlockFenceTitle": {
-    "message": "代码块围栏",
+    "message": "代码块",
     "description": "Title for Code Block Fence"
   },
   "optionsEmDelimiterTitle": {
@@ -1657,7 +1657,7 @@
     "description": "Option for Referenced links"
   },
   "optionsLinkStyleStripLinks": {
-    "message": "剥离链接",
+    "message": "移除链接",
     "description": "Option to Strip Links"
   },
   "optionsLinkReferenceStyleTitle": {
@@ -1685,7 +1685,7 @@
     "description": "Option for Original Source image style"
   },
   "optionsImageStyleStripImages": {
-    "message": "剥离图片",
+    "message": "移除图片",
     "description": "Option to Strip Images"
   },
   "optionsImageStyleNote1": {
@@ -1733,11 +1733,11 @@
     "description": "Hint to Skip Hidden Content"
   },
   "optionsHashtagHandlingTitle": {
-    "message": "话题标签处理 (Hashtag Handling)",
+    "message": "井号标签处理 (Hashtag Handling)",
     "description": "Title for Hashtag Handling"
   },
   "optionsHashtagHandlingDesc": {
-    "message": "控制在剪藏的文本中如何写入类似话题标签的单词（例如 <code>#AI</code>）。对于将话题标签视为标签的工具（如 Obsidian）非常有用。",
+    "message": "控制在剪藏的文本中如何写入类似井号标签的单词（例如 <code>#AI</code>）。对于将井号标签视为标签的工具（如 Obsidian）非常有用。",
     "description": "Description for Hashtag Handling"
   },
   "optionsHashtagHandlingKeep": {
@@ -1765,7 +1765,7 @@
     "description": "Description for Tables section"
   },
   "optionsTableStripLinksLabel": {
-    "message": "剥离表格中的链接",
+    "message": "移除表格中的链接",
     "description": "Label to strip links from tables"
   },
   "optionsTableStripLinksHint": {
@@ -1781,7 +1781,7 @@
     "description": "On option label"
   },
   "optionsTableStripFormattingLabel": {
-    "message": "剥离格式（粗体、斜体等）",
+    "message": "移除格式（粗体、斜体等）",
     "description": "Label to strip formatting from tables"
   },
   "optionsTableStripFormattingHint": {
@@ -1789,7 +1789,7 @@
     "description": "Hint to strip formatting from tables"
   },
   "optionsTablePrettyPrintLabel": {
-    "message": "美化打印表格",
+    "message": "美化表格格式",
     "description": "Label to pretty print tables"
   },
   "optionsTablePrettyPrintHint": {
@@ -1801,15 +1801,15 @@
     "description": "Label to center text in table columns"
   },
   "optionsTableCenterTextHint": {
-    "message": "使表格列中的文本居中。创造更精致的外观。",
+    "message": "使表格列中的文本居中，看起来更美观。",
     "description": "Hint to center text in table columns"
   },
   "optionsSiteRulesSection": {
-    "message": "站点规则",
+    "message": "网站规则",
     "description": "Title for Site Rules section"
   },
   "optionsSiteRulesSectionDesc": {
-    "message": "创建有序的通配符 URL 规则，这些规则将覆盖匹配站点的剪藏设置。第一个启用的匹配项将生效。",
+    "message": "创建有序的通配符 URL 规则，覆盖匹配网站的剪藏设置。优先匹配第一个启用的规则。",
     "description": "Description for Site Rules section"
   },
   "optionsSiteRulesListTitle": {
@@ -1817,7 +1817,7 @@
     "description": "Title for Rule List"
   },
   "optionsSiteRulesListDesc": {
-    "message": "使用类似 <code>example.com/*</code>、<code>docs.example.com/blog/*</code> 或 <code>*.example.com/*</code> 的模式。查询字符串和哈希会被忽略。",
+    "message": "用类似 <code>example.com/*</code>、<code>docs.example.com/blog/*</code> 或 <code>*.example.com/*</code> 的方式。查询字符串和哈希不支持。",
     "description": "Description for Rule List patterns"
   },
   "optionsSiteRulesSummaryZero": {
@@ -1829,15 +1829,15 @@
     "description": "Button to add site rule"
   },
   "optionsSiteRulesEmptyTitle": {
-    "message": "暂无站点规则。",
+    "message": "暂无网站规则。",
     "description": "Title when no site rules exist"
   },
   "optionsSiteRulesEmptyDesc": {
-    "message": "当您希望特定域名具有不同的模板、图片行为或表格格式时，请添加规则。",
+    "message": "当您希望特定域名拥有特定的模板、图片行为或表格样式时，请添加规则。",
     "description": "Description when no site rules exist"
   },
   "optionsSiteRuleEditorTitle": {
-    "message": "添加站点规则",
+    "message": "添加网站规则",
     "description": "Title for Site Rule Editor"
   },
   "optionsSiteRuleEditorHint": {
@@ -1865,7 +1865,7 @@
     "description": "Empty state label for a Site Rule without overrides"
   },
   "optionsSiteRuleInvalidPattern": {
-    "message": "无效模式",
+    "message": "无效的匹配模式",
     "description": "Prefix for invalid Site Rule pattern errors"
   },
   "optionsSiteRuleMoveUpBtn": {
@@ -1889,7 +1889,7 @@
     "description": "Hint for Site Rule Enabled state"
   },
   "optionsSiteRuleBooleanOverridesTitle": {
-    "message": "布尔覆盖",
+    "message": "开关覆盖",
     "description": "Title for Boolean Overrides"
   },
   "optionsSiteRuleTemplateLabel": {
@@ -1965,7 +1965,7 @@
     "description": "Description for Permissions & Privacy"
   },
   "optionsPermissionSiteAccessTitle": {
-    "message": "用于剪藏的站点访问权限",
+    "message": "用于剪藏的网站访问权限",
     "description": "Title for Site Access permission"
   },
   "optionsPermissionIncludedBadge": {
@@ -1973,7 +1973,7 @@
     "description": "Badge indicating permission is included"
   },
   "optionsPermissionSiteAccessBullet1": {
-    "message": "需要此权限，以便 MarkSnip 能够剪藏您要求它剪藏的任何页面。",
+    "message": "此权限用于让 MarkSnip 剪藏您指定的页面。",
     "description": "Site access permission bullet 1"
   },
   "optionsPermissionSiteAccessBullet2": {
@@ -1985,11 +1985,11 @@
     "description": "Site access permission bullet 3"
   },
   "optionsPermissionSiteAccessBullet4": {
-    "message": "这由浏览器作为扩展安装的一部分进行管理。",
+    "message": "此权限由浏览器在扩展安装时自动管理。",
     "description": "Site access permission bullet 4"
   },
   "optionsPermissionLocalCompanionTitle": {
-    "message": "本地伴侣访问权限",
+    "message": "本地辅助程序访问",
     "description": "Title for Local Companion access"
   },
   "optionsPermissionOptionalBadge": {
@@ -1997,7 +1997,7 @@
     "description": "Badge indicating permission is optional"
   },
   "optionsPermissionLocalCompanionBullet2": {
-    "message": "仅与安装在本机上的本地 MarkSnip 伴侣通信。",
+    "message": "仅与安装在本机上的本地 MarkSnip 辅助程序通信。",
     "description": "Local companion access bullet 2"
   },
   "optionsPermissionLocalCompanionBullet4": {
@@ -2009,7 +2009,7 @@
     "description": "Title for Import"
   },
   "optionsImportDesc": {
-    "message": "从先前导出的备份文件中恢复选项。",
+    "message": "从预先导出的备份文件中恢复选项。",
     "description": "Description for Import"
   },
   "optionsImportBtn": {
@@ -2021,7 +2021,7 @@
     "description": "Title for Export"
   },
   "optionsExportDesc": {
-    "message": "将您当前的选项下载为 JSON 文件。",
+    "message": "将您当前的配置下载为 JSON 文件。",
     "description": "Description for Export"
   },
   "optionsExportBtn": {
@@ -2029,15 +2029,15 @@
     "description": "Button to export options"
   },
   "optionsResetTitle": {
-    "message": "全部重置为默认值",
+    "message": "恢复出厂设置",
     "description": "Title for Reset All"
   },
   "optionsResetDesc": {
-    "message": "将每个设置恢复为其出厂默认值。此操作无法撤销。",
+    "message": "将所有设置恢复为其出厂默认值。操作将无法反悔。",
     "description": "Description for Reset All"
   },
   "optionsResetBtn": {
-    "message": "全部重置为默认值",
+    "message": "恢复出厂设置",
     "description": "Button to reset all options"
   },
   "optionsSearchNoResultsPrefix": {
@@ -2049,7 +2049,7 @@
     "description": "Suffix for no search results message"
   },
   "optionsSearchGuideInstead": {
-    "message": "转而在用户指南中搜索",
+    "message": "改为搜索用户指南",
     "description": "Link text to search the guide instead"
   },
   "guideSkipLink": {
@@ -2089,7 +2089,7 @@
     "description": "TOC link for Batch Processing"
   },
   "guideTocContextMenus": {
-    "message": "上下文菜单与快捷键",
+    "message": "右键菜单与快捷键",
     "description": "TOC link for Context Menus & Shortcuts"
   },
   "guideTocSettings": {
@@ -2129,7 +2129,7 @@
     "description": "Images toggle description in guide"
   },
   "guideUsingPopupQuickSettingsTpl": {
-    "message": "<strong>模板</strong> &mdash; 开启时，顶部模板和底部模板将附加在输出的前后。",
+    "message": "<strong>模板</strong> &mdash; 开启时，页眉模板和页脚模板将附加在输出的前后。",
     "description": "Template toggle description in guide"
   },
   "guideUsingPopupScope": {
@@ -2213,11 +2213,11 @@
     "description": "Description for Adding URLs"
   },
   "guideBatchPickLinks": {
-    "message": "从页面中拾取链接",
+    "message": "从页面中选取链接",
     "description": "Heading for Pick Links from Page subsection"
   },
   "guideBatchPickLinksDesc": {
-    "message": "单击<strong>从页面中拾取链接</strong>以进入可视化链接拾取器。这会在当前页面注入一个覆盖层，让您可以通过点击链接来选择它们。浮动工具栏显示您已选择的链接数，单击<strong>完成</strong>按钮可将它们发送回批量 URL 列表。",
+    "message": "单击<strong>从页面中选取链接</strong>以进入可视化链接选取器。这会在当前页面注入一个覆盖层，让您可以通过点击链接来选择它们。浮动工具栏显示您已选择的链接数，单击<strong>完成</strong>按钮可将它们发送回批量 URL 列表。",
     "description": "Description for Pick Links from Page"
   },
   "guideBatchOutputFormat": {
@@ -2241,7 +2241,7 @@
     "description": "Heading for Context Menus & Shortcuts section"
   },
   "guideContextMenusDesc": {
-    "message": "在页面上右键单击，可以在上下文菜单下访问 MarkSnip 操作。这些操作在设置中打开<strong>启用上下文菜单</strong>时可用。",
+    "message": "在页面上右键单击，可以在右键菜单中访问 MarkSnip 操作。这些操作在设置中启用<strong>右键菜单</strong>时可用。",
     "description": "Description for Context Menus"
   },
   "guideContextDownload": {
@@ -2309,7 +2309,7 @@
     "description": "Send Tab to Obsidian description"
   },
   "guideContextObsidianNote": {
-    "message": "在上下文菜单的底部，您还可以找到<strong>包含顶部/底部模板</strong>和<strong>下载图片</strong>的复选框。",
+    "message": "在右键菜单底部，您还可以找到<strong>包含页眉/页脚模板</strong>和<strong>下载图片</strong>的复选框。",
     "description": "Note for Obsidian Actions"
   },
   "guideContextShortcuts": {
@@ -2385,11 +2385,11 @@
     "description": "Subheading for Disallowed Characters"
   },
   "guideSettingsTemplatesCharsDesc": {
-    "message": "除了系统保留字符外，自动从文件名中剥离的字符。默认值：<code>[]#^</code>（为了与 Obsidian 兼容）。",
+    "message": "除了系统保留字符外，自动从文件名中移除的字符。默认值：<code>[]#^</code>（为了与 Obsidian 兼容）。",
     "description": "Description for Disallowed Characters"
   },
   "guideSettingsTemplatesFrontBack": {
-    "message": "顶部/底部模板",
+    "message": "页眉/页脚模板",
     "description": "Subheading for Front/Back Templates"
   },
   "guideSettingsTemplatesFrontBackDesc": {
@@ -2401,19 +2401,19 @@
     "description": "Heading for Downloads subsection"
   },
   "guideSettingsDownloadsMenus": {
-    "message": "上下文菜单",
+    "message": "右键菜单",
     "description": "Subheading for Context Menus"
   },
   "guideSettingsDownloadsMenusDesc": {
-    "message": "打开和关闭右键上下文菜单项。默认值：<strong>开</strong>。",
+    "message": "开启或关闭右键菜单项。使用<strong>可见菜单项</strong>来选择允许显示的 MarkSnip 操作。浏览器只会显示与您右键单击位置相关的菜单项，例如页面、选区、链接、图片或标签页菜单。默认值：<strong>开</strong>，所有菜单项可见。",
     "description": "Description for Context Menus"
   },
   "guideSettingsDownloadsAction": {
-    "message": "默认弹窗操作",
+    "message": "弹窗配置",
     "description": "Subheading for Default Popup Action"
   },
   "guideSettingsDownloadsActionDesc": {
-    "message": "控制弹窗的主要操作按钮。选择<strong>Markdown</strong>、<strong>纯文本</strong>、<strong>HTML</strong>、<strong>PDF</strong> 或 <strong>发送给助手</strong>。这不会更改上下文菜单下载、键盘下载快捷键、批量输出、库导出、Agent Bridge 输出或 Obsidian 发送的操作。",
+    "message": "控制弹窗的主按钮。选择<strong>Markdown</strong>、<strong>纯文本</strong>、<strong>HTML</strong>、<strong>PDF</strong> 或 <strong>发送给助手</strong>。这不会更改右键菜单下载、键盘下载快捷键、批量输出、库导出、Agent Bridge 输出或 Obsidian 发送的操作。",
     "description": "Description for Default Popup Action"
   },
   "guideSettingsDownloadsTarget": {
@@ -2473,7 +2473,7 @@
     "description": "Subheading for Code Block Style"
   },
   "guideSettingsMarkdownCodeDesc": {
-    "message": "<strong>缩进</strong> (四个空格的缩进) 或 <strong>围栏</strong> (默认，包裹在 <code>```</code> 或 <code>~~~</code> 中)。",
+    "message": "<strong>缩进</strong> (四个空格的缩进) 或 <strong>代码块</strong> (默认，包裹在 <code>```</code> 或 <code>~~~</code> 中)。",
     "description": "Description for Code Block Style"
   },
   "guideSettingsMarkdownPreserve": {
@@ -2497,7 +2497,7 @@
     "description": "Subheading for Link Style"
   },
   "guideSettingsMarkdownLinkDesc": {
-    "message": "<strong>内联</strong> (默认)：<code>[Google](http://google.com)</code>。<strong>引用</strong>：底部单独的链接定义。<strong>剥离链接</strong>：完全移除链接。",
+    "message": "<strong>内联</strong> (默认)：<code>[Google](http://google.com)</code>。<strong>引用</strong>：底部单独的链接定义。<strong>移除链接</strong>：完全移除链接。",
     "description": "Description for Link Style"
   },
   "guideSettingsMarkdownImage": {
@@ -2533,7 +2533,7 @@
     "description": "Table cell Original Source"
   },
   "guideSettingsMarkdownImageStrip": {
-    "message": "剥离图片",
+    "message": "移除图片",
     "description": "Table cell Strip Images"
   },
   "guideSettingsMarkdownImagePure": {
@@ -2585,7 +2585,7 @@
     "description": "Table column Default"
   },
   "guideSettingsTablesStripLinks": {
-    "message": "剥离表格中的链接",
+    "message": "移除表格中的链接",
     "description": "Table cell Strip Links"
   },
   "guideSettingsTablesStripLinksDesc": {
@@ -2593,7 +2593,7 @@
     "description": "Table cell Strip Links Description"
   },
   "guideSettingsTablesStripForm": {
-    "message": "剥离格式",
+    "message": "移除格式",
     "description": "Table cell Strip Formatting"
   },
   "guideSettingsTablesStripFormDesc": {
@@ -2601,7 +2601,7 @@
     "description": "Table cell Strip Formatting Description"
   },
   "guideSettingsTablesPretty": {
-    "message": "美化打印表格",
+    "message": "美化表格格式",
     "description": "Table cell Pretty Print"
   },
   "guideSettingsTablesPrettyDesc": {
@@ -2641,7 +2641,7 @@
     "description": "Description for Obsidian Integration"
   },
   "guideObsidianIntegrationVault": {
-    "message": "<strong>库名称 (Vault Name)</strong> &mdash; 留空以使用默认库。",
+    "message": "<strong>仓库名称 (Vault Name)</strong> &mdash; 留空则使用默认仓库。",
     "description": "Vault Name description"
   },
   "guideObsidianIntegrationFolder": {
@@ -2649,7 +2649,7 @@
     "description": "Folder Name description"
   },
   "guideObsidianIntegrationNote": {
-    "message": "<strong>注意：</strong> 通过 Obsidian 发送的图片将作为远程链接保留。扩展不会将附件文件放入库中。",
+    "message": "<strong>注意：</strong> 通过 Obsidian 发送的图片将作为远程链接保留。扩展不会将附件文件放入仓库中。",
     "description": "Note for Obsidian Integration"
   },
   "guideObsidianMode": {
@@ -2709,7 +2709,7 @@
     "description": "Heading for Permissions & Privacy"
   },
   "guidePermissionsIntro": {
-    "message": "MarkSnip 完全在您的浏览器内处理页面。它不会将页面内容发送到任何外部服务器。本节说明 MarkSnip 使用了哪些浏览器权限、为什么需要它们，以及它们实际在何时被行使。",
+    "message": "MarkSnip 完全在您的浏览器内处理页面，不会将页面内容发送到任何外部服务器。本节说明 MarkSnip 使用了哪些浏览器权限、为什么需要它们，以及何时生效。",
     "description": "Intro for Permissions & Privacy"
   },
   "guidePermissionsSite": {
@@ -2717,7 +2717,7 @@
     "description": "Heading for Site Access"
   },
   "guidePermissionsSiteDesc": {
-    "message": "MarkSnip 请求访问网页的权限，以便在您触发剪藏时能够跨网络剪藏页面。这涵盖弹窗剪藏、键盘快捷键、上下文菜单操作、多标签链接操作，以及对新标签页中打开的 URL 进行批量处理。",
+    "message": "MarkSnip 请求访问网页的权限，以便在您触发剪藏时能够剪藏任意网页。这涵盖弹窗剪藏、键盘快捷键、上下文菜单操作、多标签链接操作，以及对新标签页中打开的 URL 进行批量处理。",
     "description": "Description for Site Access"
   },
   "guidePermissionsSiteBullet1": {
@@ -2737,7 +2737,7 @@
     "description": "Heading for Other Core Permissions"
   },
   "guidePermissionsOtherDesc": {
-    "message": "除站点访问外，MarkSnip 还使用一小组标准浏览器权限来使其主要功能正常工作。这些权限支持本地浏览器操作；它们不会改变剪藏保持在本地的这一事实。",
+    "message": "除站点访问外，MarkSnip 还使用一组标准浏览器权限来支持主要功能。这些权限仅用于本地浏览器操作，不会改变剪藏数据仅在本地处理这一事实。",
     "description": "Description for Other Core Permissions"
   },
   "guidePermissionsOtherCol1": {
@@ -2753,7 +2753,7 @@
     "description": "Table column When it matters"
   },
   "guidePermissionsOtherActiveTabDesc": {
-    "message": "让 MarkSnip 可以操作您明确调用它的页面。",
+    "message": "让 MarkSnip 可以处理您主动调用它的页面。",
     "description": "activeTab description"
   },
   "guidePermissionsOtherActiveTabWhen": {
@@ -2805,7 +2805,7 @@
     "description": "offscreen description"
   },
   "guidePermissionsOtherOffscreenWhen": {
-    "message": "在某些复制和下载操作期间处于幕后。",
+    "message": "在某些复制和下载操作中在后台运行。",
     "description": "offscreen when it matters"
   },
   "guidePermissionsBridge": {
@@ -2813,11 +2813,11 @@
     "description": "Heading for Agent Bridge Permission"
   },
   "guidePermissionsBridgeDesc": {
-    "message": "Agent Bridge 功能需要一个称为<strong>本地消息传递 (Native Messaging)</strong>的额外浏览器权限。这是一个<em>可选</em>权限 &mdash; 没有它，MarkSnip 依然能完美运作。",
+    "message": "Agent Bridge 功能需要一个称为<strong>本地消息传递 (Native Messaging)</strong>的额外浏览器权限。这是一个<em>可选</em>权限 &mdash; 没有它 MarkSnip 也能正常运行。",
     "description": "Description for Agent Bridge Permission"
   },
   "guidePermissionsBridgeBullet1": {
-    "message": "<strong>它的作用</strong> &mdash; 允许 MarkSnip 与安装在您机器上的小型本地伴侣程序通信。",
+    "message": "<strong>它的作用</strong> &mdash; 允许 MarkSnip 与安装在您机器上的本地辅助程序通信。",
     "description": "Agent Bridge bullet 1"
   },
   "guidePermissionsBridgeBullet2": {
@@ -2829,7 +2829,7 @@
     "description": "Agent Bridge bullet 3"
   },
   "guidePermissionsBridgeBullet4": {
-    "message": "<strong>如何授予</strong> &mdash; 在设置中启用 Agent Bridge 开关。在浏览器的权限提示出现前，MarkSnip 会显示说明。",
+    "message": "<strong>如何授予</strong> &mdash; 在设置中启用 Agent Bridge 开关。在浏览器权限提示出现前，MarkSnip 会先显示提示说明。",
     "description": "Agent Bridge bullet 4"
   },
   "guidePermissionsBridgeBullet5": {
@@ -2869,7 +2869,7 @@
     "description": "Heading for Custom Text Substitutions"
   },
   "guideTextSubIntro": {
-    "message": "标题模板、下载子文件夹、顶部/底部模板、图片文件名前缀以及 Obsidian 文件夹名称均支持这些变量：",
+    "message": "标题模板、下载子文件夹、页眉/页脚模板、图片文件名前缀以及 Obsidian 文件夹名称均支持这些变量：",
     "description": "Intro for Text Substitutions"
   },
   "guideTextSubMeta": {
@@ -2977,7 +2977,7 @@
     "description": "Description for Meta Tags"
   },
   "guideTextSubParams": {
-    "message": "参数化 (Parameterizations)",
+    "message": "大小写转换",
     "description": "Heading for Parameterizations"
   },
   "guideTextSubParamsDesc": {
@@ -3130,11 +3130,11 @@
     "description": "Guide search summary for Settings and Customization"
   },
   "guideSummaryTemplates": {
-    "message": "标题模板、顶部模板和底部模板",
+    "message": "标题模板、页眉模板和页脚模板",
     "description": "Guide search summary for Templates"
   },
   "guideSummaryDownloadSettings": {
-    "message": "配置下载行为和上下文菜单",
+    "message": "配置下载行为和右键菜单",
     "description": "Guide search summary for Download Settings"
   },
   "guideSummaryMarkdownOptions": {
@@ -3222,7 +3222,7 @@
     "description": "Template variable reference for content direction"
   },
   "optionsTemplateVarDate": {
-    "message": "{date:FORMAT} - 当前的日期和时间。请检查格式参考",
+    "message": "{date:FORMAT} - 当前的日期和时间。请参阅格式参考",
     "description": "Template variable reference for date"
   },
   "optionsTemplateVarKeywords": {
@@ -3354,7 +3354,7 @@
     "description": "Description for the {variable:uppercase} template filter"
   },
   "optionsTemplateVarAsciiDesc": {
-    "message": "ASCII only: 剥离重音符号和非 ASCII 字符",
+    "message": "仅 ASCII：移除重音符号和非 ASCII 字符",
     "description": "Description for the {variable:ascii} template filter"
   },
   "optionsTemplateVarSlugifyDesc": {
@@ -3405,7 +3405,7 @@
     "description": "Toast when adding a custom assistant target fails"
   },
   "optionsSiteRuleEditTitle": {
-    "message": "编辑站点规则",
+    "message": "编辑网站规则",
     "description": "Title for editing an existing site rule"
   },
   "optionsSiteRulesSummaryOne": {
@@ -3726,11 +3726,11 @@
     }
   },
   "popupEnterValidUrlsError": {
-    "message": "请输入有效的 URL 或 markdown 链接（每行一个）",
+    "message": "请输入有效的 URL 或 Markdown 链接（每行一个）",
     "description": "Error when batch URL input has no valid URLs"
   },
   "popupNoActiveTabError": {
-    "message": "未找到活动标签页",
+    "message": "未找到当前标签页",
     "description": "Error when no active tab is available"
   },
   "popupAddedLinksFeedback": {
@@ -3759,7 +3759,7 @@
     "description": "Library empty state text in auto-save mode"
   },
   "popupLibraryManualToolbarNote": {
-    "message": "手动模式已开启。按保存剪藏以保存当前页面。",
+    "message": "手动模式已开启。点击“保存剪藏”以保存当前页面。",
     "description": "Library toolbar note in manual mode"
   },
   "popupLibraryAutoToolbarNote": {
@@ -3775,7 +3775,7 @@
     "description": "Fallback title for untitled clips"
   },
   "linkPickerTitle": {
-    "message": "链接拾取器",
+    "message": "链接选取器",
     "description": "Title for in-page link picker overlay"
   },
   "linkPickerHoverInfo": {
@@ -3849,11 +3849,11 @@
     }
   },
   "linkPickerCollectedNotificationOne": {
-    "message": "收集了 1 个链接！重新打开扩展以将其添加到批量处理器",
+    "message": "收集了 1 个链接！重新打开扩展以将其添加到批量处理",
     "description": "Notification after collecting exactly one link from the page"
   },
   "linkPickerCollectedNotificationMany": {
-    "message": "收集了 $COUNT$ 个链接！重新打开扩展以将它们添加到批量处理器",
+    "message": "收集了 $COUNT$ 个链接！重新打开扩展以将它们添加到批量处理",
     "description": "Notification after collecting zero or many links from the page",
     "placeholders": {
       "count": {
@@ -3883,7 +3883,7 @@
     }
   },
   "batchPartialRetryWarning": {
-    "message": "重试后内容可能仍为部分内容",
+    "message": "重试后内容可能仍不完整",
     "description": "Warning when batch retry may still produce partial content"
   },
   "shortcutOpenPopup": {
@@ -4039,119 +4039,119 @@
     "description": "Element picker success notification when Done copies Markdown directly"
   },
   "interpreterSectionTitle": {
-    "message": "Interpreter",
+    "message": "智能解读",
     "description": "Interpreter panel heading in the popup"
   },
   "interpreterButton": {
-    "message": "Interpret",
+    "message": "解读",
     "description": "Label for the popup Interpret button"
   },
   "interpreterThinking": {
-    "message": "Thinking...",
+    "message": "思考中...",
     "description": "Interpret button label while the LLM request is in progress"
   },
   "interpreterDone": {
-    "message": "Done",
+    "message": "完成",
     "description": "Interpret button label after a successful run"
   },
   "interpreterError": {
-    "message": "Interpreter request failed.",
+    "message": "解读请求失败。",
     "description": "Generic interpreter error message"
   },
   "interpreterNoModel": {
-    "message": "Select an interpreter model first.",
+    "message": "请先选择解读模型。",
     "description": "Error shown when no interpreter model is selected"
   },
   "optionsSidebarInterpreter": {
-    "message": "Interpreter",
+    "message": "智能解读",
     "description": "Interpreter section label in the options sidebar"
   },
   "optionsInterpreterEnabled": {
-    "message": "Enable Interpreter",
+    "message": "启用智能解读",
     "description": "Label for the interpreter enable toggle"
   },
   "optionsInterpreterAutoRun": {
-    "message": "Run automatically on clip",
+    "message": "剪藏时自动运行",
     "description": "Label for the interpreter auto-run toggle"
   },
   "optionsInterpreterContext": {
-    "message": "Prompt Context",
+    "message": "提示词上下文",
     "description": "Label for the interpreter prompt context textarea"
   },
   "optionsInterpreterProviders": {
-    "message": "Providers",
+    "message": "提供商",
     "description": "Heading for the interpreter providers manager"
   },
   "optionsInterpreterModels": {
-    "message": "Models",
+    "message": "模型",
     "description": "Heading for the interpreter models manager"
   },
   "optionsInterpreterAddProvider": {
-    "message": "Add Provider",
+    "message": "添加提供商",
     "description": "Summary label for the add-provider editor"
   },
   "optionsInterpreterAddModel": {
-    "message": "Add Model",
+    "message": "添加模型",
     "description": "Summary label for the add-model editor"
   },
   "optionsInterpreterApiKey": {
-    "message": "API Key",
+    "message": "API 密钥",
     "description": "Label for the provider API key field"
   },
   "optionsInterpreterBaseUrl": {
-    "message": "Base URL",
+    "message": "基础 URL",
     "description": "Label for the provider base URL field"
   },
   "optionsInterpreterModelId": {
-    "message": "Model ID",
+    "message": "模型 ID",
     "description": "Label for the model ID field"
   },
   "optionsInterpreterEnabledModel": {
-    "message": "Show in popup",
+    "message": "在弹窗中显示",
     "description": "Label for the model enabled toggle"
   },
   "interpreterUnresolvedExportWarning": {
-    "message": "This clip still contains an interpreter prompt ({{prompt:\"...\"}}) that has not been run yet. Export it anyway?",
+    "message": "此剪藏仍包含未运行的解读提示词（{{prompt:\"...\"}}）。仍然导出？",
     "description": "Confirmation shown when exporting a clip that still has an unresolved interpreter prompt"
   },
   "interpreterExportWarningTitle": {
-    "message": "Unrun interpreter prompt",
+    "message": "未运行的解读提示词",
     "description": "Title of the popup export-warning dialog"
   },
   "interpreterExportWarningDismiss": {
-    "message": "Don't warn me about this again",
+    "message": "不再提醒",
     "description": "Checkbox to suppress the export warning"
   },
   "interpreterExportWarningCancel": {
-    "message": "Cancel",
+    "message": "取消",
     "description": "Cancel button in the export-warning dialog"
   },
   "interpreterExportWarningProceed": {
-    "message": "Export anyway",
+    "message": "仍然导出",
     "description": "Confirm button in the export-warning dialog"
   },
   "optionsInterpreterExportWarning": {
-    "message": "Warn before exporting unrun prompts",
+    "message": "导出未运行的提示词前警告",
     "description": "Label for the export-warning toggle in Interpreter options"
   },
   "optionsInterpreterExportWarningHint": {
-    "message": "Shows a confirmation if you download, copy, or send a clip that still contains an unrun {{prompt:\"...\"}} placeholder.",
+    "message": "当您下载、复制或发送仍包含未运行 {{prompt:\"...\"}} 占位符的剪藏时，显示确认提示。",
     "description": "Hint for the export-warning toggle"
   },
   "optionsInterpreterPopularModels": {
-    "message": "Popular models",
+    "message": "热门模型",
     "description": "Label for the guided model picker in the Add Model dialog"
   },
   "optionsInterpreterPopularModelsHint": {
-    "message": "Pick one to fill the Model ID, or enter your own below.",
+    "message": "选择一个以自动填充模型 ID，或在下方自行输入。",
     "description": "Hint for the guided model picker"
   },
   "optionsInterpreterModelIdHint": {
-    "message": "The provider's model identifier, e.g. gemini-flash-latest.",
+    "message": "提供商的模型标识符，例如 gemini-flash-latest。",
     "description": "Hint for the model ID field in the Add Model dialog"
   },
   "optionsInterpreterModelsListLink": {
-    "message": "Browse available models.",
+    "message": "浏览可用模型。",
     "description": "Link text to the provider model documentation"
   }
 }

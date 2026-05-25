@@ -1,5 +1,7 @@
 # MarkSnip
 
+[![English](https://img.shields.io/badge/lang-English-blue)](README.md) [![简体中文](https://img.shields.io/badge/lang-简体中文-green)](docs/i18n/README-zh-CN.md)
+
 Webpage to Markdown clipper for Chrome and Firefox. Save pages as clean Markdown, copy content to clipboard, or send notes directly to Obsidian.
 
 [Chrome Web Store](https://chromewebstore.google.com/detail/marksnip-markdown-web-cli/kcbaglhfgbkjdnpeokaamjjkddempipm?hl=en) | [Firefox Add-ons](https://addons.mozilla.org/en-US/firefox/addon/marksnip-markdown-web-clipper/) | [User Guide](docs/guides/user-guide.md) | [Agent Bridge Walkthrough](docs/guides/agent-bridge.md) | [Changelog](CHANGELOG.md) | [Privacy Policy](PRIVACY.md)
