@@ -252,6 +252,50 @@
     "message": "选取元素转换为 Markdown",
     "description": "Context menu item for activating manual element picker mode"
   },
+  "contextToggleHighlighter": {
+    "message": "切换高亮工具",
+    "description": "Context menu item for toggling highlighter mode"
+  },
+  "contextHighlightSelection": {
+    "message": "高亮所选内容",
+    "description": "Context menu item for saving the current selection as a highlight"
+  },
+  "contextOpenHighlights": {
+    "message": "打开高亮",
+    "description": "Context menu item for opening saved highlights"
+  },
+  "popupHighlighterBtn": {
+    "message": "高亮",
+    "description": "Popup highlighter button label"
+  },
+  "popupHighlighterStarting": {
+    "message": "正在高亮...",
+    "description": "Popup highlighter pending state"
+  },
+  "popupHighlighterActive": {
+    "message": "在页面上",
+    "description": "Popup highlighter success state"
+  },
+  "popupHighlighterFailed": {
+    "message": "失败",
+    "description": "Popup highlighter error state"
+  },
+  "popupAlertFailedToActivateHighlighter": {
+    "message": "无法激活高亮工具。请重试。",
+    "description": "Popup highlighter failure alert"
+  },
+  "highlighterNotePlaceholder": {
+    "message": "添加注释...",
+    "description": "Placeholder for highlight note field"
+  },
+  "highlighterDelete": {
+    "message": "删除",
+    "description": "Delete highlight button label"
+  },
+  "highlighterSave": {
+    "message": "保存",
+    "description": "Save highlight note button label"
+  },
   "contextCopySelection": {
     "message": "将选区复制为 Markdown",
     "description": "Context menu item"
@@ -4039,59 +4083,59 @@
     "description": "Element picker success notification when Done copies Markdown directly"
   },
   "interpreterSectionTitle": {
-    "message": "Interpreter",
+    "message": "解释器",
     "description": "Interpreter panel heading in the popup"
   },
   "interpreterButton": {
-    "message": "Interpret",
+    "message": "解释",
     "description": "Label for the popup Interpret button"
   },
   "interpreterThinking": {
-    "message": "Thinking...",
+    "message": "思考中...",
     "description": "Interpret button label while the LLM request is in progress"
   },
   "interpreterDone": {
-    "message": "Done",
+    "message": "完成",
     "description": "Interpret button label after a successful run"
   },
   "interpreterError": {
-    "message": "Interpreter request failed.",
+    "message": "解释器请求失败。",
     "description": "Generic interpreter error message"
   },
   "interpreterNoModel": {
-    "message": "Select an interpreter model first.",
+    "message": "请先选择解释器模型。",
     "description": "Error shown when no interpreter model is selected"
   },
   "optionsSidebarInterpreter": {
-    "message": "Interpreter",
+    "message": "解释器",
     "description": "Interpreter section label in the options sidebar"
   },
   "optionsInterpreterEnabled": {
-    "message": "Enable Interpreter",
+    "message": "启用解释器",
     "description": "Label for the interpreter enable toggle"
   },
   "optionsInterpreterAutoRun": {
-    "message": "Run automatically on clip",
+    "message": "剪辑时自动运行",
     "description": "Label for the interpreter auto-run toggle"
   },
   "optionsInterpreterContext": {
-    "message": "Prompt Context",
+    "message": "提示词上下文",
     "description": "Label for the interpreter prompt context textarea"
   },
   "optionsInterpreterProviders": {
-    "message": "Providers",
+    "message": "提供商",
     "description": "Heading for the interpreter providers manager"
   },
   "optionsInterpreterModels": {
-    "message": "Models",
+    "message": "模型",
     "description": "Heading for the interpreter models manager"
   },
   "optionsInterpreterAddProvider": {
-    "message": "Add Provider",
+    "message": "添加提供商",
     "description": "Summary label for the add-provider editor"
   },
   "optionsInterpreterAddModel": {
-    "message": "Add Model",
+    "message": "添加模型",
     "description": "Summary label for the add-model editor"
   },
   "optionsInterpreterApiKey": {
@@ -4107,51 +4151,51 @@
     "description": "Label for the model ID field"
   },
   "optionsInterpreterEnabledModel": {
-    "message": "Show in popup",
+    "message": "在弹窗中显示",
     "description": "Label for the model enabled toggle"
   },
   "interpreterUnresolvedExportWarning": {
-    "message": "This clip still contains an interpreter prompt ({{prompt:\"...\"}}) that has not been run yet. Export it anyway?",
+    "message": "此剪辑仍包含尚未运行的解释器提示词 ({{prompt:\"...\"}})。仍要导出吗？",
     "description": "Confirmation shown when exporting a clip that still has an unresolved interpreter prompt"
   },
   "interpreterExportWarningTitle": {
-    "message": "Unrun interpreter prompt",
+    "message": "未运行的解释器提示词",
     "description": "Title of the popup export-warning dialog"
   },
   "interpreterExportWarningDismiss": {
-    "message": "Don't warn me about this again",
+    "message": "不再提醒",
     "description": "Checkbox to suppress the export warning"
   },
   "interpreterExportWarningCancel": {
-    "message": "Cancel",
+    "message": "取消",
     "description": "Cancel button in the export-warning dialog"
   },
   "interpreterExportWarningProceed": {
-    "message": "Export anyway",
+    "message": "仍要导出",
     "description": "Confirm button in the export-warning dialog"
   },
   "optionsInterpreterExportWarning": {
-    "message": "Warn before exporting unrun prompts",
+    "message": "导出前警告未运行的提示词",
     "description": "Label for the export-warning toggle in Interpreter options"
   },
   "optionsInterpreterExportWarningHint": {
-    "message": "Shows a confirmation if you download, copy, or send a clip that still contains an unrun {{prompt:\"...\"}} placeholder.",
+    "message": "当您下载、复制或发送仍包含未运行的 {{prompt:\"...\"}} 占位符的剪辑时，显示确认提示。",
     "description": "Hint for the export-warning toggle"
   },
   "optionsInterpreterPopularModels": {
-    "message": "Popular models",
+    "message": "热门模型",
     "description": "Label for the guided model picker in the Add Model dialog"
   },
   "optionsInterpreterPopularModelsHint": {
-    "message": "Pick one to fill the Model ID, or enter your own below.",
+    "message": "选择一个来填写模型ID，或在下方输入自定义值。",
     "description": "Hint for the guided model picker"
   },
   "optionsInterpreterModelIdHint": {
-    "message": "The provider's model identifier, e.g. gemini-flash-latest.",
+    "message": "提供商的模型标识符，例如 gemini-flash-latest。",
     "description": "Hint for the model ID field in the Add Model dialog"
   },
   "optionsInterpreterModelsListLink": {
-    "message": "Browse available models.",
+    "message": "浏览可用模型。",
     "description": "Link text to the provider model documentation"
   }
 }

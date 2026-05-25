@@ -252,6 +252,50 @@
     "message": "Markdown용 요소 선택",
     "description": "Context menu item for activating manual element picker mode"
   },
+  "contextToggleHighlighter": {
+    "message": "하이라이터 전환",
+    "description": "Context menu item for toggling highlighter mode"
+  },
+  "contextHighlightSelection": {
+    "message": "선택 영역 하이라이트",
+    "description": "Context menu item for saving the current selection as a highlight"
+  },
+  "contextOpenHighlights": {
+    "message": "하이라이트 열기",
+    "description": "Context menu item for opening saved highlights"
+  },
+  "popupHighlighterBtn": {
+    "message": "하이라이트",
+    "description": "Popup highlighter button label"
+  },
+  "popupHighlighterStarting": {
+    "message": "하이라이트 중...",
+    "description": "Popup highlighter pending state"
+  },
+  "popupHighlighterActive": {
+    "message": "페이지에서",
+    "description": "Popup highlighter success state"
+  },
+  "popupHighlighterFailed": {
+    "message": "실패",
+    "description": "Popup highlighter error state"
+  },
+  "popupAlertFailedToActivateHighlighter": {
+    "message": "하이라이터를 활성화하지 못했습니다. 다시 시도하세요.",
+    "description": "Popup highlighter failure alert"
+  },
+  "highlighterNotePlaceholder": {
+    "message": "메모 추가...",
+    "description": "Placeholder for highlight note field"
+  },
+  "highlighterDelete": {
+    "message": "삭제",
+    "description": "Delete highlight button label"
+  },
+  "highlighterSave": {
+    "message": "저장",
+    "description": "Save highlight note button label"
+  },
   "contextCopySelection": {
     "message": "선택 영역을 마크다운으로 복사",
     "description": "Context menu item"
@@ -4039,59 +4083,59 @@
     "description": "Element picker success notification when Done copies Markdown directly"
   },
   "interpreterSectionTitle": {
-    "message": "Interpreter",
+    "message": "인터프리터",
     "description": "Interpreter panel heading in the popup"
   },
   "interpreterButton": {
-    "message": "Interpret",
+    "message": "해석",
     "description": "Label for the popup Interpret button"
   },
   "interpreterThinking": {
-    "message": "Thinking...",
+    "message": "처리 중...",
     "description": "Interpret button label while the LLM request is in progress"
   },
   "interpreterDone": {
-    "message": "Done",
+    "message": "완료",
     "description": "Interpret button label after a successful run"
   },
   "interpreterError": {
-    "message": "Interpreter request failed.",
+    "message": "인터프리터 요청 실패.",
     "description": "Generic interpreter error message"
   },
   "interpreterNoModel": {
-    "message": "Select an interpreter model first.",
+    "message": "먼저 해석기 모델을 선택하세요.",
     "description": "Error shown when no interpreter model is selected"
   },
   "optionsSidebarInterpreter": {
-    "message": "Interpreter",
+    "message": "인터프리터",
     "description": "Interpreter section label in the options sidebar"
   },
   "optionsInterpreterEnabled": {
-    "message": "Enable Interpreter",
+    "message": "인터프리터 활성화",
     "description": "Label for the interpreter enable toggle"
   },
   "optionsInterpreterAutoRun": {
-    "message": "Run automatically on clip",
+    "message": "클립 시 자동 실행",
     "description": "Label for the interpreter auto-run toggle"
   },
   "optionsInterpreterContext": {
-    "message": "Prompt Context",
+    "message": "프롬프트 컨텍스트",
     "description": "Label for the interpreter prompt context textarea"
   },
   "optionsInterpreterProviders": {
-    "message": "Providers",
+    "message": "제공업체",
     "description": "Heading for the interpreter providers manager"
   },
   "optionsInterpreterModels": {
-    "message": "Models",
+    "message": "모델",
     "description": "Heading for the interpreter models manager"
   },
   "optionsInterpreterAddProvider": {
-    "message": "Add Provider",
+    "message": "제공업체 추가",
     "description": "Summary label for the add-provider editor"
   },
   "optionsInterpreterAddModel": {
-    "message": "Add Model",
+    "message": "모델 추가",
     "description": "Summary label for the add-model editor"
   },
   "optionsInterpreterApiKey": {
@@ -4107,51 +4151,51 @@
     "description": "Label for the model ID field"
   },
   "optionsInterpreterEnabledModel": {
-    "message": "Show in popup",
+    "message": "팝업에 표시",
     "description": "Label for the model enabled toggle"
   },
   "interpreterUnresolvedExportWarning": {
-    "message": "This clip still contains an interpreter prompt ({{prompt:\"...\"}}) that has not been run yet. Export it anyway?",
+    "message": "이 클립에는 아직 실행되지 않은 해석기 프롬프트 ({{prompt:\"...\"}})가 포함되어 있습니다. 그래도 내보내겠습니까?",
     "description": "Confirmation shown when exporting a clip that still has an unresolved interpreter prompt"
   },
   "interpreterExportWarningTitle": {
-    "message": "Unrun interpreter prompt",
+    "message": "실행되지 않은 해석기 프롬프트",
     "description": "Title of the popup export-warning dialog"
   },
   "interpreterExportWarningDismiss": {
-    "message": "Don't warn me about this again",
+    "message": "다시 경고하지 않음",
     "description": "Checkbox to suppress the export warning"
   },
   "interpreterExportWarningCancel": {
-    "message": "Cancel",
+    "message": "취소",
     "description": "Cancel button in the export-warning dialog"
   },
   "interpreterExportWarningProceed": {
-    "message": "Export anyway",
+    "message": "그래도 내보내기",
     "description": "Confirm button in the export-warning dialog"
   },
   "optionsInterpreterExportWarning": {
-    "message": "Warn before exporting unrun prompts",
+    "message": "미실행 프롬프트 내보내기 전 경고",
     "description": "Label for the export-warning toggle in Interpreter options"
   },
   "optionsInterpreterExportWarningHint": {
-    "message": "Shows a confirmation if you download, copy, or send a clip that still contains an unrun {{prompt:\"...\"}} placeholder.",
+    "message": "아직 실행되지 않은 {{prompt:\"...\"}} 자리 표시자가 포함된 클립을 다운로드, 복사 또는 전송할 때 확인을 표시합니다.",
     "description": "Hint for the export-warning toggle"
   },
   "optionsInterpreterPopularModels": {
-    "message": "Popular models",
+    "message": "인기 모델",
     "description": "Label for the guided model picker in the Add Model dialog"
   },
   "optionsInterpreterPopularModelsHint": {
-    "message": "Pick one to fill the Model ID, or enter your own below.",
+    "message": "모델 ID를 채우려면 하나를 선택하거나 아래에 직접 입력하세요.",
     "description": "Hint for the guided model picker"
   },
   "optionsInterpreterModelIdHint": {
-    "message": "The provider's model identifier, e.g. gemini-flash-latest.",
+    "message": "공급자의 모델 식별자, 예: gemini-flash-latest.",
     "description": "Hint for the model ID field in the Add Model dialog"
   },
   "optionsInterpreterModelsListLink": {
-    "message": "Browse available models.",
+    "message": "사용 가능한 모델 탐색.",
     "description": "Link text to the provider model documentation"
   }
 }

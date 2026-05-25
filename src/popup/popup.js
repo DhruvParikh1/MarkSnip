@@ -415,6 +415,8 @@ const dom = {
     documentButton: document.getElementById('document'),
     elementPickerRow: document.getElementById('elementPickerRow'),
     pickElementButton: document.getElementById('pickElement'),
+    highlighterRow: document.getElementById('highlighterRow'),
+    toggleHighlighterButton: document.getElementById('toggleHighlighter'),
     clipOption: document.getElementById('clipOption'),
     urlList: document.getElementById('urlList'),
     startBatchButton: document.getElementById('startBatch'),
@@ -1736,6 +1738,40 @@ async function getActiveTabId(forceRefresh = false) {
     return (await getActiveTab(forceRefresh))?.id ?? null;
 }
 
+async function getPopupPageActionTargetTab() {
+    const seen = new Set();
+    const candidates = [];
+
+    const addCandidate = async (tab) => {
+        if (!tab?.id || seen.has(tab.id)) {
+            return;
+        }
+        seen.add(tab.id);
+        const refreshed = await browser.tabs.get(tab.id).catch(() => tab);
+        candidates.push(refreshed || tab);
+    };
+
+    await addCandidate(await getActiveTab(true).catch(() => null));
+
+    const queryStrategies = [
+        { active: true, lastFocusedWindow: true },
+        { active: true, currentWindow: true }
+    ];
+
+    for (const queryInfo of queryStrategies) {
+        const tabs = await browser.tabs.query(queryInfo).catch(() => []);
+        await addCandidate(tabs?.[0]);
+    }
+
+    const unrestricted = candidates.find((tab) => tab?.id && tab.url && !isRestrictedTabUrl(tab.url));
+    if (unrestricted) {
+        activeTabCache = unrestricted;
+        return unrestricted;
+    }
+
+    return candidates.find((tab) => tab?.id && !tab.url) || candidates[0] || null;
+}
+
 function isRestrictedTabUrl(url) {
     if (!url) {
         return false;
@@ -1995,6 +2031,7 @@ dom.shortcutsModalBody?.addEventListener('click', (e) => {
 });
 dom.pickLinksButton?.addEventListener("click", activateLinkPicker);
 dom.pickElementButton?.addEventListener("click", activateElementPicker);
+dom.toggleHighlighterButton?.addEventListener("click", toggleHighlighter);
 document.querySelectorAll('[data-capture-method]').forEach((card) => {
     card.addEventListener('click', () => setCaptureMethod(card.dataset.captureMethod));
 });
@@ -2407,6 +2444,67 @@ function resetElementPickerButtonFeedback() {
     setElementPickerButtonFeedback(popupMessage('popupPickElementBtn', null, 'Pick Element'));
 }
 
+function setHighlighterButtonFeedback(label, state = null) {
+    const button = dom.toggleHighlighterButton;
+    if (!button) {
+        return;
+    }
+    const normalizedState = ['pending', 'success', 'error'].includes(state) ? state : 'idle';
+    button.classList.remove('success', 'error');
+    if (normalizedState === 'success' || normalizedState === 'error') {
+        button.classList.add(normalizedState);
+    }
+    button.dataset.state = normalizedState;
+    const labelElement = button.querySelector('.element-picker-label');
+    if (labelElement) {
+        labelElement.textContent = label;
+    }
+    button.title = label;
+    button.setAttribute('aria-label', label);
+}
+
+function resetHighlighterButtonFeedback() {
+    setHighlighterButtonFeedback(popupMessage('popupHighlighterBtn', null, 'Highlight'));
+}
+
+async function toggleHighlighter(e) {
+    e.preventDefault();
+
+    try {
+        if (currentOptions?.highlighterEnabled === false) {
+            return;
+        }
+
+        const activeTab = await getPopupPageActionTargetTab();
+        if (!activeTab?.id) {
+            throw new Error(popupMessage('popupNoActiveTabError', null, 'No active tab found'));
+        }
+
+        if (isRestrictedTabUrl(activeTab.url || '')) {
+            showError(getRestrictedPageMessage(activeTab.url || ''));
+            return;
+        }
+
+        setHighlighterButtonFeedback(popupMessage('popupHighlighterStarting', null, 'Highlighting...'), 'pending');
+        const response = await browser.runtime.sendMessage({
+            type: 'toggle-highlighter',
+            tabId: activeTab.id
+        });
+        if (response?.ok === false) {
+            throw new Error(response.error || 'Highlighter failed');
+        }
+
+        setHighlighterButtonFeedback(popupMessage('popupHighlighterActive', null, 'On page'), 'success');
+        await browser.tabs.update(activeTab.id, { active: true });
+        window.close();
+    } catch (error) {
+        console.error("Error toggling highlighter:", error);
+        setHighlighterButtonFeedback(popupMessage('popupHighlighterFailed', null, 'Failed'), 'error');
+        setTimeout(resetHighlighterButtonFeedback, 2200);
+        alert(popupMessage('popupAlertFailedToActivateHighlighter', null, 'Failed to activate highlighter. Please try again.'));
+    }
+}
+
 async function activateElementPicker(e) {
     e.preventDefault();
 
@@ -2475,6 +2573,11 @@ const defaultOptions = {
     compactMode: false,
     elementPickerEnabled: true,
     elementPickerDoneAction: 'popup',
+    highlighterEnabled: true,
+    alwaysShowHighlights: true,
+    highlightClipBehavior: 'inline',
+    highlightInlineSyntax: 'html-mark',
+    highlightDefaultColor: 'yellow',
     showThemeToggleInPopup: true,
     showUserGuideIcon: true,
     editorTheme: 'default',
@@ -2607,6 +2710,14 @@ async function consumePendingElementPickerResult(activeTab) {
     }
 }
 
+function syncQuickActionsLayout() {
+    const row = dom.elementPickerRow?.closest('.quick-actions-row') || dom.highlighterRow?.closest('.quick-actions-row');
+    if (!row) return;
+    const pickerHidden = dom.elementPickerRow?.hidden !== false;
+    const highlighterHidden = dom.highlighterRow?.hidden !== false;
+    row.classList.toggle('is-picker-hidden', pickerHidden && highlighterHidden);
+}
+
 const updateElementPickerButtonVisibility = (options) => {
     const shouldShow = options?.elementPickerEnabled !== false;
     const target = dom.elementPickerRow || dom.pickElementButton;
@@ -2615,10 +2726,24 @@ const updateElementPickerButtonVisibility = (options) => {
     target.hidden = !shouldShow;
     target.style.display = shouldShow ? "" : "none";
     target.setAttribute("aria-hidden", String(!shouldShow));
-    target.closest('.quick-actions-row')?.classList.toggle('is-picker-hidden', !shouldShow);
     if (dom.pickElementButton) {
         dom.pickElementButton.disabled = !shouldShow;
     }
+    syncQuickActionsLayout();
+}
+
+const updateHighlighterButtonVisibility = (options) => {
+    const shouldShow = options?.highlighterEnabled !== false;
+    [dom.highlighterRow].forEach((target) => {
+        if (!target) return;
+        target.hidden = !shouldShow;
+        target.style.display = shouldShow ? "" : "none";
+        target.setAttribute("aria-hidden", String(!shouldShow));
+    });
+    if (dom.toggleHighlighterButton) {
+        dom.toggleHighlighterButton.disabled = !shouldShow;
+    }
+    syncQuickActionsLayout();
 }
 
 function clonePopupOptionsSnapshot(source = currentOptions || defaultOptions) {
@@ -4372,8 +4497,10 @@ const checkInitialSettings = options => {
     updateGuideButtonVisibility(currentOptions);
     updateBatchProcessButtonVisibility(currentOptions);
     updateElementPickerButtonVisibility(currentOptions);
+    updateHighlighterButtonVisibility(currentOptions);
     updatePopupExportControls(currentOptions);
     resetElementPickerButtonFeedback();
+    resetHighlighterButtonFeedback();
 
     // Set segmented control state
     setClipSelectionState(currentOptions.clipSelection);
@@ -4715,6 +4842,13 @@ browser.storage.onChanged.addListener((changes, areaName) => {
                 elementPickerEnabled: changes.elementPickerEnabled.newValue !== false
             });
             updateElementPickerButtonVisibility(currentOptions);
+        }
+        if (changes.highlighterEnabled) {
+            currentOptions = normalizePopupOptions({
+                ...currentOptions,
+                highlighterEnabled: changes.highlighterEnabled.newValue !== false
+            });
+            updateHighlighterButtonVisibility(currentOptions);
         }
         if (popupActionKeys.some((key) => Object.prototype.hasOwnProperty.call(changes, key))) {
             currentOptions = normalizePopupOptions({

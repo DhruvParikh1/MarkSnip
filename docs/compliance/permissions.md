@@ -23,14 +23,16 @@ This document explains every permission declared in `src/manifest.json`, why it 
 ---
 
 ### `storage`
-**Why it's needed:** Persists the user's settings (template strings, formatting preferences, Obsidian vault config, Agent Bridge settings, etc.) so they survive page reloads and browser restarts.
+**Why it's needed:** Persists the user's settings (template strings, formatting preferences, Obsidian vault config, Agent Bridge settings, etc.) so they survive page reloads and browser restarts. It also stores saved page highlights, highlight notes, and a URL index used to redisplay highlights on pages the user has already marked.
 
-**Without it:** All settings would reset every time the extension reloads; no preferences could be saved.
+**Without it:** All settings would reset every time the extension reloads; no preferences or persistent highlights could be saved.
+
+**Privacy note:** Highlight data stays in browser extension storage. It is not sent externally unless the user exports or clips it into a destination they choose.
 
 ---
 
 ### `contextMenus`
-**Why it's needed:** Adds MarkSnip actions to the right-click context menu for pages, selected text, links, images, and browser tabs, letting users clip content without opening the popup.
+**Why it's needed:** Adds MarkSnip actions to the right-click context menu for pages, selected text, links, images, and browser tabs, letting users clip content or save highlights without opening the popup.
 
 **Without it:** Context menu entries (for example, "Copy selection as Markdown") would not appear.
 
@@ -59,9 +61,9 @@ This document explains every permission declared in `src/manifest.json`, why it 
 ## Core Permissions
 
 ### `scripting`
-**Why it's needed:** Injects the content script (`contentScript/pageContext.js`) into web pages at clip time to extract the page's DOM, selected text, and metadata (title, author, date, etc.) for Markdown conversion.
+**Why it's needed:** Injects content scripts into web pages at clip time to extract the page's DOM, selected text, and metadata (title, author, date, etc.) for Markdown conversion. It also injects the optional highlighter script when the user activates highlighting, or when a page with previously saved highlights finishes loading and "Show saved highlights on pages" is enabled.
 
-**Without it:** The extension could not access page content to convert it.
+**Without it:** The extension could not access page content to convert it, and saved highlights could not be rendered back onto their source pages.
 
 ---
 
@@ -75,11 +77,11 @@ This document explains every permission declared in `src/manifest.json`, why it 
 ## Host Permissions
 
 ### `<all_urls>`
-**Why it's needed:** Allows MarkSnip to clip pages across arbitrary sites instead of a fixed allowlist. This also covers user-triggered workflows that operate beyond a single popup click, such as keyboard shortcuts, context-menu actions, clipping multiple highlighted tabs, and batch processing URLs in newly opened tabs.
+**Why it's needed:** Allows MarkSnip to clip pages across arbitrary sites instead of a fixed allowlist. This also covers user-triggered workflows that operate beyond a single popup click, such as keyboard shortcuts, context-menu actions, clipping multiple highlighted tabs, batch processing URLs in newly opened tabs, and rendering saved highlights on pages the user has already highlighted.
 
-**Without it:** The extension could only clip content from sites explicitly listed in the manifest, and multi-tab or batch workflows would fail on pages that had not granted temporary access.
+**Without it:** The extension could only clip content from sites explicitly listed in the manifest, and multi-tab, batch, or saved-highlight rendering workflows would fail on pages that had not granted temporary access.
 
-**Privacy note:** This does **not** mean the extension passively monitors all websites. Scripts are injected only when the user actively triggers a clip action on a page. No browsing data is collected or transmitted.
+**Privacy note:** This does **not** mean the extension passively collects website content. Scripts are injected when the user triggers a clip/highlight action, or to redraw saved highlights on URLs already present in the local highlight index when that setting is enabled. No browsing data is transmitted externally.
 
 ---
 
@@ -103,8 +105,8 @@ The in-extension guide/help page. It is opened directly with the extension's own
 | `contextMenus` | No | Yes |
 | `clipboardWrite` | No (local clipboard) | Yes |
 | `nativeMessaging` | No (local CLI only) | Yes (opt-in feature, requested on enable) |
-| `scripting` | No | Yes |
+| `scripting` | No | Yes, plus saved-highlight redisplay |
 | `offscreen` | No | Yes |
-| `<all_urls>` | No | Yes |
+| `<all_urls>` | No | Yes, plus saved-highlight redisplay |
 
 All content processing happens locally on your device by default. MarkSnip does not transmit page content, clipboard data, or browsing history to any external server unless you opt in to a feature that does so: the Interpreter feature sends a clip's Markdown to an LLM provider you configure, and the Agent Bridge feature sends it to a local CLI on your own machine. Both are off by default.

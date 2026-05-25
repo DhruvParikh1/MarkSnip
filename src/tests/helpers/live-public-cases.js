@@ -35,7 +35,7 @@ const liveClipCases = [
   {
     id: 'obsidian-links',
     name: 'clips the live Obsidian links help page via popup flow',
-    url: 'https://help.obsidian.md/links',
+    url: 'https://obsidian.md/help/links',
     selector: 'h1',
     titleContains: 'Internal links',
     snippets: [

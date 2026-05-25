@@ -45,6 +45,10 @@ function getCodeBlockUtilsApi() {
   return globalThis.markSnipCodeBlockUtils || null;
 }
 
+function getHighlightStateApi() {
+  return globalThis.markSnipHighlightState || null;
+}
+
 function cloneRuntimeOptions(source = {}) {
   const nextOptions = {
     ...(source || {})
@@ -217,9 +221,88 @@ function handleMessages(message, sender) {
 /**
  * Process HTML content to markdown
  */
+async function loadHighlightsForPage(pageUrl) {
+  const highlightApi = getHighlightStateApi();
+  if (!highlightApi?.loadPageRecord || !pageUrl) {
+    return [];
+  }
+
+  try {
+    const record = await highlightApi.loadPageRecord(pageUrl);
+    if (Array.isArray(record?.highlights) && record.highlights.length > 0) {
+      return record.highlights;
+    }
+  } catch (error) {
+    console.warn('[Highlighter] Failed to load highlights for clipping:', error);
+  }
+
+  try {
+    const response = await browser.runtime.sendMessage({
+      type: 'get-page-highlights',
+      pageUrl
+    });
+    return Array.isArray(response?.highlights) ? response.highlights : [];
+  } catch (error) {
+    console.warn('[Highlighter] Failed to load highlights via service worker:', error);
+  }
+
+  return [];
+}
+
+function getHighlightClipBehavior(options = {}) {
+  const behavior = options.highlightClipBehavior || defaultOptions.highlightClipBehavior;
+  return behavior === 'replace-content' || behavior === 'inline' ? behavior : 'ignore';
+}
+
+function attachHighlightFieldsToArticle(article, highlights, options) {
+  const highlightApi = getHighlightStateApi();
+  if (!highlightApi?.attachHighlightFields) {
+    return article;
+  }
+  return highlightApi.attachHighlightFields(article, highlights, options);
+}
+
+function prepareDomWithInlineHighlights(domString, highlights, options) {
+  const highlightApi = getHighlightStateApi();
+  if (!highlightApi?.applyInlineHighlightsToDomString || !highlights?.length) {
+    return domString;
+  }
+  return highlightApi.applyInlineHighlightsToDomString(domString, highlights, options);
+}
+
+function replaceArticleContentWithHighlights(article, highlights, options) {
+  const highlightApi = getHighlightStateApi();
+  if (!highlightApi?.buildHighlightsOnlyHtml || !highlights?.length) {
+    return article;
+  }
+  const content = highlightApi.buildHighlightsOnlyHtml(highlights, options);
+  const textContent = highlights.map((highlight) => highlightApi.getHighlightPlainText(highlight)).filter(Boolean).join('\n\n');
+  return {
+    ...article,
+    content,
+    textContent,
+    length: textContent.length,
+    excerpt: textContent.slice(0, 200)
+  };
+}
+
 async function buildMarkdownResultFromPageContent(data, options = defaultOptions, suppressTemplate = false) {
-  const domForArticle = buildDomWithSelection(data.dom, data.selection, !!data.clipSelection);
-  const article = await getArticleFromDom(domForArticle, options, data.pageUrl);
+  const pageHighlights = await loadHighlightsForPage(data.pageUrl);
+  const highlightBehavior = getHighlightClipBehavior(options);
+  let domForArticle = buildDomWithSelection(data.dom, data.selection, !!data.clipSelection);
+  if (highlightBehavior === 'inline') {
+    domForArticle = prepareDomWithInlineHighlights(domForArticle, pageHighlights, options);
+  }
+
+  let article = await getArticleFromDom(domForArticle, options, data.pageUrl);
+  article = attachHighlightFieldsToArticle(article, pageHighlights, options);
+  if (highlightBehavior === 'replace-content') {
+    article = attachHighlightFieldsToArticle(
+      replaceArticleContentWithHighlights(article, pageHighlights, options),
+      pageHighlights,
+      options
+    );
+  }
   const resolved = resolveOptionsForArticle(article, options);
   const templateOptions = { ...resolved.options };
   const effectiveOptions = suppressTemplate
@@ -895,10 +978,21 @@ function turndown(content, options, article) {
     turndownPluginGfm.taskListItems
   ]);
 
-  // Add rule to convert <mark> tags to inline code
+  // Existing page <mark> tags often denote code in docs. Only MarkSnip-owned
+  // highlight marks use highlight export syntax; untagged marks keep legacy code behavior.
   turndownService.addRule('mark', {
     filter: ['mark'],
-    replacement: function(content) {
+    replacement: function(content, node) {
+      if (node?.getAttribute?.('data-marksnip-highlight-id')) {
+        if (options.highlightInlineSyntax === 'obsidian') {
+          return `==${content}==`;
+        }
+        const color = node.getAttribute('data-marksnip-highlight-color') || '';
+        const style = node.getAttribute('style') || '';
+        const styleAttr = style ? ` style="${style.replace(/"/g, '&quot;')}"` : '';
+        const colorAttr = color ? ` data-color="${color.replace(/"/g, '&quot;')}"` : '';
+        return `<mark${colorAttr}${styleAttr}>${content}</mark>`;
+      }
       return '`' + content + '`';
     }
   });
@@ -953,6 +1047,23 @@ function turndown(content, options, article) {
           turndownPluginGfm.strikethrough,
           turndownPluginGfm.taskListItems
         ]);
+
+        cellTurndownService.addRule('mark', {
+          filter: ['mark'],
+          replacement: function(content, markNode) {
+            if (markNode?.getAttribute?.('data-marksnip-highlight-id')) {
+              if (options.highlightInlineSyntax === 'obsidian') {
+                return `==${content}==`;
+              }
+              const color = markNode.getAttribute('data-marksnip-highlight-color') || '';
+              const style = markNode.getAttribute('style') || '';
+              const styleAttr = style ? ` style="${style.replace(/"/g, '&quot;')}"` : '';
+              const colorAttr = color ? ` data-color="${color.replace(/"/g, '&quot;')}"` : '';
+              return `<mark${colorAttr}${styleAttr}>${content}</mark>`;
+            }
+            return '`' + content + '`';
+          }
+        });
 
         // Handle <br> tags in table cells - convert to <br> HTML (Markdown tables support this)
         cellTurndownService.addRule('tableBr', {
@@ -2007,8 +2118,23 @@ async function getArticleFromContent(tabId, selection = false, options = null) {
     }
     
     console.log(`Processing DOM content for tab ${tabId}`);
-    const domForArticle = buildDomWithSelection(articlePayload.dom, articlePayload.selection, selection);
-    return await getArticleFromDom(domForArticle, options, articlePayload.pageUrl);
+    const pageHighlights = await loadHighlightsForPage(articlePayload.pageUrl);
+    const highlightBehavior = getHighlightClipBehavior(options || defaultOptions);
+    let domForArticle = buildDomWithSelection(articlePayload.dom, articlePayload.selection, selection);
+    if (highlightBehavior === 'inline') {
+      domForArticle = prepareDomWithInlineHighlights(domForArticle, pageHighlights, options || defaultOptions);
+    }
+
+    let article = await getArticleFromDom(domForArticle, options, articlePayload.pageUrl);
+    article = attachHighlightFieldsToArticle(article, pageHighlights, options || defaultOptions);
+    if (highlightBehavior === 'replace-content') {
+      article = attachHighlightFieldsToArticle(
+        replaceArticleContentWithHighlights(article, pageHighlights, options || defaultOptions),
+        pageHighlights,
+        options || defaultOptions
+      );
+    }
+    return article;
   } catch (error) {
     console.error(`Error getting content from tab ${tabId}:`, error);
     return null;

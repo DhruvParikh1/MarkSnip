@@ -3060,6 +3060,11 @@ const setCurrentChoice = result => {
     document.querySelector("[name='compactMode']").checked = options.compactMode || false;
     document.querySelector("[name='elementPickerEnabled']").checked = options.elementPickerEnabled !== false;
     setCheckedValue(document.querySelectorAll("[name='elementPickerDoneAction']"), options.elementPickerDoneAction === 'copy' ? 'copy' : 'popup');
+    document.querySelector("[name='highlighterEnabled']").checked = options.highlighterEnabled !== false;
+    document.querySelector("[name='alwaysShowHighlights']").checked = options.alwaysShowHighlights !== false;
+    setCheckedValue(document.querySelectorAll("[name='highlightClipBehavior']"), ['ignore', 'replace-content', 'inline'].includes(options.highlightClipBehavior) ? options.highlightClipBehavior : defaultOptions.highlightClipBehavior || 'inline');
+    setCheckedValue(document.querySelectorAll("[name='highlightInlineSyntax']"), options.highlightInlineSyntax === 'obsidian' ? 'obsidian' : 'html-mark');
+    setCheckedValue(document.querySelectorAll("[name='highlightDefaultColor']"), ['yellow', 'green', 'blue', 'pink', 'purple'].includes(options.highlightDefaultColor) ? options.highlightDefaultColor : 'yellow');
     document.querySelector("[name='showThemeToggleInPopup']").checked = options.showThemeToggleInPopup !== false;
     document.querySelector("[name='showUserGuideIcon']").checked = options.showUserGuideIcon !== false;
     setCheckedValue(document.querySelectorAll("[name='editorTheme']"), options.editorTheme || 'default');
@@ -3368,6 +3373,9 @@ const buttonClick = async (e) => {
 	    else if (e.target.id == "clear-library" || e.target.closest('#clear-library')) {
 	        clearLibraryItems();
 	    }
+    else if (e.target.id == "open-highlights-manager" || e.target.closest('#open-highlights-manager')) {
+        browser.tabs.create({ url: browser.runtime.getURL('highlights/highlights.html') });
+    }
     else if (e.target.id == "refreshAgentBridgeStatus" || e.target.closest('#refreshAgentBridgeStatus')) {
         const refreshBtn = document.getElementById('refreshAgentBridgeStatus');
         const needsPermission = usesOptionalNativeMessagingPermission() && agentBridgeSettings.enabled && !agentBridgeStatus.permissionGranted;

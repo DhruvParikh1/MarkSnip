@@ -317,7 +317,8 @@ function removeMarkSnipElementPickerArtifacts(root) {
 
     const nodes = [root, ...Array.from(root.querySelectorAll('*'))];
     nodes.forEach(node => {
-        if (node.getAttribute?.('data-marksnip-element-picker-ui') === 'true') {
+        if (node.getAttribute?.('data-marksnip-element-picker-ui') === 'true' ||
+            node.getAttribute?.('data-marksnip-highlighter-ui') === 'true') {
             node.remove();
             return;
         }
@@ -325,7 +326,9 @@ function removeMarkSnipElementPickerArtifacts(root) {
         if (node.classList) {
             Array.from(node.classList).forEach(className => {
                 if (className.startsWith('marksnip-element-picker-') ||
-                    className.startsWith('marksnip-click-clip-')) {
+                    className.startsWith('marksnip-click-clip-') ||
+                    className.startsWith('marksnip-highlighter-') ||
+                    className.startsWith('marksnip-highlight-')) {
                     node.classList.remove(className);
                 }
             });

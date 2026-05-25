@@ -325,6 +325,8 @@ describe('Options search helper', () => {
     expect(getMatchLabels(index, 'backmatter')).toContain('Back-matter template');
     expect(getMatchIds(index, 'base64')).toContain('imageOptions');
     expect(getMatchIds(index, 'highlight')).toContain('codeBlockStyle');
+    expect(getMatchIds(index, 'highlighter')).toContain('highlighterGroup');
+    expect(getMatchIds(index, 'annotation notes')).toContain('highlighterGroup');
     expect(getMatchIds(index, 'highlightjs')).toContain('codeBlockStyle');
     expect(getMatchIds(index, 'highlight.js')).toContain('codeBlockStyle');
     expect(getMatchIds(index, 'shortcut')).toContain('linkReferenceStyle');
@@ -336,6 +338,21 @@ describe('Options search helper', () => {
     expect(getMatchIds(index, 'obsidian vault')).toContain('obsidianVault');
     expect(getMatchIds(index, 'download images')).toContain('downloadImages-container');
     expect(getMatchIds(index, 'guide icon')).toContain('popupBehaviorGroup');
+  });
+
+  test('highlighter has its own section directly after interpreter', () => {
+    const document = dom.window.document;
+    const sidebarIds = Array.from(document.querySelectorAll('.sidebar-item')).map(item => item.id);
+    const interpreterIndex = sidebarIds.indexOf('tab-interpreter');
+    const highlighterIndex = sidebarIds.indexOf('tab-highlighter');
+    const highlighterSection = document.getElementById('section-highlighter');
+
+    expect(interpreterIndex).toBeGreaterThan(-1);
+    expect(highlighterIndex).toBe(interpreterIndex + 1);
+    expect(highlighterSection).not.toBeNull();
+    expect(highlighterSection.querySelector('#open-highlights-manager')).not.toBeNull();
+    expect(highlighterSection.querySelector('#highlighterGroup')).not.toBeNull();
+    expect(document.querySelector('#section-appearance #highlighterGroup')).toBeNull();
   });
 
   test('library search surfaces the new local-only library controls', () => {

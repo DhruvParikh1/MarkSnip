@@ -2240,6 +2240,28 @@ a:hover {
     border-style: dashed;
 }
 
+.highlighter-entry-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-5);
+    margin-bottom: var(--space-4);
+    background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+}
+
+.highlighter-entry-card__copy {
+    min-width: 0;
+}
+
+.highlighter-entry-card .card-desc {
+    margin-bottom: 0;
+}
+
+.highlighter-entry-card .btn {
+    min-width: 160px;
+    justify-content: center;
+}
+
 .card-title-row {
     display: flex;
     align-items: center;
@@ -3808,6 +3830,15 @@ input[type="file"] {
 
     .content-panel {
         padding: var(--space-4);
+    }
+
+    .highlighter-entry-card {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+    }
+
+    .highlighter-entry-card .btn {
+        width: 100%;
     }
 
     .search-input {

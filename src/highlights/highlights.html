@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MarkSnip Highlights</title>
+  <script src="../browser-polyfill.min.js"></script>
+  <script src="highlights-theme.js"></script>
+  <link rel="stylesheet" href="../shared/fonts.css">
+  <link rel="stylesheet" href="highlights.css">
+</head>
+<body>
+  <a class="skip-link" href="#pagesList">Skip to highlights</a>
+  <main class="highlights-app">
+    <aside class="highlights-sidebar" aria-label="Highlight sources">
+      <header class="sidebar-header">
+        <div class="sidebar-title">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m9 11-6 6v3h9l3-3"/>
+              <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+            </svg>
+          </span>
+          <h1>Highlights</h1>
+        </div>
+        <button id="openOptions" class="icon-btn" type="button" aria-label="Open highlighter settings" title="Open settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 1 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 1 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6h.1a1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 1 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.1a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1Z"/>
+          </svg>
+        </button>
+      </header>
+
+      <section class="control-stack" aria-label="Filter highlights">
+        <label class="search-field">
+          <span class="visually-hidden">Search highlights</span>
+          <input id="searchInput" type="search" placeholder="Search highlights...">
+        </label>
+        <label class="field">
+          <span>Color</span>
+          <select id="colorFilter">
+            <option value="">All colors</option>
+            <option value="yellow">Yellow</option>
+            <option value="green">Green</option>
+            <option value="blue">Blue</option>
+            <option value="pink">Pink</option>
+            <option value="purple">Purple</option>
+          </select>
+        </label>
+      </section>
+
+      <nav class="source-nav" aria-label="Saved highlight sources">
+        <button id="allHighlightsButton" class="source-item source-item--all is-active" type="button">
+          <span class="source-item-title">All highlights</span>
+          <span id="allHighlightsCount" class="source-count">0</span>
+        </button>
+        <div id="sourceList" class="source-list"></div>
+      </nav>
+    </aside>
+
+    <section class="highlights-content" aria-label="Saved highlights">
+      <header class="content-toolbar">
+        <div class="scope-block">
+          <nav class="breadcrumbs" aria-label="Highlight scope">
+            <button id="breadcrumbAll" class="breadcrumb-link" type="button">All highlights</button>
+            <span id="breadcrumbSeparator" class="breadcrumb-separator" aria-hidden="true">/</span>
+            <span id="breadcrumbCurrent" class="breadcrumb-current">All highlights</span>
+          </nav>
+          <p id="summaryText" class="scope-summary" aria-live="polite">Loading highlights...</p>
+        </div>
+        <div class="toolbar-actions">
+          <div class="export-menu">
+            <button id="exportMenuButton" class="btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="exportMenu">
+              <span>Export</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5 7.5 10 12l5-4.5"/>
+              </svg>
+            </button>
+            <div id="exportMenu" class="export-menu__panel" role="menu" hidden>
+              <button id="exportMarkdown" class="export-menu__item" type="button" role="menuitem">Markdown</button>
+              <button id="exportJson" class="export-menu__item" type="button" role="menuitem">JSON</button>
+            </div>
+          </div>
+          <button id="clearAll" class="btn btn-danger" type="button">Delete all</button>
+        </div>
+      </header>
+
+      <section id="emptyState" class="empty-state" hidden>
+        <h2>No highlights saved</h2>
+        <p>Highlight text on a page to see it here.</p>
+      </section>
+
+      <section id="pagesList" class="pages-list" aria-label="Saved highlight pages"></section>
+    </section>
+  </main>
+
+  <script src="../shared/highlight-state.js"></script>
+  <script src="highlights.js"></script>
+</body>
+</html>

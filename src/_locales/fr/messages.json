@@ -252,6 +252,50 @@
     "message": "Sélectionner un élément pour Markdown",
     "description": "Context menu item for activating manual element picker mode"
   },
+  "contextToggleHighlighter": {
+    "message": "Activer/désactiver le surligneur",
+    "description": "Context menu item for toggling highlighter mode"
+  },
+  "contextHighlightSelection": {
+    "message": "Surligner la sélection",
+    "description": "Context menu item for saving the current selection as a highlight"
+  },
+  "contextOpenHighlights": {
+    "message": "Ouvrir les surlignages",
+    "description": "Context menu item for opening saved highlights"
+  },
+  "popupHighlighterBtn": {
+    "message": "Surligner",
+    "description": "Popup highlighter button label"
+  },
+  "popupHighlighterStarting": {
+    "message": "Surlignage...",
+    "description": "Popup highlighter pending state"
+  },
+  "popupHighlighterActive": {
+    "message": "Sur la page",
+    "description": "Popup highlighter success state"
+  },
+  "popupHighlighterFailed": {
+    "message": "Échec",
+    "description": "Popup highlighter error state"
+  },
+  "popupAlertFailedToActivateHighlighter": {
+    "message": "Impossible d'activer le surligneur. Veuillez réessayer.",
+    "description": "Popup highlighter failure alert"
+  },
+  "highlighterNotePlaceholder": {
+    "message": "Ajouter une note...",
+    "description": "Placeholder for highlight note field"
+  },
+  "highlighterDelete": {
+    "message": "Supprimer",
+    "description": "Delete highlight button label"
+  },
+  "highlighterSave": {
+    "message": "Enregistrer",
+    "description": "Save highlight note button label"
+  },
   "contextCopySelection": {
     "message": "Copier la sélection en Markdown",
     "description": "Context menu item"
@@ -837,7 +881,7 @@
     "description": "Sidebar tab label"
   },
   "optionsTabImportExport": {
-    "message": "Import / Export",
+    "message": "Importer / Exporter",
     "description": "Sidebar tab label"
   },
   "optionsHelpCategory": {
@@ -1949,7 +1993,7 @@
     "description": "Button to cancel site rule editing"
   },
   "optionsImportExportSection": {
-    "message": "Import / Export",
+    "message": "Importer / Exporter",
     "description": "Title for Import / Export section"
   },
   "optionsImportExportSectionDesc": {
@@ -4039,59 +4083,59 @@
     "description": "Element picker success notification when Done copies Markdown directly"
   },
   "interpreterSectionTitle": {
-    "message": "Interpreter",
+    "message": "Interpréteur",
     "description": "Interpreter panel heading in the popup"
   },
   "interpreterButton": {
-    "message": "Interpret",
+    "message": "Interpréter",
     "description": "Label for the popup Interpret button"
   },
   "interpreterThinking": {
-    "message": "Thinking...",
+    "message": "Traitement...",
     "description": "Interpret button label while the LLM request is in progress"
   },
   "interpreterDone": {
-    "message": "Done",
+    "message": "Terminé",
     "description": "Interpret button label after a successful run"
   },
   "interpreterError": {
-    "message": "Interpreter request failed.",
+    "message": "Échec de la requête d'interprétation.",
     "description": "Generic interpreter error message"
   },
   "interpreterNoModel": {
-    "message": "Select an interpreter model first.",
+    "message": "Sélectionnez d'abord un modèle d'interprétation.",
     "description": "Error shown when no interpreter model is selected"
   },
   "optionsSidebarInterpreter": {
-    "message": "Interpreter",
+    "message": "Interpréteur",
     "description": "Interpreter section label in the options sidebar"
   },
   "optionsInterpreterEnabled": {
-    "message": "Enable Interpreter",
+    "message": "Activer l'interpréteur",
     "description": "Label for the interpreter enable toggle"
   },
   "optionsInterpreterAutoRun": {
-    "message": "Run automatically on clip",
+    "message": "Exécuter automatiquement lors du clip",
     "description": "Label for the interpreter auto-run toggle"
   },
   "optionsInterpreterContext": {
-    "message": "Prompt Context",
+    "message": "Contexte du prompt",
     "description": "Label for the interpreter prompt context textarea"
   },
   "optionsInterpreterProviders": {
-    "message": "Providers",
+    "message": "Fournisseurs",
     "description": "Heading for the interpreter providers manager"
   },
   "optionsInterpreterModels": {
-    "message": "Models",
+    "message": "Modèles",
     "description": "Heading for the interpreter models manager"
   },
   "optionsInterpreterAddProvider": {
-    "message": "Add Provider",
+    "message": "Ajouter un fournisseur",
     "description": "Summary label for the add-provider editor"
   },
   "optionsInterpreterAddModel": {
-    "message": "Add Model",
+    "message": "Ajouter un modèle",
     "description": "Summary label for the add-model editor"
   },
   "optionsInterpreterApiKey": {
@@ -4107,51 +4151,51 @@
     "description": "Label for the model ID field"
   },
   "optionsInterpreterEnabledModel": {
-    "message": "Show in popup",
+    "message": "Afficher dans la fenêtre contextuelle",
     "description": "Label for the model enabled toggle"
   },
   "interpreterUnresolvedExportWarning": {
-    "message": "This clip still contains an interpreter prompt ({{prompt:\"...\"}}) that has not been run yet. Export it anyway?",
+    "message": "Ce clip contient encore un prompt d'interprétation ({{prompt:\"...\"}}) qui n'a pas été exécuté. Exporter quand même ?",
     "description": "Confirmation shown when exporting a clip that still has an unresolved interpreter prompt"
   },
   "interpreterExportWarningTitle": {
-    "message": "Unrun interpreter prompt",
+    "message": "Prompt d'interprétation non exécuté",
     "description": "Title of the popup export-warning dialog"
   },
   "interpreterExportWarningDismiss": {
-    "message": "Don't warn me about this again",
+    "message": "Ne plus m'avertir",
     "description": "Checkbox to suppress the export warning"
   },
   "interpreterExportWarningCancel": {
-    "message": "Cancel",
+    "message": "Annuler",
     "description": "Cancel button in the export-warning dialog"
   },
   "interpreterExportWarningProceed": {
-    "message": "Export anyway",
+    "message": "Exporter quand même",
     "description": "Confirm button in the export-warning dialog"
   },
   "optionsInterpreterExportWarning": {
-    "message": "Warn before exporting unrun prompts",
+    "message": "Avertir avant d'exporter les prompts non exécutés",
     "description": "Label for the export-warning toggle in Interpreter options"
   },
   "optionsInterpreterExportWarningHint": {
-    "message": "Shows a confirmation if you download, copy, or send a clip that still contains an unrun {{prompt:\"...\"}} placeholder.",
+    "message": "Affiche une confirmation si vous téléchargez, copiez ou envoyez un clip contenant encore un espace réservé {{prompt:\"...\"}} non exécuté.",
     "description": "Hint for the export-warning toggle"
   },
   "optionsInterpreterPopularModels": {
-    "message": "Popular models",
+    "message": "Modèles populaires",
     "description": "Label for the guided model picker in the Add Model dialog"
   },
   "optionsInterpreterPopularModelsHint": {
-    "message": "Pick one to fill the Model ID, or enter your own below.",
+    "message": "Choisissez-en un pour remplir l'ID du modèle, ou saisissez le vôtre ci-dessous.",
     "description": "Hint for the guided model picker"
   },
   "optionsInterpreterModelIdHint": {
-    "message": "The provider's model identifier, e.g. gemini-flash-latest.",
+    "message": "L'identifiant du modèle du fournisseur, p. ex. gemini-flash-latest.",
     "description": "Hint for the model ID field in the Add Model dialog"
   },
   "optionsInterpreterModelsListLink": {
-    "message": "Browse available models.",
+    "message": "Parcourir les modèles disponibles.",
     "description": "Link text to the provider model documentation"
   }
 }

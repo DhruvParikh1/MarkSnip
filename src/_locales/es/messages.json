@@ -252,6 +252,50 @@
     "message": "Seleccionar elemento para Markdown",
     "description": "Context menu item for activating manual element picker mode"
   },
+  "contextToggleHighlighter": {
+    "message": "Activar/desactivar resaltador",
+    "description": "Context menu item for toggling highlighter mode"
+  },
+  "contextHighlightSelection": {
+    "message": "Resaltar selección",
+    "description": "Context menu item for saving the current selection as a highlight"
+  },
+  "contextOpenHighlights": {
+    "message": "Abrir resaltados",
+    "description": "Context menu item for opening saved highlights"
+  },
+  "popupHighlighterBtn": {
+    "message": "Resaltar",
+    "description": "Popup highlighter button label"
+  },
+  "popupHighlighterStarting": {
+    "message": "Resaltando...",
+    "description": "Popup highlighter pending state"
+  },
+  "popupHighlighterActive": {
+    "message": "En página",
+    "description": "Popup highlighter success state"
+  },
+  "popupHighlighterFailed": {
+    "message": "Error",
+    "description": "Popup highlighter error state"
+  },
+  "popupAlertFailedToActivateHighlighter": {
+    "message": "No se pudo activar el resaltador. Inténtalo de nuevo.",
+    "description": "Popup highlighter failure alert"
+  },
+  "highlighterNotePlaceholder": {
+    "message": "Añadir una nota...",
+    "description": "Placeholder for highlight note field"
+  },
+  "highlighterDelete": {
+    "message": "Eliminar",
+    "description": "Delete highlight button label"
+  },
+  "highlighterSave": {
+    "message": "Guardar",
+    "description": "Save highlight note button label"
+  },
   "contextCopySelection": {
     "message": "Copiar selección como Markdown",
     "description": "Context menu item"
@@ -4039,59 +4083,59 @@
     "description": "Element picker success notification when Done copies Markdown directly"
   },
   "interpreterSectionTitle": {
-    "message": "Interpreter",
+    "message": "Intérprete",
     "description": "Interpreter panel heading in the popup"
   },
   "interpreterButton": {
-    "message": "Interpret",
+    "message": "Interpretar",
     "description": "Label for the popup Interpret button"
   },
   "interpreterThinking": {
-    "message": "Thinking...",
+    "message": "Pensando...",
     "description": "Interpret button label while the LLM request is in progress"
   },
   "interpreterDone": {
-    "message": "Done",
+    "message": "Listo",
     "description": "Interpret button label after a successful run"
   },
   "interpreterError": {
-    "message": "Interpreter request failed.",
+    "message": "Solicitud del intérprete fallida.",
     "description": "Generic interpreter error message"
   },
   "interpreterNoModel": {
-    "message": "Select an interpreter model first.",
+    "message": "Seleccione primero un modelo de intérprete.",
     "description": "Error shown when no interpreter model is selected"
   },
   "optionsSidebarInterpreter": {
-    "message": "Interpreter",
+    "message": "Intérprete",
     "description": "Interpreter section label in the options sidebar"
   },
   "optionsInterpreterEnabled": {
-    "message": "Enable Interpreter",
+    "message": "Activar intérprete",
     "description": "Label for the interpreter enable toggle"
   },
   "optionsInterpreterAutoRun": {
-    "message": "Run automatically on clip",
+    "message": "Ejecutar automáticamente al recortar",
     "description": "Label for the interpreter auto-run toggle"
   },
   "optionsInterpreterContext": {
-    "message": "Prompt Context",
+    "message": "Contexto del prompt",
     "description": "Label for the interpreter prompt context textarea"
   },
   "optionsInterpreterProviders": {
-    "message": "Providers",
+    "message": "Proveedores",
     "description": "Heading for the interpreter providers manager"
   },
   "optionsInterpreterModels": {
-    "message": "Models",
+    "message": "Modelos",
     "description": "Heading for the interpreter models manager"
   },
   "optionsInterpreterAddProvider": {
-    "message": "Add Provider",
+    "message": "Agregar proveedor",
     "description": "Summary label for the add-provider editor"
   },
   "optionsInterpreterAddModel": {
-    "message": "Add Model",
+    "message": "Agregar modelo",
     "description": "Summary label for the add-model editor"
   },
   "optionsInterpreterApiKey": {
@@ -4107,51 +4151,51 @@
     "description": "Label for the model ID field"
   },
   "optionsInterpreterEnabledModel": {
-    "message": "Show in popup",
+    "message": "Mostrar en ventana emergente",
     "description": "Label for the model enabled toggle"
   },
   "interpreterUnresolvedExportWarning": {
-    "message": "This clip still contains an interpreter prompt ({{prompt:\"...\"}}) that has not been run yet. Export it anyway?",
+    "message": "Este clip aún contiene un prompt del intérprete ({{prompt:\"...\"}}) que no se ha ejecutado. ¿Exportar de todos modos?",
     "description": "Confirmation shown when exporting a clip that still has an unresolved interpreter prompt"
   },
   "interpreterExportWarningTitle": {
-    "message": "Unrun interpreter prompt",
+    "message": "Prompt del intérprete no ejecutado",
     "description": "Title of the popup export-warning dialog"
   },
   "interpreterExportWarningDismiss": {
-    "message": "Don't warn me about this again",
+    "message": "No volver a advertir",
     "description": "Checkbox to suppress the export warning"
   },
   "interpreterExportWarningCancel": {
-    "message": "Cancel",
+    "message": "Cancelar",
     "description": "Cancel button in the export-warning dialog"
   },
   "interpreterExportWarningProceed": {
-    "message": "Export anyway",
+    "message": "Exportar de todos modos",
     "description": "Confirm button in the export-warning dialog"
   },
   "optionsInterpreterExportWarning": {
-    "message": "Warn before exporting unrun prompts",
+    "message": "Avisar antes de exportar prompts no ejecutados",
     "description": "Label for the export-warning toggle in Interpreter options"
   },
   "optionsInterpreterExportWarningHint": {
-    "message": "Shows a confirmation if you download, copy, or send a clip that still contains an unrun {{prompt:\"...\"}} placeholder.",
+    "message": "Muestra una confirmación al descargar, copiar o enviar un clip que aún contiene un marcador de posición {{prompt:\"...\"}} no ejecutado.",
     "description": "Hint for the export-warning toggle"
   },
   "optionsInterpreterPopularModels": {
-    "message": "Popular models",
+    "message": "Modelos populares",
     "description": "Label for the guided model picker in the Add Model dialog"
   },
   "optionsInterpreterPopularModelsHint": {
-    "message": "Pick one to fill the Model ID, or enter your own below.",
+    "message": "Seleccione uno para completar el ID de modelo, o ingrese el suyo propio a continuación.",
     "description": "Hint for the guided model picker"
   },
   "optionsInterpreterModelIdHint": {
-    "message": "The provider's model identifier, e.g. gemini-flash-latest.",
+    "message": "El identificador del modelo del proveedor, p. ej. gemini-flash-latest.",
     "description": "Hint for the model ID field in the Add Model dialog"
   },
   "optionsInterpreterModelsListLink": {
-    "message": "Browse available models.",
+    "message": "Explorar modelos disponibles.",
     "description": "Link text to the provider model documentation"
   }
 }

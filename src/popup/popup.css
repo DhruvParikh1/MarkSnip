@@ -1260,6 +1260,10 @@ body {
         box-shadow var(--theme-transition);
 }
 
+.quick-actions-row {
+    grid-template-columns: minmax(0, 0.75fr) 1px minmax(0, 0.78fr) minmax(0, 1fr) auto;
+}
+
 .toggle-row.is-picker-hidden {
     grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
 }
@@ -1504,6 +1508,19 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     text-align: left;
+}
+
+.element-picker-trigger--icon {
+    width: 36px;
+    min-width: 36px;
+    padding: 8px;
+}
+
+.element-picker-trigger--icon .element-picker-icon,
+.element-picker-trigger--icon svg {
+    width: 18px;
+    height: 18px;
+    flex-basis: 18px;
 }
 
 .element-picker-trigger[data-state="idle"] [data-picker-icon="idle"],

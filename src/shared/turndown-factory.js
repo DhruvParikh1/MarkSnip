@@ -45,7 +45,17 @@
 
     service.addRule('mark', {
       filter: ['mark'],
-      replacement: function (content) {
+      replacement: function (content, node) {
+        if (node?.getAttribute?.('data-marksnip-highlight-id')) {
+          if (mergedOptions.highlightInlineSyntax === 'obsidian') {
+            return `==${content}==`;
+          }
+          const color = node.getAttribute('data-marksnip-highlight-color') || '';
+          const style = node.getAttribute('style') || '';
+          const styleAttr = style ? ` style="${style.replace(/"/g, '&quot;')}"` : '';
+          const colorAttr = color ? ` data-color="${color.replace(/"/g, '&quot;')}"` : '';
+          return `<mark${colorAttr}${styleAttr}>${content}</mark>`;
+        }
         return '`' + content + '`';
       }
     });
@@ -96,7 +106,17 @@
 
             tempService.addRule('mark', {
               filter: ['mark'],
-              replacement: function (content) {
+              replacement: function (content, node) {
+                if (node?.getAttribute?.('data-marksnip-highlight-id')) {
+                  if (mergedOptions.highlightInlineSyntax === 'obsidian') {
+                    return `==${content}==`;
+                  }
+                  const color = node.getAttribute('data-marksnip-highlight-color') || '';
+                  const style = node.getAttribute('style') || '';
+                  const styleAttr = style ? ` style="${style.replace(/"/g, '&quot;')}"` : '';
+                  const colorAttr = color ? ` data-color="${color.replace(/"/g, '&quot;')}"` : '';
+                  return `<mark${colorAttr}${styleAttr}>${content}</mark>`;
+                }
                 return '`' + content + '`';
               }
             });

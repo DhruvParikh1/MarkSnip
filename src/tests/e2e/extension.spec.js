@@ -63,6 +63,25 @@ async function setLocalStorage(serviceWorker, payload) {
   }, { nextState: payload });
 }
 
+async function getTabIdForUrl(serviceWorker, targetUrl) {
+  return await serviceWorker.evaluate(async ({ url }) => {
+    const tabs = await browser.tabs.query({});
+    return tabs.find((tab) => tab.url === url)?.id || null;
+  }, { url: targetUrl });
+}
+
+async function getPopupMarkdown(popupPage) {
+  return await popupPage.evaluate(() => {
+    if (typeof getEditorValue === 'function') {
+      return getEditorValue();
+    }
+    if (typeof cm !== 'undefined' && cm?.getValue) {
+      return cm.getValue();
+    }
+    return document.getElementById('md')?.value || '';
+  });
+}
+
 async function setBatchWorkerState(serviceWorker, payload) {
   await serviceWorker.evaluate(({ nextState }) => {
     batchState = nextState ? JSON.parse(JSON.stringify(nextState)) : null;
@@ -195,6 +214,331 @@ test.describe('MarkSnip Extension E2E', () => {
       await expect(fixturePage.locator('#marksnip-element-picker-panel')).toBeVisible();
       await expect(fixturePage.locator('#marksnip-element-picker-status')).toContainText('Hover and click');
     } finally {
+      await fixturePage.keyboard.press('Escape').catch(() => {});
+      await fixturePage.close().catch(() => {});
+    }
+  });
+
+  test('highlighter saves selected text, auto-renders it on reload, and lists it in the manager', async () => {
+    const fixturePage = await context.newPage();
+    const popupPage = await context.newPage();
+    const highlightsPage = await context.newPage();
+
+    try {
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove(['marksnipHighlights', 'marksnipHighlightIndex']);
+        await browser.storage.sync.set({
+          highlighterEnabled: true,
+          alwaysShowHighlights: true,
+          highlightDefaultColor: 'yellow'
+        });
+      });
+
+      await fixturePage.goto(`${fixtureHost}/extension/deterministic-article.html`);
+      await fixturePage.waitForLoadState('networkidle');
+      await fixturePage.bringToFront();
+
+      const fixtureTabId = await serviceWorker.evaluate(async ({ targetUrl }) => {
+        const tabs = await browser.tabs.query({});
+        return tabs.find((tab) => tab.url === targetUrl)?.id || null;
+      }, { targetUrl: fixturePage.url() });
+      expect(fixtureTabId).toBeTruthy();
+
+      await popupPage.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+      await expect(popupPage.locator('#container')).toBeVisible();
+      await expect(popupPage.locator('#toggleHighlighter')).toBeVisible();
+      await expect(popupPage.locator('#toggleHighlighter .element-picker-label')).toHaveCount(0);
+
+      await popupPage.evaluate(({ tabId, tabUrl }) => {
+        const originalTargetResolver = getPopupPageActionTargetTab;
+        getPopupPageActionTargetTab = async () => ({
+          id: tabId,
+          url: tabUrl,
+          active: true,
+          status: 'complete'
+        });
+        window.__restoreHighlighterTabMocks = () => {
+          getPopupPageActionTargetTab = originalTargetResolver;
+        };
+      }, { tabId: fixtureTabId, tabUrl: fixturePage.url() });
+
+      await popupPage.locator('#toggleHighlighter').click();
+      await expect(fixturePage.locator('#marksnip-highlighter-toolbar')).toBeVisible();
+
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.sync.set({ highlightDefaultColor: 'green' });
+      });
+
+      await fixturePage.evaluate(() => {
+        const paragraph = document.querySelector('article p:nth-of-type(2)');
+        const textNode = paragraph?.firstChild;
+        const phrase = 'stable content';
+        const start = textNode?.nodeValue?.indexOf(phrase) ?? -1;
+        if (!textNode || start < 0) {
+          throw new Error('Highlight fixture phrase not found');
+        }
+        const range = document.createRange();
+        range.setStart(textNode, start);
+        range.setEnd(textNode, start + phrase.length);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+
+      const highlightResponse = await serviceWorker.evaluate(async ({ tabId, tabUrl }) => {
+        return await highlightSelectionFromContext({}, {
+          id: tabId,
+          url: tabUrl
+        });
+      }, { tabId: fixtureTabId, tabUrl: fixturePage.url() });
+      expect(highlightResponse).toMatchObject({ ok: true });
+
+      await expect.poll(async () => {
+        return await serviceWorker.evaluate(async () => {
+          const state = await browser.storage.local.get(['marksnipHighlights', 'marksnipHighlightIndex']);
+          const records = Object.values(state.marksnipHighlights || {});
+          const texts = records.flatMap((record) => (
+            (record.highlights || []).map((highlight) => highlight.text)
+          ));
+          const colors = records.flatMap((record) => (
+            (record.highlights || []).map((highlight) => highlight.color)
+          ));
+          return {
+            texts,
+            colors,
+            indexCount: Object.keys(state.marksnipHighlightIndex || {}).length
+          };
+        });
+      }, { timeout: 10000 }).toEqual({
+        texts: ['stable content'],
+        colors: ['green'],
+        indexCount: 1
+      });
+
+      await fixturePage.reload({ waitUntil: 'networkidle' });
+      await expect(fixturePage.locator('#marksnip-highlighter-style')).toHaveCount(1);
+
+      await highlightsPage.goto(`chrome-extension://${extensionId}/highlights/highlights.html`);
+      await expect(highlightsPage.locator('#summaryText')).toContainText('1 highlight across 1 page');
+      await expect(highlightsPage.locator('#allHighlightsButton')).toContainText('1');
+      await expect(highlightsPage.locator('.source-item--group')).toContainText('fixtures.marksnip.test');
+      await expect(highlightsPage.locator('.source-page')).toContainText('Deterministic Markdown Fixture');
+      await expect(highlightsPage.locator('#exportMenuButton')).toBeVisible();
+      await expect(highlightsPage.locator('#exportMenu')).toBeHidden();
+      await highlightsPage.locator('#exportMenuButton').click();
+      await expect(highlightsPage.locator('#exportMenu')).toBeVisible();
+      await expect(highlightsPage.locator('#exportMarkdown')).toHaveText('Markdown');
+      await expect(highlightsPage.locator('[data-action="delete-page"]')).toHaveCount(0);
+      await expect(highlightsPage.locator('.highlight-text')).toContainText('stable content');
+      await highlightsPage.evaluate(() => {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: {
+            writeText: async (value) => {
+              window.__markSnipCopiedText = value;
+            }
+          }
+        });
+      });
+      const highlightItem = highlightsPage.locator('.highlight-item').first();
+      await expect(highlightItem.locator('.highlight-edit-panel')).toHaveCount(0);
+      await expect(highlightItem.locator('[data-action="copy"] svg.lucide-copy')).toHaveCount(1);
+      await expect(highlightItem.locator('[data-action="delete"] svg.lucide-trash-2')).toHaveCount(1);
+      await expect(highlightItem.locator('.highlight-top-actions')).toHaveCSS('opacity', '0');
+      await highlightItem.hover();
+      await expect(highlightItem.locator('.highlight-top-actions')).toHaveCSS('opacity', '1');
+      await highlightItem.locator('[data-action="copy"]').click();
+      await expect.poll(async () => (
+        await highlightsPage.evaluate(() => window.__markSnipCopiedText || '')
+      )).toBe('stable content');
+      await highlightItem.locator('[data-action="toggle-edit"]').click();
+      await expect(highlightItem.locator('.highlight-edit-panel')).toBeVisible();
+      await expect(highlightItem.locator('textarea[data-action="note"]')).toBeVisible();
+      await expect(highlightItem.locator('.color-row')).toBeVisible();
+    } finally {
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove(['marksnipHighlights', 'marksnipHighlightIndex']);
+      }).catch(() => {});
+      await popupPage.evaluate(() => window.__restoreHighlighterTabMocks?.()).catch(() => {});
+      await fixturePage.keyboard.press('Escape').catch(() => {});
+      await popupPage.close().catch(() => {});
+      await highlightsPage.close().catch(() => {});
+      await fixturePage.close().catch(() => {});
+    }
+  });
+
+  test('popup clips saved highlights inline by default and respects Ignore', async () => {
+    const fixturePage = await context.newPage();
+    const popupPage = await context.newPage();
+
+    try {
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove(['marksnipHighlights', 'marksnipHighlightIndex']);
+        await browser.storage.sync.remove(['highlightClipBehavior', 'highlightInlineSyntax']);
+        await browser.storage.sync.set({
+          highlighterEnabled: true,
+          alwaysShowHighlights: true,
+          highlightDefaultColor: 'green'
+        });
+      });
+
+      await fixturePage.goto(`${fixtureHost}/extension/deterministic-article.html`);
+      await fixturePage.waitForLoadState('networkidle');
+      await fixturePage.bringToFront();
+
+      const fixtureTabId = await getTabIdForUrl(serviceWorker, fixturePage.url());
+      expect(fixtureTabId).toBeTruthy();
+
+      await serviceWorker.evaluate(async ({ tabId, tabUrl }) => {
+        await activateHighlighterForTab({ id: tabId, url: tabUrl });
+      }, { tabId: fixtureTabId, tabUrl: fixturePage.url() });
+
+      await fixturePage.evaluate(() => {
+        const paragraph = document.querySelector('article p:nth-of-type(2)');
+        const textNode = paragraph?.firstChild;
+        const phrase = 'stable content';
+        const start = textNode?.nodeValue?.indexOf(phrase) ?? -1;
+        if (!textNode || start < 0) {
+          throw new Error('Highlight fixture phrase not found');
+        }
+        const range = document.createRange();
+        range.setStart(textNode, start);
+        range.setEnd(textNode, start + phrase.length);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+
+      await expect(await serviceWorker.evaluate(async ({ tabId, tabUrl }) => {
+        return await highlightSelectionFromContext({}, {
+          id: tabId,
+          url: tabUrl
+        });
+      }, { tabId: fixtureTabId, tabUrl: fixturePage.url() })).toMatchObject({ ok: true });
+
+      await fixturePage.bringToFront();
+      await popupPage.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+      await expect(popupPage.locator('#container')).toBeVisible();
+
+      await expect.poll(async () => getPopupMarkdown(popupPage), { timeout: 45000 })
+        .toContain('<mark');
+      const inlineMarkdown = await getPopupMarkdown(popupPage);
+      expect(inlineMarkdown).toContain('stable content</mark>');
+      expect(inlineMarkdown).toContain('data-color="green"');
+      expect(inlineMarkdown).not.toContain('Error clipping the page');
+
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.sync.set({ highlightClipBehavior: 'ignore' });
+      });
+
+      await fixturePage.bringToFront();
+      await popupPage.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+      await expect.poll(async () => getPopupMarkdown(popupPage), { timeout: 45000 })
+        .toContain('stable content');
+      const ignoredMarkdown = await getPopupMarkdown(popupPage);
+      expect(ignoredMarkdown).not.toContain('<mark');
+      expect(ignoredMarkdown).not.toContain('Error clipping the page');
+    } finally {
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove(['marksnipHighlights', 'marksnipHighlightIndex']);
+        await browser.storage.sync.remove(['highlightClipBehavior', 'highlightInlineSyntax']);
+      }).catch(() => {});
+      await fixturePage.keyboard.press('Escape').catch(() => {});
+      await popupPage.close().catch(() => {});
+      await fixturePage.close().catch(() => {});
+    }
+  });
+
+  test('highlighter stores renderable ranges for multi-paragraph selections', async () => {
+    const fixturePage = await context.newPage();
+
+    try {
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove(['marksnipHighlights', 'marksnipHighlightIndex']);
+        await browser.storage.sync.set({
+          highlighterEnabled: true,
+          alwaysShowHighlights: true,
+          highlightDefaultColor: 'yellow'
+        });
+      });
+
+      await fixturePage.goto(`${fixtureHost}/extension/deterministic-article.html`);
+      await fixturePage.waitForLoadState('networkidle');
+      await fixturePage.bringToFront();
+
+      const fixtureTabId = await getTabIdForUrl(serviceWorker, fixturePage.url());
+      expect(fixtureTabId).toBeTruthy();
+
+      await serviceWorker.evaluate(async ({ tabId, tabUrl }) => {
+        await activateHighlighterForTab({ id: tabId, url: tabUrl });
+      }, { tabId: fixtureTabId, tabUrl: fixturePage.url() });
+
+      await fixturePage.evaluate(() => {
+        const first = document.querySelector('article p:nth-of-type(1)')?.firstChild;
+        const second = document.querySelector('article p:nth-of-type(2)')?.firstChild;
+        const startPhrase = 'routed by Playwright';
+        const endPhrase = 'stable content';
+        const start = first?.nodeValue?.indexOf(startPhrase) ?? -1;
+        const end = second?.nodeValue?.indexOf(endPhrase) ?? -1;
+        if (!first || !second || start < 0 || end < 0) {
+          throw new Error('Multi-paragraph highlight fixture phrases not found');
+        }
+
+        const range = document.createRange();
+        range.setStart(first, start);
+        range.setEnd(second, end + endPhrase.length);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+      });
+
+      const highlightResponse = await serviceWorker.evaluate(async ({ tabId, tabUrl }) => {
+        return await highlightSelectionFromContext({}, {
+          id: tabId,
+          url: tabUrl
+        });
+      }, { tabId: fixtureTabId, tabUrl: fixturePage.url() });
+      expect(highlightResponse).toMatchObject({ ok: true, count: 2 });
+
+      await expect.poll(async () => {
+        return await serviceWorker.evaluate(async () => {
+          const state = await browser.storage.local.get(['marksnipHighlights']);
+          const records = Object.values(state.marksnipHighlights || {});
+          return records.flatMap((record) => record.highlights || []).map((highlight) => ({
+            text: highlight.text,
+            startOffset: highlight.startOffset,
+            endOffset: highlight.endOffset,
+            xpath: highlight.xpath
+          }));
+        });
+      }, { timeout: 10000 }).toHaveLength(2);
+
+      const highlights = await serviceWorker.evaluate(async () => {
+        const state = await browser.storage.local.get(['marksnipHighlights']);
+        const records = Object.values(state.marksnipHighlights || {});
+        return records.flatMap((record) => record.highlights || []);
+      });
+      expect(highlights.every((highlight) => highlight.endOffset > highlight.startOffset)).toBe(true);
+      expect(new Set(highlights.map((highlight) => highlight.xpath)).size).toBe(2);
+      expect(highlights.some((highlight) => highlight.text.includes('routed by Playwright'))).toBe(true);
+      expect(highlights.some((highlight) => highlight.text.includes('stable content'))).toBe(true);
+
+      await expect.poll(async () => {
+        return await fixturePage.evaluate(() => {
+          const cssHighlight = typeof CSS !== 'undefined' && CSS.highlights
+            ? CSS.highlights.get('marksnip-highlight-yellow')
+            : null;
+          return {
+            cssHighlightSize: cssHighlight?.size ?? null
+          };
+        });
+      }, { timeout: 10000 }).toEqual({
+        cssHighlightSize: 2
+      });
+    } finally {
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove(['marksnipHighlights', 'marksnipHighlightIndex']);
+      }).catch(() => {});
       await fixturePage.keyboard.press('Escape').catch(() => {});
       await fixturePage.close().catch(() => {});
     }

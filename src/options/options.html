@@ -169,6 +169,13 @@
 	                    </svg>
 	                    <span class="sidebar-label" data-i18n="optionsSidebarInterpreter">Interpreter</span>
 	                </li>
+	                <li class="sidebar-item" id="tab-highlighter" data-section="highlighter" role="tab" tabindex="-1" aria-selected="false" aria-controls="section-highlighter">
+	                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+	                        <path d="m9 11-6 6v3h9l3-3"/>
+	                        <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+	                    </svg>
+	                    <span class="sidebar-label">Highlighter</span>
+	                </li>
 	                <div class="sidebar-divider"></div>
                 <li class="sidebar-item" id="tab-import-export" data-section="import-export" role="tab" tabindex="-1" aria-selected="false" aria-controls="section-import-export">
                     <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -707,7 +714,8 @@
                         </div>
                     </div>
                 </div>
-            </div>
+
+	            </div>
 
 
             <!-- ────────────────────────────────────────────
@@ -810,6 +818,21 @@
                                 <input name="contextMenuItems.sendTabToObsidian" id="contextMenuItem-sendTabToObsidian" type="checkbox" />
                                 <span>Send tab to Obsidian</span>
                                 <small class="context-menu-item-scope">Page + Obsidian</small>
+                            </label>
+                            <label class="context-menu-item-checkbox" for="contextMenuItem-toggleHighlighter">
+                                <input name="contextMenuItems.toggleHighlighter" id="contextMenuItem-toggleHighlighter" type="checkbox" />
+                                <span>Toggle Highlighter</span>
+                                <small class="context-menu-item-scope">Page</small>
+                            </label>
+                            <label class="context-menu-item-checkbox" for="contextMenuItem-highlightSelection">
+                                <input name="contextMenuItems.highlightSelection" id="contextMenuItem-highlightSelection" type="checkbox" />
+                                <span>Highlight selection</span>
+                                <small class="context-menu-item-scope">Selection</small>
+                            </label>
+                            <label class="context-menu-item-checkbox" for="contextMenuItem-openHighlights">
+                                <input name="contextMenuItems.openHighlights" id="contextMenuItem-openHighlights" type="checkbox" />
+                                <span>Open Highlights</span>
+                                <small class="context-menu-item-scope">Page</small>
                             </label>
                             <label class="context-menu-item-checkbox" for="contextMenuItem-toggleIncludeTemplate">
                                 <input name="contextMenuItems.toggleIncludeTemplate" id="contextMenuItem-toggleIncludeTemplate" type="checkbox" />
@@ -2115,7 +2138,109 @@ const helloWorld = () => {
                 </dialog>
             </div>
 
-	            <div class="section" id="section-import-export" data-section-label="Import / Export" role="tabpanel" tabindex="0" aria-labelledby="tab-import-export">
+            <div class="section" id="section-highlighter" data-section-label="Highlighter" role="tabpanel" tabindex="0" aria-labelledby="tab-highlighter">
+                <h2 class="section-title">Highlighter</h2>
+                <p class="section-desc">Save page highlights locally, revisit them on the source page, and control how highlighted pages export to Markdown.</p>
+
+                <div class="setting-card highlighter-entry-card" id="highlighterManagerCard"
+                    data-search-keywords="open highlights,highlight manager,highlight library,saved highlights,annotations">
+                    <div class="highlighter-entry-card__copy">
+                        <h3 class="card-title">Highlight library</h3>
+                        <p class="card-desc">Review saved highlights, edit notes, change colors, delete saved pages, or export the current highlight set.</p>
+                    </div>
+                    <button id="open-highlights-manager" class="btn btn-primary" type="button">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m9 11-6 6v3h9l3-3"/>
+                            <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>
+                        </svg>
+                        Open Highlights
+                    </button>
+                </div>
+
+	                <div class="setting-card" id="highlighterGroup"
+	                    data-search-keywords="highlight,highlighter,annotation,notes,colors,obsidian mark,marked text"
+	                    data-setting-key="highlighterEnabled,alwaysShowHighlights,highlightClipBehavior,highlightInlineSyntax,highlightDefaultColor">
+	                    <h3 class="card-title">Behavior</h3>
+	                    <p class="card-desc">Control where highlighter actions appear, when saved marks are painted, and how highlighted content is exported.</p>
+	                    <div class="toggle-row">
+	                        <div class="toggle-info">
+	                            <label class="toggle-label-text" for="highlighterEnabled">Enable Highlighter</label>
+	                            <p class="toggle-hint">Shows the popup and context menu actions for highlighting text, images, tables, and code blocks.</p>
+	                        </div>
+	                        <label class="toggle-switch">
+	                            <input name="highlighterEnabled" id="highlighterEnabled" type="checkbox" />
+	                            <span class="toggle-slider"></span>
+	                        </label>
+	                    </div>
+	                    <div class="toggle-row">
+	                        <div class="toggle-info">
+	                            <label class="toggle-label-text" for="alwaysShowHighlights">Show saved highlights on known pages</label>
+	                            <p class="toggle-hint">When a page already has saved highlights, MarkSnip checks the local URL index and paints them automatically.</p>
+	                        </div>
+	                        <label class="toggle-switch">
+	                            <input name="alwaysShowHighlights" id="alwaysShowHighlights" type="checkbox" />
+	                            <span class="toggle-slider"></span>
+	                        </label>
+	                    </div>
+	                    <div class="input-group">
+	                        <label class="input-label">When clipping a highlighted page</label>
+	                        <div class="radio-group">
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightClipBehavior" id="highlight-clip-ignore" value="ignore" />
+	                                <label for="highlight-clip-ignore">Ignore highlights</label>
+	                            </div>
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightClipBehavior" id="highlight-clip-replace" value="replace-content" />
+	                                <label for="highlight-clip-replace">Export highlights only</label>
+	                            </div>
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightClipBehavior" id="highlight-clip-inline" value="inline" />
+	                                <label for="highlight-clip-inline">Mark highlights inline</label>
+	                            </div>
+	                        </div>
+	                    </div>
+	                    <div class="input-group">
+	                        <label class="input-label">Inline export syntax</label>
+	                        <div class="radio-group">
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightInlineSyntax" id="highlight-syntax-html" value="html-mark" />
+	                                <label for="highlight-syntax-html">HTML &lt;mark&gt;</label>
+	                            </div>
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightInlineSyntax" id="highlight-syntax-obsidian" value="obsidian" />
+	                                <label for="highlight-syntax-obsidian">Obsidian ==text==</label>
+	                            </div>
+	                        </div>
+	                    </div>
+	                    <div class="input-group">
+	                        <label class="input-label">Default highlight color</label>
+	                        <div class="radio-group">
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightDefaultColor" id="highlight-color-yellow" value="yellow" />
+	                                <label for="highlight-color-yellow">Yellow</label>
+	                            </div>
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightDefaultColor" id="highlight-color-green" value="green" />
+	                                <label for="highlight-color-green">Green</label>
+	                            </div>
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightDefaultColor" id="highlight-color-blue" value="blue" />
+	                                <label for="highlight-color-blue">Blue</label>
+	                            </div>
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightDefaultColor" id="highlight-color-pink" value="pink" />
+	                                <label for="highlight-color-pink">Pink</label>
+	                            </div>
+	                            <div class="radio-pill">
+	                                <input type="radio" name="highlightDefaultColor" id="highlight-color-purple" value="purple" />
+	                                <label for="highlight-color-purple">Purple</label>
+	                            </div>
+	                        </div>
+	                    </div>
+	                </div>
+	            </div>
+
+            <div class="section" id="section-import-export" data-section-label="Import / Export" role="tabpanel" tabindex="0" aria-labelledby="tab-import-export">
                 <h2 class="section-title">Import / Export</h2>
                 <p class="section-desc">Back up your settings or restore from a previous backup.</p>
 

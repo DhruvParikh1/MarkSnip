@@ -168,6 +168,33 @@ const CONTEXT_MENU_PAGE_GROUPS = [
         title: contextMenuMessage("contextPickElement", null, "Pick Element for Markdown"),
         contexts: ["all"]
       })
+    },
+    {
+      key: "toggleHighlighter",
+      enabledWhen: (options) => options.highlighterEnabled !== false,
+      getProps: () => ({
+        id: "toggle-highlighter",
+        title: contextMenuMessage("contextToggleHighlighter", null, "Toggle Highlighter"),
+        contexts: ["all"]
+      })
+    },
+    {
+      key: "highlightSelection",
+      enabledWhen: (options) => options.highlighterEnabled !== false,
+      getProps: () => ({
+        id: "highlight-selection",
+        title: contextMenuMessage("contextHighlightSelection", null, "Highlight Selection"),
+        contexts: ["selection"]
+      })
+    },
+    {
+      key: "openHighlights",
+      enabledWhen: (options) => options.highlighterEnabled !== false,
+      getProps: () => ({
+        id: "open-highlights",
+        title: contextMenuMessage("contextOpenHighlights", null, "Open Highlights"),
+        contexts: ["all"]
+      })
     }
   ],
   [

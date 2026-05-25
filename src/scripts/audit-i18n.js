@@ -33,7 +33,27 @@ const DEFAULT_ALLOWED_EXACT_KEYS = [
   'optionsAppearanceLanguageGerman',
   'optionsAppearanceLanguageFrench',
   'optionsAppearanceLanguagePortugueseBR',
-  'optionsAppearanceLanguageItalian'
+  'optionsAppearanceLanguageItalian',
+  // Intentionally English: format names, product names, technical terms, format strings
+  'clickClipTitle',                    // "Click & Clip" — product feature name
+  'popupEditorLabel',                  // "Markdown" — format name
+  'popupExportMarkdown',               // "Markdown (.md)"
+  'popupBatchStepUrlsTitle',           // "URLs" — technical acronym
+  'optionsTabMarkdown',                // "Markdown"
+  'optionsExportMarkdown',             // "Markdown (.md)"
+  'optionsAgentBridgeTitle',           // "Agent Bridge" — product feature name
+  'optionsMarkdownSection',            // "Markdown"
+  'optionsSearchNoResultsSuffix',      // closing quote punctuation character
+  'optionsTemplateVarSourceParts',     // code-like template variable reference
+  'optionsAgentBridgeHostVersion',     // "Host $VERSION$" — version label with placeholder
+  'popupUrlValidationMixedFormat',     // "$VALID_PART$, $INVALID_PART$" — format string
+  'optionsCustomTargetNamePlaceholder', // "Gemini Workspace" — example proper noun placeholder
+  'optionsInterpreterApiKey',          // "API Key" — universal technical term
+  'optionsInterpreterBaseUrl',         // "Base URL" — universal technical term
+  'optionsInterpreterModelId',         // "Model ID" — universal technical term
+  'optionsColorBlindDeuteranopia',     // medical/scientific term, same across languages
+  'optionsColorBlindProtanopia',       // medical/scientific term
+  'optionsColorBlindTritanopia'        // medical/scientific term
 ];
 
 function printHelp() {

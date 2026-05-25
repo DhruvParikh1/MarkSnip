@@ -12,6 +12,9 @@ const DEFAULT_CONTEXT_MENU_ITEMS = {
   copySelectedTabLinks: true,
   sendSelectionToObsidian: true,
   sendTabToObsidian: true,
+  toggleHighlighter: true,
+  highlightSelection: true,
+  openHighlights: true,
   toggleIncludeTemplate: true,
   toggleDownloadImages: true
 }
@@ -75,6 +78,11 @@ const defaultOptions = {
   compactMode: false,
   elementPickerEnabled: true,
   elementPickerDoneAction: 'popup',
+  highlighterEnabled: true,
+  alwaysShowHighlights: true,
+  highlightClipBehavior: 'inline',
+  highlightInlineSyntax: 'html-mark',
+  highlightDefaultColor: 'yellow',
   showThemeToggleInPopup: true,
   showUserGuideIcon: true,
   editorTheme: 'default',

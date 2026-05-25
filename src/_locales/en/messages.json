@@ -75,6 +75,18 @@
     "message": "Pick Element for Markdown",
     "description": "Context menu item for activating manual element picker mode"
   },
+  "contextToggleHighlighter": {
+    "message": "Toggle Highlighter",
+    "description": "Context menu item for toggling highlighter mode"
+  },
+  "contextHighlightSelection": {
+    "message": "Highlight Selection",
+    "description": "Context menu item for saving the current selection as a highlight"
+  },
+  "contextOpenHighlights": {
+    "message": "Open Highlights",
+    "description": "Context menu item for opening saved highlights"
+  },
   "contextCopySelection": {
     "message": "Copy Selection As Markdown",
     "description": "Context menu item"
@@ -98,6 +110,38 @@
   "contextSendTabObsidian": {
     "message": "Send Tab to Obsidian",
     "description": "Context menu item"
+  },
+  "popupHighlighterBtn": {
+    "message": "Highlight",
+    "description": "Popup highlighter button label"
+  },
+  "popupHighlighterStarting": {
+    "message": "Highlighting...",
+    "description": "Popup highlighter pending state"
+  },
+  "popupHighlighterActive": {
+    "message": "On page",
+    "description": "Popup highlighter success state"
+  },
+  "popupHighlighterFailed": {
+    "message": "Failed",
+    "description": "Popup highlighter error state"
+  },
+  "popupAlertFailedToActivateHighlighter": {
+    "message": "Failed to activate highlighter. Please try again.",
+    "description": "Popup highlighter failure alert"
+  },
+  "highlighterNotePlaceholder": {
+    "message": "Add a note...",
+    "description": "Placeholder for highlight note field"
+  },
+  "highlighterDelete": {
+    "message": "Delete",
+    "description": "Delete highlight button label"
+  },
+  "highlighterSave": {
+    "message": "Save",
+    "description": "Save highlight note button label"
   },
   "notifVersionUpdateTitle": {
     "message": "MarkSnip updated to v$VERSION$",

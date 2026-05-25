@@ -14,6 +14,7 @@ if (typeof importScripts === 'function') {
     'shared/interpreter-utils.js',
     'shared/agent-bridge-state.js',
     'shared/obsidian-utils.js',
+    'shared/highlight-state.js',
     'shared/library-export.js',
     'shared/context-menus.js',
     'shared/download-tracker.js'
@@ -52,9 +53,14 @@ if (browser.tabs?.onRemoved?.addListener) {
   });
 }
 if (browser.tabs?.onUpdated?.addListener) {
-  browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'loading' || typeof changeInfo.url === 'string') {
       clearPendingNotificationDisplayLocksForTab(tabId);
+    }
+    if (changeInfo.status === 'complete' || typeof changeInfo.url === 'string') {
+      scheduleKnownPageHighlightRender(tabId, changeInfo, tab).catch((error) => {
+        console.debug('[Highlighter] Known-page render skipped:', error?.message || error);
+      });
     }
   });
 }
@@ -79,6 +85,8 @@ const NO_EXPORT_DOWNLOAD_NOTIFICATION_DELTA = Object.freeze({ downloads: 0, expo
 const PENDING_NOTIFICATION_DISPLAY_LOCK_TIMEOUT_MS = 5000;
 const ELEMENT_PICKER_RESULT_STORAGE_KEY = 'elementPickerResult';
 const ELEMENT_PICKER_DONE_ACTIONS = new Set(['popup', 'copy']);
+const HIGHLIGHT_MANAGER_PAGE = 'highlights/highlights.html';
+let highlightIndexCache = null;
 let releaseHighlightsCachePromise = null;
 let notificationStateTaskChain = Promise.resolve();
 const pendingNotificationDisplayLocks = new Map();
@@ -984,6 +992,23 @@ async function handleMessages(message, sender, _sendResponse) {
       break;
     case "element-picker-convert":
       return await handleElementPickerConvert(message, sender);
+    case "toggle-highlighter":
+      return await toggleHighlighterFromMessage(message, sender);
+    case "activate-highlighter":
+      return await activateHighlighterFromMessage(message, sender);
+    case "clip-highlights":
+      return await clipHighlightsFromMessage(message, sender);
+    case "get-page-highlights":
+      return { highlights: await loadPageHighlightsForUrl(message.pageUrl) };
+    case "open-highlights-page":
+      return await openHighlightsPage(message);
+    case "open-popup":
+      try {
+        await browser.action.openPopup();
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
     case "click-clip-start-session":
       return await handleClickClipStartSession(message, sender);
     case "click-clip-convert-item":
@@ -1261,6 +1286,60 @@ function createBatchZipFilename() {
 
 function getLibraryExportApi() {
   return globalThis.markSnipLibraryExport || null;
+}
+
+function getHighlightStateApi() {
+  return globalThis.markSnipHighlightState || null;
+}
+
+async function loadHighlightIndex() {
+  const highlightApi = getHighlightStateApi();
+  if (!highlightApi?.loadIndex) {
+    return {};
+  }
+  if (!highlightIndexCache) {
+    highlightIndexCache = await highlightApi.loadIndex();
+  }
+  return highlightIndexCache || {};
+}
+
+async function loadPageHighlightsForUrl(pageUrl) {
+  const highlightApi = getHighlightStateApi();
+  if (!highlightApi?.loadPageRecord || !pageUrl) {
+    return [];
+  }
+  try {
+    const record = await highlightApi.loadPageRecord(pageUrl);
+    return Array.isArray(record?.highlights) ? record.highlights : [];
+  } catch (error) {
+    console.warn('[Highlighter] Failed to read page highlights:', error);
+    return [];
+  }
+}
+
+async function scheduleKnownPageHighlightRender(tabId, changeInfo = {}, tab = null) {
+  const highlightApi = getHighlightStateApi();
+  if (!highlightApi?.normalizeUrl || !Number.isInteger(tabId)) {
+    return;
+  }
+
+  const pageUrl = changeInfo.url || tab?.url || '';
+  if (!pageUrl || isRestrictedTabUrl(pageUrl)) {
+    return;
+  }
+
+  const index = await loadHighlightIndex();
+  const normalizedUrl = highlightApi.normalizeUrl(pageUrl);
+  if (!normalizedUrl || !index[normalizedUrl]) {
+    return;
+  }
+
+  const targetTab = tab?.id ? tab : await browser.tabs.get(tabId).catch(() => null);
+  if (!targetTab?.id || targetTab.status === 'loading') {
+    return;
+  }
+
+  await renderHighlightsForKnownTab(targetTab);
 }
 
 async function triggerBatchZipDownload(files, options, fallbackTabId = null, zipFilename = null) {
@@ -2222,13 +2301,29 @@ async function ensureOffscreenDocumentExists(options = {}) {
 /**
  * Handle clip request — uses offscreen document on both Chrome and Firefox.
  */
+async function getClipRequestOptions(message = {}) {
+  const storedOptions = await getOptions();
+  const source = message?.options && typeof message.options === 'object'
+    ? message.options
+    : message;
+  const options = { ...storedOptions };
+
+  Object.keys(defaultOptions || {}).forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(source || {}, key)) {
+      options[key] = source[key];
+    }
+  });
+
+  return options;
+}
+
 async function handleClipRequest(message, tabId) {
   const allowFirefoxTab = message?.offscreenBridgeReady !== true;
   await ensureOffscreenDocumentExists({
     allowFirefoxTab
   });
 
-  const options = await getOptions();
+  const options = await getClipRequestOptions(message);
   const requestId = generateRequestId();
   let pageUrl = message?.pageUrl || null;
   if (!pageUrl && Number.isInteger(tabId)) {
@@ -2810,6 +2905,15 @@ async function handleContextMenuClick(info, tab) {
   else if (info.menuItemId === "pick-element-markdown") {
     await activateElementPickerFromContext(info, tab);
   }
+  else if (info.menuItemId === "toggle-highlighter") {
+    await toggleHighlighterFromContext(info, tab);
+  }
+  else if (info.menuItemId === "highlight-selection") {
+    await highlightSelectionFromContext(info, tab);
+  }
+  else if (info.menuItemId === "open-highlights") {
+    await openHighlightsPage({ pageUrl: tab?.url || '' });
+  }
   // Copy all tabs as markdown links
   else if (info.menuItemId === "copy-tab-as-markdown-link-all") {
     await copyTabAsMarkdownLinkAll(tab);
@@ -2862,6 +2966,172 @@ async function activateElementPickerFromContext(info, tab) {
   }
 
   await browser.tabs.update(targetTab.id, { active: true }).catch(() => {});
+  return { ok: true };
+}
+
+async function ensureHighlighterScripts(tabId) {
+  const results = await browser.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      return typeof browser !== 'undefined' &&
+        !!globalThis.markSnipHighlightState &&
+        !!window.markSnipHighlighter;
+    }
+  }).catch(() => null);
+
+  if (results?.[0]?.result) {
+    return;
+  }
+
+  await browser.scripting.executeScript({
+    target: { tabId },
+    files: [
+      "/browser-polyfill.min.js",
+      "/shared/i18n.js",
+      "/shared/highlight-state.js",
+      "/contentScript/highlighter.js"
+    ]
+  });
+}
+
+async function getHighlighterTargetTab(messageOrInfo = {}, senderOrTab = null) {
+  if (Number.isInteger(messageOrInfo?.tabId)) {
+    return await browser.tabs.get(messageOrInfo.tabId);
+  }
+  if (senderOrTab?.tab?.id) {
+    return senderOrTab.tab;
+  }
+  if (senderOrTab?.id) {
+    return senderOrTab;
+  }
+  return await getCommandTargetTab();
+}
+
+function getHighlighterOptions(options = {}) {
+  const ACCENT_COLORS = {
+    sage:  '#6B8E6F',
+    ocean: '#5B8FA8',
+    slate: '#6B7B8E',
+    rose:  '#B07070',
+    amber: '#B08E50',
+  };
+  const accent = options.popupAccent || 'sage';
+  return {
+    defaultColor: options.highlightDefaultColor || 'yellow',
+    highlightDefaultColor: options.highlightDefaultColor || 'yellow',
+    accentColor: ACCENT_COLORS[accent] || ACCENT_COLORS.sage,
+  };
+}
+
+async function activateHighlighterForTab(tab, options = null) {
+  if (!tab?.id) {
+    throw new Error('No active tab found');
+  }
+  if (isRestrictedTabUrl(tab.url || '')) {
+    return { ok: false, error: 'Highlighter cannot run on this page' };
+  }
+
+  const resolvedOptions = options || await getOptions();
+  if (resolvedOptions.highlighterEnabled === false) {
+    return { ok: false, error: 'Highlighter is disabled' };
+  }
+
+  await ensureHighlighterScripts(tab.id);
+  const response = await browser.tabs.sendMessage(tab.id, {
+    type: 'MARKSNIP_HIGHLIGHTER_ACTIVATE',
+    options: getHighlighterOptions(resolvedOptions)
+  });
+  await browser.tabs.update(tab.id, { active: true }).catch(() => {});
+  return response || { ok: true };
+}
+
+async function toggleHighlighterForTab(tab, options = null) {
+  if (!tab?.id) {
+    throw new Error('No active tab found');
+  }
+  if (isRestrictedTabUrl(tab.url || '')) {
+    return { ok: false, error: 'Highlighter cannot run on this page' };
+  }
+
+  const resolvedOptions = options || await getOptions();
+  if (resolvedOptions.highlighterEnabled === false) {
+    return { ok: false, error: 'Highlighter is disabled' };
+  }
+
+  await ensureHighlighterScripts(tab.id);
+  const response = await browser.tabs.sendMessage(tab.id, {
+    type: 'MARKSNIP_HIGHLIGHTER_TOGGLE',
+    options: getHighlighterOptions(resolvedOptions)
+  });
+  await browser.tabs.update(tab.id, { active: true }).catch(() => {});
+  return response || { ok: true };
+}
+
+async function renderHighlightsForKnownTab(tab, options = null) {
+  if (!tab?.id || isRestrictedTabUrl(tab.url || '')) {
+    return { ok: false };
+  }
+  const resolvedOptions = options || await getOptions();
+  if (resolvedOptions.highlighterEnabled === false || resolvedOptions.alwaysShowHighlights === false) {
+    return { ok: false };
+  }
+  await ensureHighlighterScripts(tab.id);
+  return await browser.tabs.sendMessage(tab.id, {
+    type: 'MARKSNIP_HIGHLIGHTER_RENDER',
+    options: getHighlighterOptions(resolvedOptions)
+  }).catch((error) => ({ ok: false, error: error.message }));
+}
+
+async function toggleHighlighterFromContext(info, tab) {
+  const targetTab = await getHighlighterTargetTab(info, tab);
+  return await toggleHighlighterForTab(targetTab);
+}
+
+async function highlightSelectionFromContext(info, tab) {
+  const targetTab = await getHighlighterTargetTab(info, tab);
+  const options = await getOptions();
+  if (options.highlighterEnabled === false) {
+    return { ok: false, error: 'Highlighter is disabled' };
+  }
+  await ensureHighlighterScripts(targetTab.id);
+  return await browser.tabs.sendMessage(targetTab.id, {
+    type: 'MARKSNIP_HIGHLIGHTER_HIGHLIGHT_SELECTION',
+    options: getHighlighterOptions(options)
+  });
+}
+
+async function toggleHighlighterFromMessage(message, sender) {
+  const targetTab = await getHighlighterTargetTab(message, sender);
+  return await toggleHighlighterForTab(targetTab);
+}
+
+async function activateHighlighterFromMessage(message, sender) {
+  const targetTab = await getHighlighterTargetTab(message, sender);
+  return await activateHighlighterForTab(targetTab);
+}
+
+async function clipHighlightsFromMessage(message, sender) {
+  const targetTab = await getHighlighterTargetTab(message, sender);
+  if (!targetTab?.id) {
+    throw new Error('No active tab found');
+  }
+  const options = await getOptions();
+  const clipOptions = {
+    ...options,
+    highlightClipBehavior: 'replace-content'
+  };
+  return await downloadMarkdownFromContext(
+    { menuItemId: 'download-markdown-all' },
+    targetTab,
+    null,
+    clipOptions
+  );
+}
+
+async function openHighlightsPage(message = {}) {
+  const url = browser.runtime.getURL(HIGHLIGHT_MANAGER_PAGE);
+  const targetUrl = message.pageUrl ? `${url}?url=${encodeURIComponent(message.pageUrl)}` : url;
+  await browser.tabs.create({ url: targetUrl });
   return { ok: true };
 }
 
@@ -3206,6 +3476,10 @@ async function handleStorageChange(changes, areaName) {
   }
 
   const agentBridgeKey = getAgentBridgeApi()?.STORAGE_KEYS?.SETTINGS;
+  const highlightIndexKey = getHighlightStateApi()?.STORAGE_KEYS?.INDEX;
+  if (areaName === 'local' && highlightIndexKey && changes[highlightIndexKey]) {
+    highlightIndexCache = changes[highlightIndexKey].newValue || null;
+  }
   if (areaName === 'local' && agentBridgeKey && changes[agentBridgeKey]) {
     await initializeAgentBridge(true);
   }
