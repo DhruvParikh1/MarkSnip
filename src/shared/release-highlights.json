@@ -1,7 +1,14 @@
 {
-  "generatedAt": "2026-05-20T04:37:07.153Z",
+  "generatedAt": "2026-05-26T04:08:52.654Z",
   "source": "CHANGELOG.md",
   "versions": {
+    "5.1.0": [
+      "New Click & Clip automation can step through interactive pages, capture repeated states such as tabs, accordions, load-more flows, pagination, and sidebars, then export the results without manually copying each view.",
+      "Batch Processing has a redesigned flow with clearer capture choices, picked-link reuse, and output options for ZIP files, individual Markdown files, or one combined Markdown document.",
+      "The new opt-in Interpreter workflow can run configured AI prompts against a clipped page and insert the responses back into the Markdown or title before export.",
+      "Interpreter providers now include Azure OpenAI and Hugging Face, with a richer provider/model picker, remote provider presets, and export warnings when AI-generated content may be sent onward.",
+      "Built-in highlighting lets you mark text or page elements, reopen a highlights manager, and include saved highlights in clipped Markdown."
+    ],
     "5.0.0": [
       "Clips can now be sent to custom Webhook Targets, with configurable HTTP methods, headers, JSON body templates, popup actions, and clearer server error summaries.",
       "MarkSnip's interface now supports display-language selection, including Auto plus English, Spanish, French, German, Italian, Brazilian Portuguese, Simplified Chinese, Japanese, Korean, and Hindi.",

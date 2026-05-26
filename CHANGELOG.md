@@ -1,5 +1,24 @@
 # Changelog
 
+## 5.1.0
+
+### User Highlights
+
+- New Click & Clip automation can step through interactive pages, capture repeated states such as tabs, accordions, load-more flows, pagination, and sidebars, then export the results without manually copying each view.
+- Batch Processing has a redesigned flow with clearer capture choices, picked-link reuse, and output options for ZIP files, individual Markdown files, or one combined Markdown document.
+- The new opt-in Interpreter workflow can run configured AI prompts against a clipped page and insert the responses back into the Markdown or title before export.
+- Interpreter providers now include Azure OpenAI and Hugging Face, with a richer provider/model picker, remote provider presets, and export warnings when AI-generated content may be sent onward.
+- Built-in highlighting lets you mark text or page elements, reopen a highlights manager, and include saved highlights in clipped Markdown.
+
+### Technical Notes
+
+- **Click & Clip Automation**: Added in-page interaction capture, persisted service-worker sessions, page/element conversion paths, automatic finalization when tabs close, and deterministic E2E fixtures for tabs, accordions, load-more, pagination, and SPA-sidebar flows.
+- **Batch Processing Redesign**: Reworked the popup batch UI around capture method and output format cards, preserved batch choices in local storage, added combined-document template rendering, and improved background progress/cancel handling.
+- **Interpreter Workflow**: Added shared interpreter utilities, provider/model configuration, prompt placeholder parsing and stripping safeguards, service-worker LLM request routing, popup run controls, export confirmations, and unit coverage for request building and response parsing.
+- **Provider Presets**: Added bundled and remotely refreshable provider presets through `providers.json`, including Azure OpenAI and Hugging Face request families alongside existing OpenAI-compatible, Anthropic, and Ollama-style providers.
+- **Highlights System**: Added the content highlighter, local highlight state/index storage, context-menu actions, popup controls, a highlights manager page, clip integration, and unit coverage for highlight normalization and persistence.
+- **Localization, Branding, and Release UX**: Localized the new batch, Click & Clip, Interpreter, and highlight strings across supported locales, added an i18n parity audit script, renamed the extension display text to "Webpage to Markdown Clipper", added third-party theme affiliation disclaimers, and wired release highlights into the update-notification path.
+
 ## 5.0.0
 
 ### User Highlights
