@@ -823,6 +823,141 @@ test.describe('MarkSnip Extension E2E', () => {
     }
   });
 
+  test('interpreter uses a prompt edited in the popup before Interpret is clicked', async () => {
+    await setSyncStorage(serviceWorker, {
+      interpreterEnabled: true,
+      interpreterAutoRun: false,
+      interpreterModelId: 'model-1',
+      defaultPromptContext: '{{content}}'
+    });
+    await setLocalStorage(serviceWorker, {
+      interpreterConfig: {
+        providers: [{
+          id: 'provider-1',
+          name: 'Mock Provider',
+          family: 'openai',
+          baseUrl: 'https://example.test/v1/chat/completions',
+          apiKey: '',
+          apiKeyRequired: false
+        }],
+        models: [{
+          id: 'model-1',
+          providerId: 'provider-1',
+          providerModelId: 'mock-model',
+          name: 'Mock Model',
+          enabled: true
+        }]
+      }
+    });
+
+    const fixturePage = await context.newPage();
+    const popupPage = await context.newPage();
+
+    try {
+      await fixturePage.goto(`${fixtureHost}/extension/deterministic-article.html`);
+      await fixturePage.waitForLoadState('networkidle');
+      await fixturePage.bringToFront();
+
+      const fixtureTabId = await getTabIdForUrl(serviceWorker, fixturePage.url());
+      expect(fixtureTabId).toBeTruthy();
+
+      await popupPage.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+      await expect(popupPage.locator('#container')).toBeVisible();
+
+      await popupPage.evaluate(async (tabId) => {
+        await clipSite(tabId);
+      }, fixtureTabId);
+
+      await expect.poll(async () => getPopupMarkdown(popupPage), { timeout: 45000 })
+        .toContain('This page is routed by Playwright for deterministic extension E2E tests.');
+
+      await popupPage.evaluate(async () => {
+        const markdown = 'summary: {{prompt:"Summarize this"}}\n\n# Local prompt edit\n\nBody';
+        cm.setValue(markdown);
+        const titleInput = document.getElementById('title');
+        titleInput.value = 'Interpreter Edit';
+        titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+        await maybeInitInterpreter(markdown, titleInput.value);
+      });
+
+      await expect(popupPage.locator('#interpreterSection')).toBeVisible();
+      await expect(popupPage.locator('#interpretBtn')).toBeVisible();
+
+      await popupPage.evaluate(() => {
+        const originalSendMessage = browser.runtime.sendMessage.bind(browser.runtime);
+        window.__markSnipInterpreterHarness = {
+          calls: [],
+          restore() {
+            browser.runtime.sendMessage = originalSendMessage;
+          }
+        };
+
+        browser.runtime.sendMessage = async (message) => {
+          if (message?.type === 'interpret') {
+            window.__markSnipInterpreterHarness.calls.push({
+              modelId: message.modelId,
+              promptContext: message.promptContext,
+              promptVariables: JSON.parse(JSON.stringify(message.promptVariables || []))
+            });
+            return {
+              success: true,
+              promptResponses: (message.promptVariables || []).map((variable) => ({
+                key: variable.key,
+                prompt: variable.prompt,
+                user_response: `response: ${variable.prompt}`
+              }))
+            };
+          }
+
+          return originalSendMessage(message);
+        };
+      });
+
+      await popupPage.evaluate(() => {
+        cm.setValue(cm.getValue().replace('Summarize this', 'Summarize this in three bullets'));
+      });
+
+      await popupPage.locator('#interpretBtn').click();
+
+      await expect.poll(async () => getPopupMarkdown(popupPage), { timeout: 10000 })
+        .toContain('response: Summarize this in three bullets');
+
+      const finalMarkdown = await getPopupMarkdown(popupPage);
+      const harnessState = await popupPage.evaluate(() => {
+        const result = {
+          calls: window.__markSnipInterpreterHarness.calls.slice()
+        };
+        window.__markSnipInterpreterHarness.restore();
+        return result;
+      });
+
+      expect(finalMarkdown).not.toContain('{{prompt:');
+      expect(harnessState.calls).toHaveLength(1);
+      expect(harnessState.calls[0].modelId).toBe('model-1');
+      expect(harnessState.calls[0].promptVariables).toEqual([{
+        key: 'prompt_1',
+        prompt: 'Summarize this in three bullets',
+        filters: ''
+      }]);
+      expect(harnessState.calls[0].promptContext).toContain('{{prompt:"Summarize this in three bullets"}}');
+    } finally {
+      await popupPage.evaluate(() => {
+        window.__markSnipInterpreterHarness?.restore?.();
+      }).catch(() => {});
+      await popupPage.close().catch(() => {});
+      await fixturePage.close().catch(() => {});
+      await setSyncStorage(serviceWorker, {
+        interpreterEnabled: false,
+        interpreterAutoRun: false,
+        interpreterModelId: '',
+        defaultPromptContext: '{{content}}'
+      }).catch(() => {});
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove('interpreterConfig');
+      }).catch(() => {});
+    }
+  });
+
   test('clips native MathML as TeX through the popup flow', async () => {
     const fixturePage = await context.newPage();
     const popupPage = await context.newPage();

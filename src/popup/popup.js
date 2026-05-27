@@ -3659,9 +3659,9 @@ function setInterpreterBusy(busy) {
     });
 }
 
-function buildInterpreterPromptContext() {
+function buildInterpreterPromptContext(markdown = currentClipState?.markdown || '') {
     const template = String(currentOptions?.defaultPromptContext || '{{content}}');
-    const content = String(currentClipState?.markdown || '');
+    const content = String(markdown || '');
     if (template.includes('{{content}}')) {
         return template.split('{{content}}').join(content);
     }
@@ -3783,9 +3783,23 @@ async function maybeInitInterpreter(markdown, title) {
 
 async function runInterpreter() {
     const utils = getInterpreterUtils();
-    if (!utils || interpreterHasRun || interpreterPromptVariables.length === 0) {
+    if (!utils || interpreterHasRun) {
         return;
     }
+
+    const markdownSnapshot = getEditorValue();
+    const titleSnapshot = String(dom.titleInput?.value || currentClipState.title || '');
+    const promptVariables = utils.collectPromptVariables(markdownSnapshot, titleSnapshot);
+    if (promptVariables.length === 0) {
+        interpreterPromptVariables = [];
+        resetInterpreterButton();
+        setInterpreterSectionVisible(false);
+        return;
+    }
+
+    interpreterPromptVariables = promptVariables;
+    currentClipState.markdown = markdownSnapshot;
+    currentClipState.title = titleSnapshot;
 
     const modelId = selectedInterpreterModelId || '';
     if (!modelId) {
@@ -3834,8 +3848,8 @@ async function runInterpreter() {
         response = await browser.runtime.sendMessage({
             type: 'interpret',
             modelId,
-            promptContext: buildInterpreterPromptContext(),
-            promptVariables: interpreterPromptVariables
+            promptContext: buildInterpreterPromptContext(markdownSnapshot),
+            promptVariables
         });
     } catch (error) {
         response = { success: false, error: error?.message || 'Interpreter request failed' };
@@ -3862,13 +3876,13 @@ async function runInterpreter() {
 
     const tmpl = getInterpreterTemplateUtils();
     const newMarkdown = utils.replacePromptVariables(
-        currentClipState.markdown,
-        interpreterPromptVariables,
+        markdownSnapshot,
+        promptVariables,
         response.promptResponses
     );
     let newTitle = utils.replacePromptVariables(
-        currentClipState.title,
-        interpreterPromptVariables,
+        titleSnapshot,
+        promptVariables,
         response.promptResponses
     );
     if (tmpl?.generateValidFileName) {
