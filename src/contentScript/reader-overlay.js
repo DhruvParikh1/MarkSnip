@@ -8,6 +8,7 @@
   const SURFACE_ID = 'reader-overlay';
   let originalOverflow = '';
   let originalScrollY = 0;
+  let highlightObserver = null;
 
   function getMount() {
     return document.getElementById(MOUNT_ID);
@@ -17,6 +18,10 @@
     const mount = getMount();
     if (!mount) return { ok: true, active: false };
 
+    try {
+      highlightObserver?.disconnect();
+      highlightObserver = null;
+    } catch {}
     try {
       window.markSnipHighlighter?.unregisterSurface?.(SURFACE_ID);
     } catch {}
@@ -78,6 +83,22 @@
       }
     );
     window.__marksnipReaderOverlayTeardown = teardown;
+
+    // Keep the Highlight button's aria-pressed in sync when the highlighter is
+    // deactivated externally (e.g. via the highlighter toolbar's exit button).
+    const highlightBtn = shadow.querySelector('[data-action="highlight"]');
+    if (highlightBtn) {
+      const syncPressed = () => {
+        highlightBtn.setAttribute(
+          'aria-pressed',
+          String(document.documentElement.classList.contains('marksnip-highlighter-active'))
+        );
+      };
+      syncPressed();
+      highlightObserver = new MutationObserver(syncPressed);
+      highlightObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    }
+
     Promise.resolve(window.markSnipHighlighter?.registerSurface?.({
       id: SURFACE_ID,
       root: teardown.root,
@@ -89,7 +110,8 @@
       title: payload.title || payload.article?.title || document.title,
       forceOverlay: true,
       overlayZIndex: 2147483647,
-      excludeSelector: '.ms-reader-bar, .ms-reader-outline, .ms-reader-highlights'
+      excludeSelector: '.ms-reader-bar, .ms-reader-outline, .ms-reader-highlights',
+      restorePageOnUnregister: true
     })).catch(() => {});
     return { ok: true, active: true };
   }

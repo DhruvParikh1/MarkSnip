@@ -96,7 +96,8 @@
       pageUrl: payload.pageUrl || payload.article?.pageURL || payload.article?.baseURI,
       title: payload.title || payload.article?.title || document.title,
       forceOverlay: false,
-      excludeSelector: '.ms-reader-bar, .ms-reader-outline, .ms-reader-highlights'
+      excludeSelector: '.ms-reader-bar, .ms-reader-outline, .ms-reader-highlights',
+      restorePageOnUnregister: false
     })).catch(() => {});
 
     if (replaceState) {

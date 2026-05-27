@@ -575,6 +575,10 @@
     return api.getElementByXPath(document, highlight?.xpath || '');
   }
 
+  function isReaderSurfaceHighlight(highlight) {
+    return typeof highlight?.xpath === 'string' && highlight.xpath.startsWith('reader:/article');
+  }
+
   function textOffsetWithin(root, node, nodeOffset) {
     try {
       if (root?.contains?.(node) || root === node) {
@@ -641,6 +645,123 @@
       clipped.setEnd(blockRange.endContainer, blockRange.endOffset);
     }
     return clipped.collapsed ? null : clipped;
+  }
+
+  function normalizeSearchText(text) {
+    return String(text || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function collectSearchTextNodes(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const element = node.parentElement;
+        if (
+          !node.nodeValue ||
+          !node.nodeValue.trim() ||
+          element?.closest?.('[data-marksnip-highlighter-ui="true"], script, style, noscript, iframe, object, embed')
+        ) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    const nodes = [];
+    let node = walker.nextNode();
+    while (node) {
+      nodes.push(node);
+      node = walker.nextNode();
+    }
+    return nodes;
+  }
+
+  function buildSearchTextMap(root) {
+    const nodes = collectSearchTextNodes(root);
+    let text = '';
+    const map = [];
+    let lastWasSpace = true;
+
+    nodes.forEach((node) => {
+      const value = node.nodeValue || '';
+      for (let offset = 0; offset < value.length; offset += 1) {
+        const char = value[offset];
+        if (/\s/.test(char)) {
+          if (!lastWasSpace) {
+            text += ' ';
+            map.push({ node, offset });
+            lastWasSpace = true;
+          }
+        } else {
+          text += char;
+          map.push({ node, offset });
+          lastWasSpace = false;
+        }
+      }
+    });
+
+    let start = 0;
+    let end = text.length;
+    while (start < end && text[start] === ' ') start += 1;
+    while (end > start && text[end - 1] === ' ') end -= 1;
+
+    return {
+      text: text.slice(start, end),
+      map: map.slice(start, end)
+    };
+  }
+
+  function findTextOccurrences(haystack, needle) {
+    if (!needle) return [];
+    const matches = [];
+    let index = haystack.indexOf(needle);
+    while (index !== -1) {
+      matches.push(index);
+      index = haystack.indexOf(needle, index + Math.max(needle.length, 1));
+    }
+    return matches;
+  }
+
+  function rangeFromTextMap(textMap, start, length) {
+    const startEntry = textMap.map[start];
+    const endEntry = textMap.map[start + length - 1];
+    if (!startEntry || !endEntry) return null;
+    const range = document.createRange();
+    range.setStart(startEntry.node, startEntry.offset);
+    range.setEnd(endEntry.node, endEntry.offset + 1);
+    return range;
+  }
+
+  function getTextSearchRoots() {
+    const roots = [];
+    const addRoot = (root) => {
+      if (root && !roots.includes(root)) roots.push(root);
+    };
+    addRoot(document.querySelector('article'));
+    addRoot(document.querySelector('main'));
+    addRoot(document.body);
+    return roots;
+  }
+
+  function findUniqueTextRange(text) {
+    const needle = normalizeSearchText(text);
+    if (!needle) return null;
+    for (const root of getTextSearchRoots()) {
+      const textMap = buildSearchTextMap(root);
+      const occurrences = findTextOccurrences(textMap.text, needle);
+      if (occurrences.length === 1) {
+        return rangeFromTextMap(textMap, occurrences[0], needle.length);
+      }
+    }
+    return null;
+  }
+
+  function getRangeForHighlight(highlight) {
+    const element = getElementForHighlight(highlight);
+    const range = api.createRangeFromOffsets(element, highlight.startOffset, highlight.endOffset);
+    if (range) return range;
+    if (isReaderSurfaceHighlight(highlight) && !getActiveSurface()) {
+      return findUniqueTextRange(highlight.text || highlight.contentText || highlight.contentHtml);
+    }
+    return null;
   }
 
   // ─── Selection → highlights ────────────────────────────────────────────────
@@ -817,8 +938,7 @@
   // ─── Render ────────────────────────────────────────────────────────────────
 
   function renderTextHighlight(highlight, colorBuckets, overlayRoot) {
-    const element = getElementForHighlight(highlight);
-    const range = api.createRangeFromOffsets(element, highlight.startOffset, highlight.endOffset);
+    const range = getRangeForHighlight(highlight);
     if (!range) {
       return;
     }
@@ -833,7 +953,7 @@
       return;
     }
 
-    Array.from(range.getClientRects()).forEach((rect) => {
+    getMergedClientRects(range).forEach((rect) => {
       if (rect.width <= 0 || rect.height <= 0) {
         return;
       }
@@ -870,6 +990,64 @@
     overlay.style.height = `${rect.height}px`;
     overlayRoot.appendChild(overlay);
     state.elementById.set(highlight.id, element);
+  }
+
+  function rectCenterY(rect) {
+    return rect.top + rect.height / 2;
+  }
+
+  function toPlainRect(rect) {
+    return {
+      left: rect.left,
+      right: rect.right,
+      top: rect.top,
+      bottom: rect.bottom,
+      width: rect.width,
+      height: rect.height
+    };
+  }
+
+  function getMergedClientRects(range) {
+    const rects = Array.from(range?.getClientRects?.() || [])
+      .filter((rect) => rect.width > 0 && rect.height > 0)
+      .map(toPlainRect)
+      .sort((a, b) => (a.top - b.top) || (a.left - b.left));
+    const lines = [];
+
+    rects.forEach((rect) => {
+      const centerY = rectCenterY(rect);
+      let line = lines.find((candidate) => {
+        const tolerance = Math.max(2, Math.min(candidate.height, rect.height) * 0.65);
+        return Math.abs(candidate.centerY - centerY) <= tolerance;
+      });
+      if (!line) {
+        line = { centerY, height: rect.height, rects: [] };
+        lines.push(line);
+      }
+      line.rects.push(rect);
+      line.centerY = (line.centerY * (line.rects.length - 1) + centerY) / line.rects.length;
+      line.height = Math.max(line.height, rect.height);
+    });
+
+    return lines.flatMap((line) => {
+      const merged = [];
+      line.rects
+        .sort((a, b) => a.left - b.left)
+        .forEach((rect) => {
+          const current = merged[merged.length - 1];
+          if (current && rect.left <= current.right + 2) {
+            current.left = Math.min(current.left, rect.left);
+            current.right = Math.max(current.right, rect.right);
+            current.top = Math.min(current.top, rect.top);
+            current.bottom = Math.max(current.bottom, rect.bottom);
+            current.width = current.right - current.left;
+            current.height = current.bottom - current.top;
+          } else {
+            merged.push({ ...rect });
+          }
+        });
+      return merged;
+    });
   }
 
   function renderHighlights() {
@@ -1120,7 +1298,7 @@
   function getHighlightBoundingInfo(highlightId) {
     const range = state.rangesById.get(highlightId);
     if (range) {
-      const rects = Array.from(range.getClientRects());
+      const rects = getMergedClientRects(range);
       if (rects.length) {
         let left = Infinity, right = -Infinity, top = Infinity;
         rects.forEach((r) => {
@@ -1633,7 +1811,8 @@
       siteName,
       forceOverlay: surface.forceOverlay === true,
       overlayZIndex: surface.overlayZIndex || '',
-      excludeSelector: surface.excludeSelector || ''
+      excludeSelector: surface.excludeSelector || '',
+      restorePageOnUnregister: surface.restorePageOnUnregister !== false
     };
   }
 
@@ -1659,6 +1838,7 @@
       return { ok: true, active: state.active };
     }
 
+    const restorePageOnUnregister = state.surface.restorePageOnUnregister !== false;
     state.active = false;
     document.documentElement.classList.remove('marksnip-highlighter-active');
     document.documentElement.style.removeProperty('cursor');
@@ -1669,7 +1849,10 @@
     removeSurfaceInteractionListeners();
     state.surface = null;
     state.record = null;
-    return { ok: true, active: false };
+    if (restorePageOnUnregister) {
+      await renderSavedHighlights();
+    }
+    return { ok: true, active: false, count: state.record?.highlights?.length || 0 };
   }
 
   async function ensureLoaded() {
