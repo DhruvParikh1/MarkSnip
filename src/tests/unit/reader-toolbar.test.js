@@ -57,4 +57,31 @@ describe('reader toolbar popovers', () => {
 
     toolbar.teardown();
   });
+
+  test('highlight button toggles reader highlighting without closing the reader', async () => {
+    const rootEl = document.createElement('div');
+    document.body.appendChild(rootEl);
+    const onClose = jest.fn();
+    const onToggleHighlight = jest.fn().mockResolvedValue({ ok: true, active: true });
+
+    const toolbar = toolbarApi.mountToolbar(document, rootEl, {
+      mode: 'overlay',
+      onClose,
+      onToggleHighlight
+    });
+    rootEl.appendChild(toolbar.element);
+
+    const highlightButton = rootEl.querySelector('[data-action="highlight"]');
+    highlightButton.dispatchEvent(new MouseEvent('click', { bubbles: true, composed: true }));
+    await Promise.resolve();
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onToggleHighlight).toHaveBeenCalledTimes(1);
+    expect(highlightButton.getAttribute('aria-pressed')).toBe('true');
+    expect(global.browser.runtime.sendMessage).not.toHaveBeenCalledWith({
+      type: 'reader-toggle-highlighter'
+    });
+
+    toolbar.teardown();
+  });
 });

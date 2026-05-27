@@ -380,6 +380,7 @@
         title: 'Highlight',
         icon: 'highlighter'
       });
+      highlightBtn.setAttribute('aria-pressed', 'false');
       actions.appendChild(highlightBtn);
     }
 
@@ -494,12 +495,12 @@
       }
     }
 
-    async function runHighlightAction() {
-      // Close the overlay first, then ask the service worker to enable
-      // the highlighter on the underlying tab.
-      ctx.onClose?.();
+    async function runHighlightAction(button) {
       try {
-        await root.browser?.runtime?.sendMessage?.({ type: 'reader-toggle-highlighter' });
+        const response = await ctx.onToggleHighlight?.();
+        if (response?.active != null) {
+          button?.setAttribute?.('aria-pressed', String(!!response.active));
+        }
       } catch {}
     }
 
@@ -532,7 +533,7 @@
       }
 
       if (action === 'highlight') {
-        await runHighlightAction();
+        await runHighlightAction(btn);
         return;
       }
 

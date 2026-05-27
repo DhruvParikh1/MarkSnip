@@ -124,7 +124,8 @@
       settings,
       sessionId: extraContext.sessionId || payload.sessionId || '',
       title: payload.title || payload.article?.title || 'Reader View',
-      onClose: extraContext.onClose || (() => {})
+      onClose: extraContext.onClose || (() => {}),
+      onToggleHighlight: extraContext.onToggleHighlight || null
     };
     const toolbar = reader.mountToolbar?.(doc, rootEl, ctx);
     if (toolbar?.element) {
@@ -178,7 +179,7 @@
 
     const outlineResult = reader.buildOutline?.(doc, articleEl, { container: outline });
     if (outlineResult?.teardown) cleanups.push(outlineResult);
-    reader.applyHighlights?.(doc, articleEl, payload.highlights || [], highlightsList);
+    reader.applyHighlights?.(doc, articleEl, payload.highlights || [], highlightsList, { inline: false });
     if (!highlightsList.children.length) highlightsAside.hidden = true;
 
     const lightbox = reader.mountLightbox?.(doc, articleEl);

@@ -129,19 +129,26 @@
     }
   }
 
-  function applyHighlights(doc, articleEl, highlights, sidebarEl) {
+  function applyHighlights(doc, articleEl, highlights, sidebarEl, options = {}) {
     const list = Array.isArray(highlights)
       ? highlights
       : Array.isArray(highlights?.highlights)
         ? highlights.highlights
         : [];
     const result = { mapped: [], unmapped: [] };
+    const inline = options.inline !== false;
 
     list.forEach((highlight) => {
       const needle = getHighlightText(highlight);
       if (!needle) {
         result.unmapped.push(highlight);
         appendUnmappedHighlight(doc, sidebarEl, highlight, 'empty');
+        return;
+      }
+
+      if (!inline) {
+        result.unmapped.push(highlight);
+        appendUnmappedHighlight(doc, sidebarEl, highlight, 'managed-by-highlighter');
         return;
       }
 

@@ -3268,7 +3268,8 @@ async function captureReaderPayload(tabId) {
     tabId,
     options,
     suppressTemplate: true,
-    readerView: true
+    readerView: true,
+    skipMarkdown: true
   });
 
   if (!response?.ok) {
@@ -3283,7 +3284,8 @@ async function captureReaderPayload(tabId) {
       ...result,
       article,
       pageUrl: article.pageURL || article.baseURI || pageUrl,
-      title: article.title || tab.title || 'Reader View'
+      title: article.title || tab.title || 'Reader View',
+      highlightDefaultColor: options.highlightDefaultColor || 'yellow'
     },
     options
   };
@@ -3294,6 +3296,9 @@ async function ensureReaderOverlayScripts(tabId) {
     target: { tabId },
     files: [
       '/browser-polyfill.min.js',
+      '/shared/i18n.js',
+      '/shared/highlight-state.js',
+      '/contentScript/highlighter.js',
       '/reader/sanitize.js',
       '/reader/outline.js',
       '/reader/lightbox.js',
@@ -3313,8 +3318,8 @@ async function openReaderOptionsPage() {
 }
 
 async function toggleHighlighterFromReader(_message, sender) {
-  // The reader's "Highlight" button: after the overlay closes itself, hand off
-  // to the existing highlighter flow on the underlying tab.
+  // Legacy fallback for older reader bundles. Current Reader View highlights
+  // are handled inside the reader surface so the overlay stays open.
   const tabId = sender?.tab?.id;
   if (!Number.isInteger(tabId)) {
     return { ok: false, reason: 'no-source-tab' };
@@ -3416,6 +3421,57 @@ async function readReaderSession(sessionId) {
   return entry;
 }
 
+async function updateReaderSession(sessionId, session) {
+  if (!sessionId || !session) return null;
+  const updated = {
+    ...session,
+    capturedAt: session.capturedAt || Date.now()
+  };
+  if (browser.storage.session) {
+    await browser.storage.session.set({ [sessionId]: updated });
+  } else {
+    await browser.storage.local.set({ [READER_SESSION_PREFIX + sessionId]: updated });
+  }
+  return updated;
+}
+
+async function ensureReaderMarkdownSession(sessionId, providedSession = null) {
+  const session = providedSession || await readReaderSession(sessionId);
+  if (!session) {
+    return null;
+  }
+  if (!session.markdownDeferred && typeof session.markdown === 'string') {
+    return session;
+  }
+
+  const article = session.readerExportArticle || session.exportArticle || session.article;
+  if (!article?.content) {
+    return session;
+  }
+
+  await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+  const rendered = await browser.runtime.sendMessage({
+    target: 'offscreen',
+    type: 'reader-render-markdown',
+    article,
+    options: session.effectiveOptions || await getOptions(),
+    title: session.title || session.article?.title || 'Reader View',
+    mdClipsFolder: session.mdClipsFolder
+  });
+  if (!rendered?.ok) {
+    throw new Error(rendered?.error || 'Reader markdown render failed');
+  }
+
+  const updated = {
+    ...session,
+    ...(rendered.result || {}),
+    markdownDeferred: false
+  };
+  delete updated.readerExportArticle;
+  delete updated.exportArticle;
+  return await updateReaderSession(sessionId, updated);
+}
+
 async function openReaderTabForTab(tab) {
   const targetTab = tab?.id ? tab : await getCommandTargetTab();
   if (!targetTab?.id) {
@@ -3483,7 +3539,8 @@ async function fetchReaderArticleByUrl(message, sender) {
     html,
     finalUrl,
     options,
-    suppressTemplate: true
+    suppressTemplate: true,
+    skipMarkdown: true
   });
   if (!processed?.ok) {
     return { ok: false, reason: 'process-failed', error: processed?.error || '' };
@@ -3498,6 +3555,7 @@ async function fetchReaderArticleByUrl(message, sender) {
     title: result.article?.title || 'Reader View',
     settings: getReaderSettings(options),
     highlights,
+    highlightDefaultColor: options.highlightDefaultColor || 'yellow',
     sourceTabId: null,
     readerTabId: sender?.tab?.id || null
   });
@@ -3517,7 +3575,7 @@ async function getOpenReaderActionTab(session, sender) {
 }
 
 async function copyReaderMarkdown(message) {
-  const session = await readReaderSession(message?.sessionId);
+  const session = await ensureReaderMarkdownSession(message?.sessionId);
   if (!session) {
     return { ok: false, reason: 'session-missing' };
   }
@@ -3531,7 +3589,7 @@ async function copyReaderMarkdown(message) {
 }
 
 async function downloadReaderMarkdown(message, sender) {
-  const session = await readReaderSession(message?.sessionId);
+  const session = await ensureReaderMarkdownSession(message?.sessionId);
   if (!session) {
     return { ok: false, reason: 'session-missing' };
   }
@@ -3556,7 +3614,7 @@ async function downloadReaderMarkdown(message, sender) {
 }
 
 async function sendReaderMarkdownToObsidian(message, sender) {
-  const session = await readReaderSession(message?.sessionId);
+  const session = await ensureReaderMarkdownSession(message?.sessionId);
   if (!session) {
     return { ok: false, reason: 'session-missing' };
   }

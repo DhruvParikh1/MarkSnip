@@ -1,6 +1,10 @@
 const { applyHighlights } = require('../../reader/highlights.js');
 
 describe('applyHighlights', () => {
+  afterEach(() => {
+    document.body.innerHTML = '';
+  });
+
   test('maps exactly one normalized text match inline', () => {
     document.body.innerHTML = '<article><p>Hello <strong>reader</strong> world.</p></article><ul id="side"></ul>';
     const article = document.querySelector('article');
@@ -32,5 +36,20 @@ describe('applyHighlights', () => {
     expect(sidebar.querySelector('[data-id="missing"]').dataset.reason).toBe('missing');
     expect(sidebar.querySelector('[data-id="ambiguous"]').dataset.reason).toBe('ambiguous');
     expect(sidebar.textContent).toContain('choose one');
+  });
+
+  test('can leave visual rendering to the shared highlighter surface', () => {
+    document.body.innerHTML = '<article><p>Hello reader world.</p></article><ul id="side"></ul>';
+    const article = document.querySelector('article');
+    const sidebar = document.getElementById('side');
+
+    const result = applyHighlights(document, article, [
+      { id: 'h1', text: 'Hello reader world.', color: 'yellow' }
+    ], sidebar, { inline: false });
+
+    expect(result.mapped).toHaveLength(0);
+    expect(result.unmapped).toHaveLength(1);
+    expect(article.querySelector('mark.ms-reader-mark')).toBeNull();
+    expect(sidebar.querySelector('[data-id="h1"]').dataset.reason).toBe('managed-by-highlighter');
   });
 });

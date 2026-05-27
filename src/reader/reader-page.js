@@ -1,6 +1,7 @@
 (function (root) {
   const LOCAL_SESSION_PREFIX = 'reader-session:';
   const LOCAL_SESSION_TTL_MS = 60 * 60 * 1000;
+  const SURFACE_ID = 'reader-tab';
   let currentTeardown = null;
   let currentSession = null;
   let currentSessionId = '';
@@ -46,6 +47,7 @@
   }
 
   async function renderSession(sessionId, replaceState) {
+    root.markSnipHighlighter?.unregisterSurface?.(SURFACE_ID);
     currentTeardown?.teardown?.();
     currentTeardown = null;
     currentSession = null;
@@ -71,9 +73,31 @@
         sessionId,
         onClose() {
           window.close();
+        },
+        onToggleHighlight() {
+          if (!root.markSnipHighlighter?.toggle) {
+            return Promise.resolve({ ok: false, reason: 'highlighter-unavailable' });
+          }
+          return root.markSnipHighlighter.toggle({
+            surfaceId: SURFACE_ID,
+            defaultColor: payload.highlightDefaultColor || payload.options?.highlightDefaultColor,
+            highlightDefaultColor: payload.highlightDefaultColor || payload.options?.highlightDefaultColor
+          });
         }
       }
     );
+    Promise.resolve(root.markSnipHighlighter?.registerSurface?.({
+      id: SURFACE_ID,
+      root: currentTeardown.root,
+      article: currentTeardown.article,
+      eventRoot: currentTeardown.root,
+      selectionRoot: document,
+      scrollRoot: window,
+      pageUrl: payload.pageUrl || payload.article?.pageURL || payload.article?.baseURI,
+      title: payload.title || payload.article?.title || document.title,
+      forceOverlay: false,
+      excludeSelector: '.ms-reader-bar, .ms-reader-outline, .ms-reader-highlights'
+    })).catch(() => {});
 
     if (replaceState) {
       history.replaceState({ sessionId }, '', `reader.html?id=${encodeURIComponent(sessionId)}`);

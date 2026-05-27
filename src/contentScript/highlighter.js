@@ -37,14 +37,50 @@
     accentColor: '#6B8E6F',
     editDraftNote: null,       // persisted textarea value while pill is open
     editDraftHighlightId: null,
+    surface: null,
+    surfaceEventRoot: null,
+    surfaceScrollRoot: null,
   };
 
   function message(key, fallback) {
     return globalThis.markSnipI18n?.t?.(key, null, fallback) || fallback || key;
   }
 
+  function getActiveSurface() {
+    return state.surface || null;
+  }
+
+  function getSurfaceContentRoot() {
+    const surface = getActiveSurface();
+    return surface?.article || surface?.root || document.body;
+  }
+
+  function getSurfaceSelection() {
+    const surface = getActiveSurface();
+    const selectionRoot = surface?.selectionRoot;
+    return selectionRoot?.getSelection?.() || window.getSelection?.() || null;
+  }
+
+  function nodeElement(node) {
+    return node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
+  }
+
+  function surfaceContainsNode(node) {
+    const surface = getActiveSurface();
+    if (!surface) return true;
+    const element = nodeElement(node);
+    return !!(element && getSurfaceContentRoot()?.contains?.(element));
+  }
+
+  function isSurfaceExcludedNode(node) {
+    const surface = getActiveSurface();
+    const selector = surface?.excludeSelector;
+    const element = nodeElement(node);
+    return !!(selector && element?.closest?.(selector));
+  }
+
   function pageUrl() {
-    return window.location.href;
+    return getActiveSurface()?.pageUrl || window.location.href;
   }
 
   function normalizedPageUrl() {
@@ -52,6 +88,16 @@
   }
 
   function getPageMetadata() {
+    const surface = getActiveSurface();
+    if (surface) {
+      return {
+        url: pageUrl(),
+        normalizedUrl: normalizedPageUrl(),
+        title: surface.title || document.title || '',
+        siteName: surface.siteName || ''
+      };
+    }
+
     const siteName = document.querySelector('meta[property="og:site_name"]')?.content ||
       document.querySelector('meta[name="application-name"]')?.content ||
       location.hostname;
@@ -424,6 +470,12 @@
       root.setAttribute('data-marksnip-highlighter-ui', 'true');
       document.documentElement.appendChild(root);
     }
+    const surface = getActiveSurface();
+    if (surface?.overlayZIndex) {
+      root.style.zIndex = String(surface.overlayZIndex);
+    } else {
+      root.style.removeProperty('z-index');
+    }
     return root;
   }
 
@@ -443,6 +495,11 @@
   function getXPath(element) {
     if (!element || element.nodeType !== Node.ELEMENT_NODE) {
       return '';
+    }
+    const surface = getActiveSurface();
+    const contentRoot = getSurfaceContentRoot();
+    if (surface && contentRoot?.contains?.(element)) {
+      return getSurfaceXPath(element, contentRoot);
     }
     if (element === document.documentElement) {
       return '/html';
@@ -464,6 +521,58 @@
       current = current.parentElement;
     }
     return `/${parts.join('/')}`;
+  }
+
+  function getSurfaceXPath(element, contentRoot) {
+    if (!element || !contentRoot?.contains?.(element)) return '';
+    if (element === contentRoot) return 'reader:/article';
+
+    const parts = [];
+    let current = element;
+    while (current && current !== contentRoot && current.nodeType === Node.ELEMENT_NODE) {
+      const tag = current.nodeName.toLowerCase();
+      let index = 1;
+      let sibling = current.previousElementSibling;
+      while (sibling) {
+        if (sibling.nodeName.toLowerCase() === tag) {
+          index += 1;
+        }
+        sibling = sibling.previousElementSibling;
+      }
+      parts.unshift(`${tag}[${index}]`);
+      current = current.parentElement;
+    }
+    return `reader:/article/${parts.join('/')}`;
+  }
+
+  function getElementBySurfaceXPath(xpath) {
+    const contentRoot = getSurfaceContentRoot();
+    if (!contentRoot || typeof xpath !== 'string' || !xpath.startsWith('reader:/article')) {
+      return null;
+    }
+    const relative = xpath.replace(/^reader:\/article\/?/, '');
+    if (!relative) return contentRoot;
+
+    let current = contentRoot;
+    const parts = relative.split('/').filter(Boolean);
+    for (const part of parts) {
+      const match = part.match(/^([a-z0-9:-]+)\[(\d+)\]$/i);
+      if (!match) return null;
+      const tag = match[1].toLowerCase();
+      const index = Number(match[2]);
+      const matches = Array.from(current.children || []).filter((child) => child.nodeName.toLowerCase() === tag);
+      current = matches[index - 1] || null;
+      if (!current) return null;
+    }
+    return current;
+  }
+
+  function getElementForHighlight(highlight) {
+    if (getActiveSurface()) {
+      const surfaceElement = getElementBySurfaceXPath(highlight?.xpath || '');
+      if (surfaceElement) return surfaceElement;
+    }
+    return api.getElementByXPath(document, highlight?.xpath || '');
   }
 
   function textOffsetWithin(root, node, nodeOffset) {
@@ -492,14 +601,23 @@
   }
 
   function nearestTextBlock(node) {
-    const element = node?.nodeType === Node.ELEMENT_NODE ? node : node?.parentElement;
-    return element?.closest?.(TEXT_BLOCK_SELECTOR) ||
-      element?.closest?.('article, main, section, div') ||
-      document.body;
+    const contentRoot = getSurfaceContentRoot();
+    const element = nodeElement(node);
+    const block = element?.closest?.(TEXT_BLOCK_SELECTOR);
+    if (block && contentRoot?.contains?.(block)) return block;
+    const fallback = element?.closest?.('article, main, section, div');
+    if (fallback && contentRoot?.contains?.(fallback)) return fallback;
+    return contentRoot || document.body;
   }
 
   function cleanHighlightClone(root) {
-    root.querySelectorAll?.('script, style, noscript, iframe, object, embed, .marksnip-highlighter-toolbar, .marksnip-highlight-overlay').forEach((node) => node.remove());
+    root.querySelectorAll?.('script, style, noscript, iframe, object, embed, .marksnip-highlighter-toolbar, .marksnip-highlight-overlay, mark.ms-reader-mark').forEach((node) => {
+      if (node.matches?.('mark.ms-reader-mark')) {
+        const parent = node.parentNode;
+        while (node.firstChild && parent) parent.insertBefore(node.firstChild, node);
+      }
+      node.remove();
+    });
     root.querySelectorAll?.('[data-marksnip-highlighter-ui]').forEach((node) => node.remove());
     return root;
   }
@@ -530,23 +648,27 @@
   function selectionToTextHighlights(selection) {
     const highlights = [];
     const groupId = api.createId('group');
+    const contentRoot = getSurfaceContentRoot();
 
     for (let i = 0; i < selection.rangeCount; i += 1) {
       const range = selection.getRangeAt(i);
-      if (range.collapsed || !range.toString().trim()) {
+      if (range.collapsed || !range.toString().trim() || !rangeIntersectsContent(range, contentRoot)) {
         continue;
       }
 
-      const root = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+      const ancestor = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
         ? range.commonAncestorContainer
         : range.commonAncestorContainer.parentElement;
-      const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, {
+      const walkerRoot = ancestor && contentRoot?.contains?.(ancestor) ? ancestor : contentRoot;
+      const walker = document.createTreeWalker(walkerRoot || document.body, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
           if (!node.nodeValue.trim()) {
             return NodeFilter.FILTER_REJECT;
           }
           try {
-            return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+            return range.intersectsNode(node) && surfaceContainsNode(node)
+              ? NodeFilter.FILTER_ACCEPT
+              : NodeFilter.FILTER_REJECT;
           } catch {
             return NodeFilter.FILTER_REJECT;
           }
@@ -591,8 +713,24 @@
     return highlights;
   }
 
+  function rangeIntersectsContent(range, contentRoot) {
+    if (!range || !contentRoot) return false;
+    const startElement = nodeElement(range.startContainer);
+    const endElement = nodeElement(range.endContainer);
+    return !!(
+      (startElement && contentRoot.contains(startElement)) ||
+      (endElement && contentRoot.contains(endElement)) ||
+      (range.commonAncestorContainer && contentRoot.contains(nodeElement(range.commonAncestorContainer)))
+    );
+  }
+
   function createElementHighlight(element) {
-    if (!element || element.closest?.('[data-marksnip-highlighter-ui="true"]')) {
+    if (
+      !element ||
+      element.closest?.('[data-marksnip-highlighter-ui="true"]') ||
+      isSurfaceExcludedNode(element) ||
+      !surfaceContainsNode(element)
+    ) {
       return null;
     }
     const clone = element.cloneNode(true);
@@ -653,7 +791,7 @@
 
   async function highlightCurrentSelection() {
     await ensureLoaded();
-    const selection = window.getSelection();
+    const selection = getSurfaceSelection();
     if (!selection || selection.rangeCount === 0 || !selection.toString().trim()) {
       return { ok: false, error: 'No selected text' };
     }
@@ -679,7 +817,7 @@
   // ─── Render ────────────────────────────────────────────────────────────────
 
   function renderTextHighlight(highlight, colorBuckets, overlayRoot) {
-    const element = api.getElementByXPath(document, highlight.xpath);
+    const element = getElementForHighlight(highlight);
     const range = api.createRangeFromOffsets(element, highlight.startOffset, highlight.endOffset);
     if (!range) {
       return;
@@ -687,7 +825,7 @@
     state.rangesById.set(highlight.id, range);
     const color = api.normalizeColor(highlight.color);
 
-    if (typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight === 'function') {
+    if (!getActiveSurface()?.forceOverlay && typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight === 'function') {
       if (!colorBuckets[color]) {
         colorBuckets[color] = [];
       }
@@ -713,7 +851,7 @@
   }
 
   function renderElementHighlight(highlight, overlayRoot) {
-    const element = api.getElementByXPath(document, highlight.xpath);
+    const element = getElementForHighlight(highlight);
     if (!element) {
       return;
     }
@@ -752,7 +890,7 @@
       }
     });
 
-    if (typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight === 'function') {
+    if (!getActiveSurface()?.forceOverlay && typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight === 'function') {
       Object.keys(colorBuckets).forEach((color) => {
         CSS.highlights.set(`marksnip-highlight-${color}`, new Highlight(...colorBuckets[color]));
       });
@@ -1229,7 +1367,7 @@
   // ─── Hit testing ──────────────────────────────────────────────────────────
 
   function findHighlightAtPoint(clientX, clientY) {
-    const overlay = document.elementFromPoint(clientX, clientY)?.closest?.('.marksnip-highlight-overlay[data-highlight-id]');
+    const overlay = document.elementFromPoint?.(clientX, clientY)?.closest?.('.marksnip-highlight-overlay[data-highlight-id]');
     if (overlay?.dataset.highlightId) {
       return overlay.dataset.highlightId;
     }
@@ -1289,21 +1427,40 @@
 
   // ─── Interaction listeners ─────────────────────────────────────────────────
 
+  function markHandledEvent(event, key) {
+    if (event?.[key]) return false;
+    try {
+      Object.defineProperty(event, key, { value: true, configurable: true });
+    } catch {
+      event[key] = true;
+    }
+    return true;
+  }
+
+  function isHighlighterUiEvent(event) {
+    const uiNode = event.target?.closest?.('[data-marksnip-highlighter-ui="true"]');
+    if (!uiNode) return false;
+    return !uiNode.matches?.('.marksnip-highlight-overlay[data-highlight-id]');
+  }
+
   function addInteractionListeners() {
     if (state.handlers.click) {
+      addSurfaceInteractionListeners();
       return;
     }
 
-    state.handlers.mouseup = async () => {
+    state.handlers.mouseup = async (event) => {
       if (!state.active) return;
+      if (!markHandledEvent(event, '__marksnipHighlighterMouseup')) return;
+      if (isHighlighterUiEvent(event) || isSurfaceExcludedNode(event.target)) return;
       window.setTimeout(() => {
         highlightCurrentSelection().catch(() => {});
       }, 0);
     };
 
     state.handlers.click = async (event) => {
-      const uiNode = event.target.closest?.('[data-marksnip-highlighter-ui="true"]');
-      if (uiNode) return;
+      if (!markHandledEvent(event, '__marksnipHighlighterClick')) return;
+      if (isHighlighterUiEvent(event)) return;
 
       const hitId = findHighlightAtPoint(event.clientX, event.clientY);
       if (hitId) {
@@ -1326,7 +1483,9 @@
 
       if (!state.active) return;
 
-      const selection = window.getSelection();
+      if (isSurfaceExcludedNode(event.target)) return;
+
+      const selection = getSurfaceSelection();
       if (selection?.toString?.().trim()) return;
 
       const element = event.target.closest?.(ELEMENT_SELECTOR);
@@ -1392,9 +1551,46 @@
     document.addEventListener('mousemove', state.handlers.mousemove, false);
     window.addEventListener('scroll', state.handlers.reposition, true);
     window.addEventListener('resize', state.handlers.reposition, true);
+    addSurfaceInteractionListeners();
   }
 
   // ─── Storage listener ──────────────────────────────────────────────────────
+
+  function addSurfaceInteractionListeners() {
+    const surface = getActiveSurface();
+    if (!surface || !state.handlers.click) return;
+
+    const eventRoot = surface.eventRoot || surface.root;
+    if (eventRoot && eventRoot !== document && eventRoot !== state.surfaceEventRoot) {
+      removeSurfaceInteractionListeners();
+      eventRoot.addEventListener('mouseup', state.handlers.mouseup, true);
+      eventRoot.addEventListener('click', state.handlers.click, true);
+      eventRoot.addEventListener('mousemove', state.handlers.mousemove, false);
+      state.surfaceEventRoot = eventRoot;
+    }
+
+    const scrollRoot = surface.scrollRoot;
+    if (scrollRoot && scrollRoot !== window && scrollRoot !== state.surfaceScrollRoot) {
+      if (state.surfaceScrollRoot) {
+        state.surfaceScrollRoot.removeEventListener('scroll', state.handlers.reposition, true);
+      }
+      scrollRoot.addEventListener('scroll', state.handlers.reposition, true);
+      state.surfaceScrollRoot = scrollRoot;
+    }
+  }
+
+  function removeSurfaceInteractionListeners() {
+    if (state.surfaceEventRoot && state.handlers.click) {
+      state.surfaceEventRoot.removeEventListener('mouseup', state.handlers.mouseup, true);
+      state.surfaceEventRoot.removeEventListener('click', state.handlers.click, true);
+      state.surfaceEventRoot.removeEventListener('mousemove', state.handlers.mousemove, false);
+    }
+    if (state.surfaceScrollRoot && state.handlers.reposition) {
+      state.surfaceScrollRoot.removeEventListener('scroll', state.handlers.reposition, true);
+    }
+    state.surfaceEventRoot = null;
+    state.surfaceScrollRoot = null;
+  }
 
   function addStorageListener() {
     if (state.storageListenerAdded || !browser?.storage?.onChanged) {
@@ -1415,12 +1611,76 @@
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
 
+  function normalizeSurface(surface = {}) {
+    const root = surface.root || surface.article || document.body;
+    const article = surface.article || root?.querySelector?.('article') || root;
+    const page = surface.pageUrl || surface.articleUrl || window.location.href;
+    let siteName = surface.siteName || '';
+    if (!siteName) {
+      try {
+        siteName = new URL(page).hostname.replace(/^www\./, '');
+      } catch {}
+    }
+    return {
+      id: surface.id || 'reader',
+      root,
+      article,
+      eventRoot: surface.eventRoot || root,
+      selectionRoot: surface.selectionRoot || root?.getRootNode?.() || window,
+      scrollRoot: surface.scrollRoot || window,
+      pageUrl: page,
+      title: surface.title || document.title || '',
+      siteName,
+      forceOverlay: surface.forceOverlay === true,
+      overlayZIndex: surface.overlayZIndex || '',
+      excludeSelector: surface.excludeSelector || ''
+    };
+  }
+
+  async function registerSurface(surface = {}) {
+    const nextSurface = normalizeSurface(surface);
+    removeSurfaceInteractionListeners();
+    state.surface = nextSurface;
+    state.record = null;
+    state.undoStack = [];
+    state.redoStack = [];
+    state.actionPillHighlightId = null;
+    state.editDraftNote = null;
+    state.editDraftHighlightId = null;
+    addSurfaceInteractionListeners();
+    await loadRecord();
+    renderHighlights();
+    refreshToolbar();
+    return { ok: true, surfaceId: nextSurface.id };
+  }
+
+  async function unregisterSurface(surfaceId) {
+    if (!state.surface || (surfaceId && state.surface.id !== surfaceId)) {
+      return { ok: true, active: state.active };
+    }
+
+    state.active = false;
+    document.documentElement.classList.remove('marksnip-highlighter-active');
+    document.documentElement.style.removeProperty('cursor');
+    removeToolbar();
+    removeActionPill();
+    removeEditPanel();
+    clearRenderedHighlights();
+    removeSurfaceInteractionListeners();
+    state.surface = null;
+    state.record = null;
+    return { ok: true, active: false };
+  }
+
   async function ensureLoaded() {
     ensureStyle();
     addInteractionListeners();
     addStorageListener();
     if (!state.record || state.record.normalizedUrl !== normalizedPageUrl()) {
       await loadRecord();
+      if (state.record?.normalizedUrl !== normalizedPageUrl()) {
+        await loadRecord();
+      }
     }
     return state.record;
   }
@@ -1483,6 +1743,8 @@
     activate,
     deactivate,
     toggle,
+    registerSurface,
+    unregisterSurface,
     renderSavedHighlights,
     highlightCurrentSelection,
     clearPageHighlights,

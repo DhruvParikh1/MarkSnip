@@ -5,6 +5,7 @@
   window.__marksnipReaderOverlayLoaded = true;
 
   const MOUNT_ID = 'ms-reader-mount';
+  const SURFACE_ID = 'reader-overlay';
   let originalOverflow = '';
   let originalScrollY = 0;
 
@@ -16,6 +17,9 @@
     const mount = getMount();
     if (!mount) return { ok: true, active: false };
 
+    try {
+      window.markSnipHighlighter?.unregisterSurface?.(SURFACE_ID);
+    } catch {}
     try {
       window.__marksnipReaderOverlayTeardown?.teardown?.();
     } catch {}
@@ -59,9 +63,34 @@
       payload,
       payload.settings || {},
       'overlay',
-      { onClose: closeReaderOverlay }
+      {
+        onClose: closeReaderOverlay,
+        onToggleHighlight: () => {
+          if (!window.markSnipHighlighter?.toggle) {
+            return Promise.resolve({ ok: false, reason: 'highlighter-unavailable' });
+          }
+          return window.markSnipHighlighter.toggle({
+            surfaceId: SURFACE_ID,
+            defaultColor: payload.highlightDefaultColor || payload.options?.highlightDefaultColor,
+            highlightDefaultColor: payload.highlightDefaultColor || payload.options?.highlightDefaultColor
+          });
+        }
+      }
     );
     window.__marksnipReaderOverlayTeardown = teardown;
+    Promise.resolve(window.markSnipHighlighter?.registerSurface?.({
+      id: SURFACE_ID,
+      root: teardown.root,
+      article: teardown.article,
+      eventRoot: teardown.root,
+      selectionRoot: shadow,
+      scrollRoot: mount,
+      pageUrl: payload.pageUrl || payload.article?.pageURL || payload.article?.baseURI,
+      title: payload.title || payload.article?.title || document.title,
+      forceOverlay: true,
+      overlayZIndex: 2147483647,
+      excludeSelector: '.ms-reader-bar, .ms-reader-outline, .ms-reader-highlights'
+    })).catch(() => {});
     return { ok: true, active: true };
   }
 
