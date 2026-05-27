@@ -3517,6 +3517,13 @@ function initSidebar() {
     const sidebarItems = Array.from(document.querySelectorAll('.sidebar-item'));
     const sections = Array.from(document.querySelectorAll('.section'));
 
+    // Honor a #section-<id> hash deep-link (e.g. from the reader Settings button)
+    const hashMatch = (window.location.hash || '').match(/^#section-(.+)/);
+    const hashSection = hashMatch?.[1];
+    if (hashSection && document.getElementById(`section-${hashSection}`)) {
+        sessionStorage.setItem('marksnip-options-tab', hashSection);
+    }
+
     // Restore last active tab from sessionStorage
     const lastActive = sessionStorage.getItem('marksnip-options-tab') || 'templates';
 
