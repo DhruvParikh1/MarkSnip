@@ -334,10 +334,6 @@
       transferChildren(contentEl, holder);
     }
 
-    if (!hasMeaningfulReaderContent(holder)) {
-      return false;
-    }
-
     const callout = createCalloutCarrier(doc, type, title, holder, details.source, details.foldState);
     el.replaceWith(callout);
     return true;
@@ -997,21 +993,54 @@
     return null;
   }
 
+  function cloneMediaNodeForFigure(media, container) {
+    const link = media.closest?.('a');
+    if (
+      link &&
+      container?.contains?.(link) &&
+      link.querySelectorAll?.('img, picture').length === 1 &&
+      !normalizeText(link.textContent)
+    ) {
+      return link.cloneNode(true);
+    }
+    return media.cloneNode(true);
+  }
+
+  function mediaCaptionText(media) {
+    const img = media.matches?.('img') ? media : media.querySelector?.('img');
+    const raw = img?.getAttribute?.('alt') || img?.getAttribute?.('title') || media.getAttribute?.('title') || '';
+    const text = normalizeText(raw);
+    if (text.length < 5 || text.length > 180) return '';
+    if (/^(?:image|photo|picture|screenshot|figure|diagram|logo|icon|thumbnail|avatar|decorative)$/i.test(text)) {
+      return '';
+    }
+    if (/^(?:https?:|data:image\/)/i.test(text)) return '';
+    return text;
+  }
+
   function normalizeImageFigures(root) {
     queryAll(root, 'span, div, p').forEach((container) => {
       if (!container.parentNode || container.closest('figure')) return;
       const images = queryAll(container, 'img, picture');
       if (images.length !== 1) return;
       const caption = captionCandidate(container);
-      if (!caption) return;
-      const textWithoutCaption = normalizeText(container.textContent).replace(normalizeText(caption.textContent), '').trim();
-      if (textWithoutCaption.length > 80) return;
+      if (!caption && container.closest?.(`blockquote[${MS_BLOCK}="callout"]`)) return;
+      const inferredCaption = caption ? '' : mediaCaptionText(images[0]);
+      if (!caption && !inferredCaption) return;
+      const textWithoutCaption = caption
+        ? normalizeText(container.textContent).replace(normalizeText(caption.textContent), '').trim()
+        : normalizeText(container.textContent);
+      if (caption ? textWithoutCaption.length > 80 : textWithoutCaption.length > 0) return;
 
       const doc = container.ownerDocument;
       const figure = doc.createElement('figure');
-      figure.appendChild(images[0].cloneNode(true));
+      figure.appendChild(cloneMediaNodeForFigure(images[0], container));
       const figcaption = doc.createElement('figcaption');
-      cloneChildren(caption, figcaption);
+      if (caption) {
+        cloneChildren(caption, figcaption);
+      } else {
+        figcaption.textContent = inferredCaption;
+      }
       figure.appendChild(figcaption);
       container.replaceWith(figure);
     });
@@ -1245,9 +1274,198 @@
     }
   }
 
+  const PAGE_METADATA_KEYS = new Set([
+    'alias',
+    'aliases',
+    'author',
+    'canonical',
+    'categories',
+    'category',
+    'cover',
+    'date',
+    'description',
+    'draft',
+    'excerpt',
+    'image',
+    'keywords',
+    'lang',
+    'language',
+    'layout',
+    'mobile',
+    'permalink',
+    'publish',
+    'published',
+    'slug',
+    'summary',
+    'tag',
+    'tags',
+    'title',
+    'type',
+    'url'
+  ]);
+
+  function metadataKeyFromLine(line) {
+    const match = String(line || '').match(/^\s*([a-z][a-z0-9_. -]{0,40})\s*:/i);
+    return match ? match[1].toLowerCase().replace(/[\s_.-]+/g, '') : '';
+  }
+
+  function metadataValueFromLine(line) {
+    const match = String(line || '').match(/^\s*[a-z][a-z0-9_. -]{0,40}\s*:\s*(.+?)\s*$/i);
+    return normalizeText(match?.[1] || '');
+  }
+
+  function followingTextFrom(node, limit = 1200) {
+    const parts = [];
+    let scope = node || null;
+    while (scope?.parentNode && parts.join(' ').length < limit) {
+      let current = scope.nextSibling;
+      while (current && parts.join(' ').length < limit) {
+        if (current.nodeType === Node.TEXT_NODE) {
+          parts.push(current.nodeValue || '');
+        } else if (current.nodeType === Node.ELEMENT_NODE && !/^(SCRIPT|STYLE|NOSCRIPT)$/.test(current.tagName)) {
+          parts.push(current.textContent || '');
+        }
+        current = current.nextSibling;
+      }
+      scope = scope.parentNode;
+    }
+    return normalizeText(parts.join(' '));
+  }
+
+  function isLikelyPageMetadataText(text, followingText) {
+    const lines = String(text || '')
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length < 3 || lines.length > 40) return false;
+    if (lines.join('\n').length > 2400) return false;
+
+    let keyedLines = 0;
+    let continuationLines = 0;
+    let unrecognizedLines = 0;
+    const recognizedKeys = new Set();
+    const values = [];
+    let previousWasKey = false;
+    let hasDelimiter = false;
+
+    lines.forEach((line) => {
+      if (/^(?:---|\+\+\+)$/.test(line)) {
+        hasDelimiter = true;
+        previousWasKey = false;
+        return;
+      }
+
+      const key = metadataKeyFromLine(line);
+      if (key) {
+        keyedLines += 1;
+        previousWasKey = true;
+        if (PAGE_METADATA_KEYS.has(key)) {
+          recognizedKeys.add(key);
+          values.push(metadataValueFromLine(line));
+        }
+        return;
+      }
+
+      if (previousWasKey && /^[-*]\s+\S+/.test(line)) {
+        continuationLines += 1;
+        return;
+      }
+
+      previousWasKey = false;
+      unrecognizedLines += 1;
+    });
+
+    const structuralLines = keyedLines + continuationLines + (hasDelimiter ? 1 : 0);
+    const structuralRatio = structuralLines / lines.length;
+    const recognizedCount = recognizedKeys.size;
+    const hasPageOnlyKey = ['aliases', 'draft', 'layout', 'permalink', 'publish', 'slug', 'tags'].some((key) => (
+      recognizedKeys.has(key)
+    ));
+    const normalizedFollowing = normalizeText(followingText).toLowerCase();
+    const repeatsVisibleSummary = values.some((value) => (
+      value.length >= 40 && normalizedFollowing.includes(value.slice(0, 120).toLowerCase())
+    ));
+
+    return keyedLines >= 3 &&
+      structuralRatio >= 0.72 &&
+      unrecognizedLines <= 2 &&
+      (
+        repeatsVisibleSummary ||
+        (hasDelimiter && recognizedCount >= 2) ||
+        recognizedCount >= 4 ||
+        (recognizedCount >= 3 && hasPageOnlyKey && normalizedFollowing.length >= 200)
+      );
+  }
+
+  function firstSignificantElement(root) {
+    let node = root?.firstChild || null;
+    while (node) {
+      if (node.nodeType === Node.TEXT_NODE && !normalizeText(node.nodeValue)) {
+        node = node.nextSibling;
+        continue;
+      }
+      if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'BR') {
+        node = node.nextSibling;
+        continue;
+      }
+      return node.nodeType === Node.ELEMENT_NODE ? node : null;
+    }
+    return null;
+  }
+
+  function leadingContentRoots(root) {
+    const roots = [];
+    let current = root;
+    for (let depth = 0; current && depth < 4; depth += 1) {
+      roots.push(current);
+      const first = firstSignificantElement(current);
+      if (
+        !first ||
+        !/^(ARTICLE|DIV|MAIN|SECTION)$/.test(first.tagName) ||
+        first.hasAttribute(MS_BLOCK) ||
+        first.matches?.('pre, code, figure, table, blockquote')
+      ) {
+        break;
+      }
+      current = first;
+    }
+    return roots;
+  }
+
+  function metadataCandidateText(el) {
+    if (!el) return '';
+    if (el.matches?.('pre, code')) return el.textContent || '';
+    const pre = Array.from(el.children || []).find((child) => /^(PRE|CODE)$/.test(child.tagName));
+    if (pre && queryAll(el, 'pre, code').length === 1) {
+      return pre.textContent || '';
+    }
+    const combined = `${el.getAttribute?.('class') || ''} ${el.getAttribute?.('id') || ''} ${el.getAttribute?.('data-type') || ''}`;
+    if (/\b(?:frontmatter|metadata|properties|property-list)\b/i.test(combined)) {
+      return el.textContent || '';
+    }
+    return '';
+  }
+
+  function stripLeadingPageMetadataBlocks(root) {
+    leadingContentRoots(root).forEach((contentRoot) => {
+      removeLeadingEmptyNodes(contentRoot);
+      const candidate = firstSignificantElement(contentRoot);
+      if (!candidate) return;
+      const text = metadataCandidateText(candidate);
+      if (!text) return;
+      const followingText = followingTextFrom(candidate);
+      if (followingText.length < 200) return;
+      if (!isLikelyPageMetadataText(text, followingText)) return;
+      candidate.remove();
+      removeLeadingEmptyNodes(contentRoot);
+    });
+  }
+
   function standardizeCleanup(root) {
     const body = getBody(root);
     if (!body) return;
+    stripLeadingPageMetadataBlocks(body);
     standardizeDropCaps(body);
     convertDataAsSpans(body);
     convertBlockSpans(body);
@@ -1325,6 +1543,7 @@
     const parser = new DOMParser();
     const parsed = parser.parseFromString(`<!doctype html><html><body>${html}</body></html>`, 'text/html');
     const body = parsed.body;
+    stripLeadingPageMetadataBlocks(body);
     standardizeFootnotes(body);
     convertCalloutCarriers(body);
     standardizeImages(body);

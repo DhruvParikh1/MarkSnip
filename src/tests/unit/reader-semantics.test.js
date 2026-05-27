@@ -86,6 +86,28 @@ describe('reader semantics normalization', () => {
     expect(enhanced).toContain('data-ms-reader-source="markdown-callout"');
   });
 
+  test('preserves title-only callouts as reader callout cards', () => {
+    const document = parseDocument(`
+      <article>
+        <div class="callout" data-callout="note">
+          <div class="callout-title">
+            <div class="callout-title-inner">Prefixing an internal link with an exclamation mark (!) allows you to embed the linked content.</div>
+          </div>
+        </div>
+      </article>
+    `);
+
+    readerSemantics.prepareReaderDomForReadability(document);
+    const carrier = document.querySelector('[data-ms-reader-block="callout"]');
+    expect(carrier?.tagName).toBe('BLOCKQUOTE');
+    expect(carrier?.getAttribute('data-ms-reader-type')).toBe('note');
+    expect(carrier?.textContent).toContain('Prefixing an internal link');
+
+    const enhanced = readerSemantics.enhanceReaderArticleHtml(document.body.innerHTML);
+    expect(enhanced).toContain('class="ms-reader-card ms-reader-callout ms-reader-callout-note"');
+    expect(enhanced).toContain('Prefixing an internal link with an exclamation mark');
+  });
+
   test('expands collapsed Obsidian callouts before hidden-content cleanup', () => {
     const document = parseDocument(`
       <article>
@@ -196,6 +218,58 @@ describe('reader semantics normalization', () => {
     expect(figure).not.toBeNull();
     expect(figure.querySelector('img')?.getAttribute('src')).toBe('/real.png');
     expect(figure.querySelector('figcaption')?.textContent).toContain('Quarterly chart caption');
+  });
+
+  test('promotes standalone image alt text into figure captions', () => {
+    const document = parseDocument(`
+      <article>
+        <p><span class="internal-embed image-embed"><img alt="internal-links-header.png > interface" src="/Attachments/internal-links-header.png"></span></p>
+      </article>
+    `);
+
+    readerSemantics.prepareReaderDomForReadability(document);
+    const figure = document.querySelector('figure');
+    expect(figure).not.toBeNull();
+    expect(figure.querySelector('img')?.getAttribute('src')).toBe('/Attachments/internal-links-header.png');
+    expect(figure.querySelector('figcaption')?.textContent).toBe('internal-links-header.png > interface');
+  });
+
+  test('removes leading page property blocks from reader HTML', () => {
+    const enhanced = readerSemantics.enhanceReaderArticleHtml(`
+      <div id="readability-page-1">
+        <div><div><pre><code>aliases:
+  - How to/Internal link
+  - How to/Link to blocks
+cssclasses:
+  - soft-embed
+description: Learn how to link to notes, attachments, and other files from your notes, using internal links.
+mobile: true
+permalink: links
+publish: true</code></pre></div></div>
+        <p>Learn how to link to notes, attachments, and other files from your notes, using internal links. By linking notes, you can create a network of knowledge.</p>
+        <p>${'Stable article paragraph. '.repeat(20)}</p>
+      </div>
+    `);
+
+    expect(enhanced).not.toContain('aliases:');
+    expect(enhanced).not.toContain('cssclasses:');
+    expect(enhanced).toContain('Learn how to link to notes');
+    expect(enhanced).toContain('Stable article paragraph.');
+  });
+
+  test('keeps leading code examples that are not page property blocks', () => {
+    const enhanced = readerSemantics.enhanceReaderArticleHtml(`
+      <div id="readability-page-1">
+        <pre><code>const example = true;
+function read() {
+  return example;
+}</code></pre>
+        <p>${'Stable article paragraph. '.repeat(20)}</p>
+      </div>
+    `);
+
+    expect(enhanced).toContain('const example = true;');
+    expect(enhanced).toContain('Stable article paragraph.');
   });
 
   test('recovers noscript lazy-loaded images into placeholder siblings', () => {
