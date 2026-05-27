@@ -196,12 +196,6 @@
     }
   }
 
-  function hasMeaningfulReaderContent(root) {
-    if (!root) return false;
-    if (normalizeText(root.textContent)) return true;
-    return !!root.querySelector?.('img[src], img[srcset], picture, figure, video, iframe, canvas, pre, code, table, ul, ol');
-  }
-
   function markdownCalloutDetails(blockquote) {
     const textNode = findFirstCalloutTextNode(blockquote);
     const value = String(textNode?.nodeValue || '');
