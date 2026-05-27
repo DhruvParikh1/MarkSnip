@@ -26,6 +26,7 @@ describe('groupCommands', () => {
         { name: 'download_tab_as_markdown', shortcut: 'Alt+Shift+D', description: 'Save' },
         { name: 'copy_selection_as_markdown', shortcut: '',          description: 'Copy sel' },
         { name: 'copy_tab_to_obsidian',     shortcut: '',            description: 'To Obsidian' },
+        { name: 'toggle_reader_view',       shortcut: '',            description: 'Reader' },
         { name: 'unknown_command',          shortcut: 'Ctrl+Q',      description: 'Unknown' },
     ];
 
@@ -38,6 +39,7 @@ describe('groupCommands', () => {
         const { withoutShortcut } = groupCommands(commands);
         expect(withoutShortcut.map(c => c.name)).toContain('copy_selection_as_markdown');
         expect(withoutShortcut.map(c => c.name)).toContain('copy_tab_to_obsidian');
+        expect(withoutShortcut.map(c => c.name)).toContain('toggle_reader_view');
     });
 
     test('omits commands not in COMMAND_ORDER', () => {
@@ -114,8 +116,8 @@ describe('buildShortcutsFragment', () => {
 });
 
 describe('COMMAND_LABELS completeness', () => {
-    test('all 8 COMMAND_ORDER IDs have a label', () => {
-        expect(Object.keys(COMMAND_LABELS)).toHaveLength(8);
+    test('all 9 COMMAND_ORDER IDs have a label', () => {
+        expect(Object.keys(COMMAND_LABELS)).toHaveLength(9);
         for (const id of COMMAND_ORDER) {
             expect(COMMAND_LABELS[id]).toBeTruthy();
         }

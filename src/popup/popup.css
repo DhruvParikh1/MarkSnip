@@ -1189,8 +1189,17 @@ body {
     transform: scale(0.94);
 }
 
-.icon-btn.active {
+.icon-btn.active,
+.icon-btn[data-state="active"] {
     background: rgba(255, 255, 255, 0.2);
+}
+
+.icon-btn[data-state="pending"] {
+    opacity: 0.6;
+}
+
+.icon-btn[data-state="error"] {
+    background: color-mix(in srgb, var(--error, #A05D56) 36%, transparent);
 }
 
 .guide-dropdown-wrap { position: relative; }

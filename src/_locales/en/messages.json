@@ -39,6 +39,18 @@
     "message": "Copy current tab as Markdown to Obsidian",
     "description": "Command description"
   },
+  "cmdToggleReader": {
+    "message": "Toggle Reader View",
+    "description": "Command description"
+  },
+  "popupReaderRestricted": {
+    "message": "This page can't be read in Reader View.",
+    "description": "Toast shown when Reader View is invoked on a restricted page"
+  },
+  "popupReaderFailed": {
+    "message": "Reader View failed to open.",
+    "description": "Toast shown when Reader View fails to open"
+  },
   "contextDownloadTab": {
     "message": "Download Tab as Markdown",
     "description": "Context menu item"
@@ -86,6 +98,14 @@
   "contextOpenHighlights": {
     "message": "Open Highlights",
     "description": "Context menu item for opening saved highlights"
+  },
+  "contextOpenReaderOverlay": {
+    "message": "Open in Reader View",
+    "description": "Context menu item for opening the current page in the Reader View overlay"
+  },
+  "contextOpenReaderTab": {
+    "message": "Open in reader tab",
+    "description": "Context menu item for opening the current page in a standalone reader tab"
   },
   "contextCopySelection": {
     "message": "Copy Selection As Markdown",
@@ -4017,6 +4037,10 @@
   "shortcutCopyTabObsidian": {
     "message": "Copy tab to Obsidian",
     "description": "Keyboard shortcut label for copying tab to Obsidian"
+  },
+  "shortcutToggleReader": {
+    "message": "Toggle Reader View",
+    "description": "Keyboard shortcut label for toggling Reader View"
   },
   "shortcutUnsetSymbolLabel": {
     "message": "Unset",

@@ -81,6 +81,9 @@
     },
     "copy_tab_to_obsidian": {
       "description": "__MSG_cmdSendToObsidianTab__"
+    },
+    "toggle_reader_view": {
+      "description": "__MSG_cmdToggleReader__"
     }
   },
   "web_accessible_resources": [

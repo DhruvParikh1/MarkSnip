@@ -176,6 +176,17 @@
 	                    </svg>
 	                    <span class="sidebar-label">Highlighter</span>
 	                </li>
+	                <li class="sidebar-item" id="tab-reader" data-section="reader" role="tab" tabindex="-1" aria-selected="false" aria-controls="section-reader">
+	                    <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+	                        <path d="M12 7v14"/>
+	                        <path d="M16 12h2"/>
+	                        <path d="M16 8h2"/>
+	                        <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>
+	                        <path d="M6 12h2"/>
+	                        <path d="M6 8h2"/>
+	                    </svg>
+	                    <span class="sidebar-label">Reader View</span>
+	                </li>
 	                <div class="sidebar-divider"></div>
                 <li class="sidebar-item" id="tab-import-export" data-section="import-export" role="tab" tabindex="-1" aria-selected="false" aria-controls="section-import-export">
                     <svg class="sidebar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -2239,6 +2250,100 @@ const helloWorld = () => {
 	                    </div>
 	                </div>
 	            </div>
+
+            <div class="section" id="section-reader" data-section-label="Reader View" role="tabpanel" tabindex="0" aria-labelledby="tab-reader">
+                <h2 class="section-title">Reader View</h2>
+                <p class="section-desc">Strip distractions and read the article on a focused, themed page. Toggle from the popup, the right-click menu, or your keyboard shortcut.</p>
+
+                <div class="setting-card" id="readerEnableGroup"
+                    data-search-keywords="reader view,reader mode,reading mode,enable reader,disable reader,reader toggle,hide reader,turn off reader,turn on reader"
+                    data-setting-key="readerViewEnabled">
+                    <h3 class="card-title">Behavior</h3>
+                    <p class="card-desc">When disabled, the Reader View icon, context-menu entries, and keyboard shortcut are all hidden until you turn it back on here.</p>
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <label class="toggle-label-text" for="readerViewEnabled">Enable Reader View</label>
+                            <p class="toggle-hint">Shows the Reader View icon in the popup header and right-click menu actions for opening pages in Reader View.</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input name="readerViewEnabled" id="readerViewEnabled" type="checkbox" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="setting-card" id="readerTypographyGroup"
+                    data-search-keywords="reader view,reader mode,reading mode,typography,font size,line height,line width,reader font,serif,sans,wide reading,narrow reading,readable"
+                    data-setting-key="readerSettings.fontSize,readerSettings.lineHeight,readerSettings.maxWidth,readerSettings.fontFamily">
+                    <h3 class="card-title">Typography</h3>
+                    <p class="card-desc">Reader View remembers these values across pages. You can also tune them live from the reader toolbar.</p>
+                    <div class="reader-options-grid">
+                        <div class="input-group">
+                            <label class="input-label" for="readerSettings.fontSize">Font size</label>
+                            <input type="number" name="readerSettings.fontSize" id="readerSettings.fontSize" min="9" max="32" step="1" class="text-input" role="spinbutton" inputmode="numeric" />
+                            <p class="input-hint">Pixels, 9-32</p>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label" for="readerSettings.lineHeight">Line height</label>
+                            <input type="number" name="readerSettings.lineHeight" id="readerSettings.lineHeight" min="1.1" max="2.4" step="0.1" class="text-input" role="spinbutton" inputmode="decimal" />
+                            <p class="input-hint">1.1-2.4</p>
+                        </div>
+                        <div class="input-group">
+                            <label class="input-label" for="readerSettings.maxWidth">Reading width</label>
+                            <input type="number" name="readerSettings.maxWidth" id="readerSettings.maxWidth" min="24" max="72" step="1" class="text-input" role="spinbutton" inputmode="numeric" />
+                            <p class="input-hint">Em units, 24-72</p>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">Body font</label>
+                        <div class="radio-group">
+                            <div class="radio-pill">
+                                <input type="radio" name="readerSettings.fontFamily" id="reader-font-sans" value="" />
+                                <label for="reader-font-sans">System sans</label>
+                            </div>
+                            <div class="radio-pill">
+                                <input type="radio" name="readerSettings.fontFamily" id="reader-font-serif" value="__serif__" />
+                                <label for="reader-font-serif">System serif</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-card" id="readerThemeGroup"
+                    data-search-keywords="reader theme,reader appearance,reader light,reader dark,reader auto,system theme,reading theme"
+                    data-setting-key="readerSettings.appearance">
+                    <h3 class="card-title">Appearance</h3>
+                    <p class="card-desc">Choose the default color scheme. <strong>Auto</strong> follows your OS preference.</p>
+                    <div class="input-group">
+                        <label class="input-label">Theme</label>
+                        <div class="radio-group">
+                            <div class="radio-pill">
+                                <input type="radio" name="readerSettings.appearance" id="reader-theme-auto" value="auto" />
+                                <label for="reader-theme-auto">Auto</label>
+                            </div>
+                            <div class="radio-pill">
+                                <input type="radio" name="readerSettings.appearance" id="reader-theme-light" value="light" />
+                                <label for="reader-theme-light">Light</label>
+                            </div>
+                            <div class="radio-pill">
+                                <input type="radio" name="readerSettings.appearance" id="reader-theme-dark" value="dark" />
+                                <label for="reader-theme-dark">Dark</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="setting-card" id="readerCustomCssGroup"
+                    data-search-keywords="reader custom css,reader stylesheet,reader styles,reader override,reading customization"
+                    data-setting-key="readerSettings.customCss">
+                    <h3 class="card-title">Custom CSS</h3>
+                    <p class="card-desc">Power-user override applied inside Reader View. Selectors are auto-scoped to the reader root, so write rules normally (e.g. <code>p { line-height: 1.8 }</code>) and they apply only inside the reader.</p>
+                    <div class="input-group">
+                        <textarea name="readerSettings.customCss" id="readerSettings.customCss" class="textarea-input" rows="6" spellcheck="false" placeholder="p { letter-spacing: -0.005em; }
+blockquote { font-style: normal; }"></textarea>
+                    </div>
+                </div>
+            </div>
 
             <div class="section" id="section-import-export" data-section-label="Import / Export" role="tabpanel" tabindex="0" aria-labelledby="tab-import-export">
                 <h2 class="section-title">Import / Export</h2>

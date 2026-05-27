@@ -417,6 +417,8 @@ const dom = {
     pickElementButton: document.getElementById('pickElement'),
     highlighterRow: document.getElementById('highlighterRow'),
     toggleHighlighterButton: document.getElementById('toggleHighlighter'),
+    readerRow: document.getElementById('readerRow'),
+    toggleReaderButton: document.getElementById('toggleReader'),
     clipOption: document.getElementById('clipOption'),
     urlList: document.getElementById('urlList'),
     startBatchButton: document.getElementById('startBatch'),
@@ -2032,6 +2034,7 @@ dom.shortcutsModalBody?.addEventListener('click', (e) => {
 dom.pickLinksButton?.addEventListener("click", activateLinkPicker);
 dom.pickElementButton?.addEventListener("click", activateElementPicker);
 dom.toggleHighlighterButton?.addEventListener("click", toggleHighlighter);
+dom.toggleReaderButton?.addEventListener("click", toggleReaderView);
 document.querySelectorAll('[data-capture-method]').forEach((card) => {
     card.addEventListener('click', () => setCaptureMethod(card.dataset.captureMethod));
 });
@@ -2467,6 +2470,53 @@ function resetHighlighterButtonFeedback() {
     setHighlighterButtonFeedback(popupMessage('popupHighlighterBtn', null, 'Highlight'));
 }
 
+async function toggleReaderView(e) {
+    e.preventDefault();
+    const button = dom.toggleReaderButton;
+    if (!button) return;
+
+    try {
+        if (currentOptions?.readerViewEnabled === false) {
+            return;
+        }
+
+        const activeTab = await getPopupPageActionTargetTab();
+        if (!activeTab?.id) {
+            throw new Error(popupMessage('popupNoActiveTabError', null, 'No active tab found'));
+        }
+        if (isRestrictedTabUrl(activeTab.url || '')) {
+            showError(getRestrictedPageMessage(activeTab.url || ''));
+            return;
+        }
+
+        button.dataset.state = 'pending';
+        const response = await browser.runtime.sendMessage({
+            type: 'toggle-reader-view',
+            tabId: activeTab.id
+        });
+
+        if (response?.ok === false) {
+            button.dataset.state = 'error';
+            const reason = response.reason || 'unknown';
+            const message = reason === 'restricted'
+                ? popupMessage('popupReaderRestricted', null, "This page can't be read in Reader View.")
+                : popupMessage('popupReaderFailed', null, 'Reader View failed to open.');
+            showError(message);
+            setTimeout(() => { if (button.dataset.state === 'error') button.dataset.state = 'idle'; }, 2200);
+            return;
+        }
+
+        button.dataset.state = response?.active === false ? 'idle' : 'active';
+        await browser.tabs.update(activeTab.id, { active: true }).catch(() => {});
+        window.close();
+    } catch (error) {
+        console.error('Error toggling reader view:', error);
+        button.dataset.state = 'error';
+        setTimeout(() => { if (button.dataset.state === 'error') button.dataset.state = 'idle'; }, 2200);
+        showError(popupMessage('popupReaderFailed', null, 'Reader View failed to open.'));
+    }
+}
+
 async function toggleHighlighter(e) {
     e.preventDefault();
 
@@ -2574,6 +2624,7 @@ const defaultOptions = {
     elementPickerEnabled: true,
     elementPickerDoneAction: 'popup',
     highlighterEnabled: true,
+    readerViewEnabled: true,
     alwaysShowHighlights: true,
     highlightClipBehavior: 'inline',
     highlightInlineSyntax: 'html-mark',
@@ -2742,6 +2793,20 @@ const updateHighlighterButtonVisibility = (options) => {
     });
     if (dom.toggleHighlighterButton) {
         dom.toggleHighlighterButton.disabled = !shouldShow;
+    }
+    syncQuickActionsLayout();
+}
+
+const updateReaderButtonVisibility = (options) => {
+    const shouldShow = options?.readerViewEnabled !== false;
+    [dom.readerRow].forEach((target) => {
+        if (!target) return;
+        target.hidden = !shouldShow;
+        target.style.display = shouldShow ? "" : "none";
+        target.setAttribute("aria-hidden", String(!shouldShow));
+    });
+    if (dom.toggleReaderButton) {
+        dom.toggleReaderButton.disabled = !shouldShow;
     }
     syncQuickActionsLayout();
 }
@@ -4498,6 +4563,7 @@ const checkInitialSettings = options => {
     updateBatchProcessButtonVisibility(currentOptions);
     updateElementPickerButtonVisibility(currentOptions);
     updateHighlighterButtonVisibility(currentOptions);
+    updateReaderButtonVisibility(currentOptions);
     updatePopupExportControls(currentOptions);
     resetElementPickerButtonFeedback();
     resetHighlighterButtonFeedback();
@@ -4849,6 +4915,13 @@ browser.storage.onChanged.addListener((changes, areaName) => {
                 highlighterEnabled: changes.highlighterEnabled.newValue !== false
             });
             updateHighlighterButtonVisibility(currentOptions);
+        }
+        if (changes.readerViewEnabled) {
+            currentOptions = normalizePopupOptions({
+                ...currentOptions,
+                readerViewEnabled: changes.readerViewEnabled.newValue !== false
+            });
+            updateReaderButtonVisibility(currentOptions);
         }
         if (popupActionKeys.some((key) => Object.prototype.hasOwnProperty.call(changes, key))) {
             currentOptions = normalizePopupOptions({

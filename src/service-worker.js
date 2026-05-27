@@ -86,7 +86,11 @@ const PENDING_NOTIFICATION_DISPLAY_LOCK_TIMEOUT_MS = 5000;
 const ELEMENT_PICKER_RESULT_STORAGE_KEY = 'elementPickerResult';
 const ELEMENT_PICKER_DONE_ACTIONS = new Set(['popup', 'copy']);
 const HIGHLIGHT_MANAGER_PAGE = 'highlights/highlights.html';
+const READER_PAGE = 'reader/reader.html';
+const READER_SESSION_PREFIX = 'reader-session:';
+const READER_SESSION_TTL_MS = 60 * 60 * 1000;
 let highlightIndexCache = null;
+let readerCssTextCache = null;
 let releaseHighlightsCachePromise = null;
 let notificationStateTaskChain = Promise.resolve();
 const pendingNotificationDisplayLocks = new Map();
@@ -1002,6 +1006,24 @@ async function handleMessages(message, sender, _sendResponse) {
       return { highlights: await loadPageHighlightsForUrl(message.pageUrl) };
     case "open-highlights-page":
       return await openHighlightsPage(message);
+    case "toggle-reader-view":
+      return await toggleReaderViewFromMessage(message, sender);
+    case "open-reader-tab":
+      return await openReaderTabFromMessage(message, sender);
+    case "reader-fetch-article":
+      return await fetchReaderArticleByUrl(message, sender);
+    case "reader-copy-markdown":
+      return await copyReaderMarkdown(message, sender);
+    case "reader-download-markdown":
+      return await downloadReaderMarkdown(message, sender);
+    case "reader-send-obsidian":
+      return await sendReaderMarkdownToObsidian(message, sender);
+    case "reader-save-settings":
+      return await saveReaderSettings(message.patch);
+    case "reader-toggle-highlighter":
+      return await toggleHighlighterFromReader(message, sender);
+    case "open-reader-options":
+      return await openReaderOptionsPage();
     case "open-popup":
       try {
         await browser.action.openPopup();
@@ -2914,6 +2936,12 @@ async function handleContextMenuClick(info, tab) {
   else if (info.menuItemId === "open-highlights") {
     await openHighlightsPage({ pageUrl: tab?.url || '' });
   }
+  else if (info.menuItemId === "open-reader-overlay") {
+    await toggleReaderViewForTab(tab);
+  }
+  else if (info.menuItemId === "open-reader-tab") {
+    await openReaderTabForTab(tab);
+  }
   // Copy all tabs as markdown links
   else if (info.menuItemId === "copy-tab-as-markdown-link-all") {
     await copyTabAsMarkdownLinkAll(tab);
@@ -3135,6 +3163,442 @@ async function openHighlightsPage(message = {}) {
   return { ok: true };
 }
 
+function createReaderSessionId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `reader-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function getReaderSettings(options = {}) {
+  if (typeof normalizeReaderSettings === 'function') {
+    return normalizeReaderSettings(options.readerSettings);
+  }
+  return options.readerSettings || defaultOptions.readerSettings;
+}
+
+async function saveReaderSettings(patch = {}) {
+  const stored = await browser.storage.sync.get({ readerSettings: defaultOptions.readerSettings });
+  const current = getReaderSettings({ readerSettings: stored.readerSettings });
+  const next = getReaderSettings({ readerSettings: { ...current, ...(patch || {}) } });
+  await browser.storage.sync.set({ readerSettings: next });
+  return { ok: true, settings: next };
+}
+
+async function getReaderTargetTab(messageOrInfo = {}, senderOrTab = null) {
+  if (Number.isInteger(messageOrInfo?.tabId)) {
+    return await browser.tabs.get(messageOrInfo.tabId);
+  }
+  if (senderOrTab?.tab?.id) {
+    return senderOrTab.tab;
+  }
+  if (senderOrTab?.id) {
+    return senderOrTab;
+  }
+  return await getCommandTargetTab();
+}
+
+async function loadReaderHighlights(pageUrl) {
+  const highlightApi = globalThis.markSnipHighlightState;
+  if (!highlightApi?.loadPageRecord || !pageUrl) {
+    return [];
+  }
+  try {
+    const record = await highlightApi.loadPageRecord(pageUrl);
+    return Array.isArray(record?.highlights) ? record.highlights : [];
+  } catch (error) {
+    console.warn('[Reader] Failed to load highlights:', error);
+    return [];
+  }
+}
+
+async function getReaderCssText() {
+  if (readerCssTextCache != null) {
+    return readerCssTextCache;
+  }
+  const response = await fetch(browser.runtime.getURL('reader/reader.css'));
+  readerCssTextCache = response.ok ? await response.text() : '';
+  return readerCssTextCache;
+}
+
+async function captureReaderPayload(tabId) {
+  if (!Number.isInteger(tabId)) {
+    throw new Error('No active tab found');
+  }
+  const tab = await browser.tabs.get(tabId);
+  if (!tab?.id || isRestrictedTabUrl(tab.url || '')) {
+    return { ok: false, reason: 'restricted' };
+  }
+
+  await ensureScripts(tabId);
+  await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+  const options = await getOptions();
+  const captureOptions = {
+    skipHiddenContent: options?.skipHiddenContent === true
+  };
+  const results = await browser.scripting.executeScript({
+    target: { tabId },
+    func: async (captureOptions) => {
+      if (typeof marksnipPrepareForCapture === 'function') {
+        await marksnipPrepareForCapture();
+      }
+      if (typeof getSelectionAndDom === 'function') {
+        return getSelectionAndDom(captureOptions);
+      }
+      return null;
+    },
+    args: [captureOptions]
+  });
+
+  const data = results?.[0]?.result;
+  if (!data?.dom) {
+    throw new Error('Unable to capture page content');
+  }
+
+  const pageUrl = data.pageUrl || tab.url || '';
+  const response = await browser.runtime.sendMessage({
+    target: 'offscreen',
+    type: 'process-content-return',
+    data: {
+      dom: data.dom,
+      selection: null,
+      pageUrl,
+      clipSelection: false
+    },
+    tabId,
+    options,
+    suppressTemplate: true,
+    readerView: true
+  });
+
+  if (!response?.ok) {
+    throw new Error(response?.error || 'Reader capture failed');
+  }
+
+  const result = response.result || {};
+  const article = result.article || {};
+  return {
+    ok: true,
+    payload: {
+      ...result,
+      article,
+      pageUrl: article.pageURL || article.baseURI || pageUrl,
+      title: article.title || tab.title || 'Reader View'
+    },
+    options
+  };
+}
+
+async function ensureReaderOverlayScripts(tabId) {
+  await browser.scripting.executeScript({
+    target: { tabId },
+    files: [
+      '/browser-polyfill.min.js',
+      '/reader/sanitize.js',
+      '/reader/outline.js',
+      '/reader/lightbox.js',
+      '/reader/footnotes.js',
+      '/reader/highlights.js',
+      '/reader/toolbar.js',
+      '/reader/renderer.js',
+      '/contentScript/reader-overlay.js'
+    ]
+  });
+}
+
+async function openReaderOptionsPage() {
+  const url = browser.runtime.getURL('options/options.html#section-reader');
+  await browser.tabs.create({ url });
+  return { ok: true };
+}
+
+async function toggleHighlighterFromReader(_message, sender) {
+  // The reader's "Highlight" button: after the overlay closes itself, hand off
+  // to the existing highlighter flow on the underlying tab.
+  const tabId = sender?.tab?.id;
+  if (!Number.isInteger(tabId)) {
+    return { ok: false, reason: 'no-source-tab' };
+  }
+  try {
+    return await toggleHighlighterFromMessage({ type: 'toggle-highlighter', tabId }, sender);
+  } catch (error) {
+    return { ok: false, error: String(error?.message || error) };
+  }
+}
+
+async function toggleReaderViewForTab(tab) {
+  const targetTab = tab?.id ? tab : await getCommandTargetTab();
+  if (!targetTab?.id) {
+    return { ok: false, reason: 'no-active-tab' };
+  }
+  const gateOptions = await getOptions();
+  if (gateOptions?.readerViewEnabled === false) {
+    return { ok: false, reason: 'reader-disabled' };
+  }
+  if (isRestrictedTabUrl(targetTab.url || '')) {
+    return { ok: false, reason: 'restricted' };
+  }
+
+  const status = await browser.tabs.sendMessage(targetTab.id, {
+    type: 'MARKSNIP_READER_STATUS'
+  }).catch(() => null);
+  if (status?.active) {
+    await browser.tabs.sendMessage(targetTab.id, { type: 'MARKSNIP_READER_CLOSE' }).catch(() => null);
+    return { ok: true, active: false };
+  }
+
+  const captured = await captureReaderPayload(targetTab.id);
+  if (!captured.ok) {
+    return captured;
+  }
+  const settings = getReaderSettings(captured.options);
+  const pageUrl = captured.payload.pageUrl;
+  const highlights = await loadReaderHighlights(pageUrl);
+
+  // Save a session for the overlay too, so the Export buttons (Copy / Download /
+  // Send to Obsidian) work with the same session-lookup path the tab uses.
+  const sessionId = await saveReaderSession({
+    ...captured.payload,
+    settings,
+    highlights,
+    sourceTabId: targetTab.id
+  });
+
+  await ensureReaderOverlayScripts(targetTab.id);
+  const readerCssText = await getReaderCssText();
+  const response = await browser.tabs.sendMessage(targetTab.id, {
+    type: 'MARKSNIP_READER_APPLY',
+    payload: {
+      ...captured.payload,
+      sessionId,
+      settings,
+      highlights,
+      readerCssText
+    }
+  });
+  await browser.tabs.update(targetTab.id, { active: true }).catch(() => {});
+  return response || { ok: true, active: true };
+}
+
+async function toggleReaderViewFromMessage(message, sender) {
+  const targetTab = await getReaderTargetTab(message, sender);
+  return await toggleReaderViewForTab(targetTab);
+}
+
+async function saveReaderSession(session) {
+  const sessionId = createReaderSessionId();
+  const entry = {
+    ...session,
+    capturedAt: Date.now()
+  };
+  if (browser.storage.session) {
+    await browser.storage.session.set({ [sessionId]: entry });
+  } else {
+    await browser.storage.local.set({ [READER_SESSION_PREFIX + sessionId]: entry });
+  }
+  return sessionId;
+}
+
+async function readReaderSession(sessionId) {
+  if (!sessionId) return null;
+  if (browser.storage.session) {
+    const stored = await browser.storage.session.get(sessionId);
+    if (stored?.[sessionId]) return stored[sessionId];
+  }
+  const key = READER_SESSION_PREFIX + sessionId;
+  const stored = await browser.storage.local.get(key);
+  const entry = stored?.[key];
+  if (!entry) return null;
+  if (Date.now() - Number(entry.capturedAt || 0) > READER_SESSION_TTL_MS) {
+    await browser.storage.local.remove(key).catch(() => {});
+    return null;
+  }
+  return entry;
+}
+
+async function openReaderTabForTab(tab) {
+  const targetTab = tab?.id ? tab : await getCommandTargetTab();
+  if (!targetTab?.id) {
+    return { ok: false, reason: 'no-active-tab' };
+  }
+  if (isRestrictedTabUrl(targetTab.url || '')) {
+    return { ok: false, reason: 'restricted' };
+  }
+
+  const captured = await captureReaderPayload(targetTab.id);
+  if (!captured.ok) {
+    return captured;
+  }
+  const settings = getReaderSettings(captured.options);
+  const highlights = await loadReaderHighlights(captured.payload.pageUrl);
+  const sessionId = await saveReaderSession({
+    ...captured.payload,
+    settings,
+    highlights,
+    sourceTabId: targetTab.id
+  });
+  await browser.tabs.create({
+    url: browser.runtime.getURL(`${READER_PAGE}?id=${encodeURIComponent(sessionId)}`)
+  });
+  return { ok: true, sessionId };
+}
+
+async function openReaderTabFromMessage(message, sender) {
+  const targetTab = await getReaderTargetTab(message, sender);
+  return await openReaderTabForTab(targetTab);
+}
+
+async function fetchReaderArticleByUrl(message, sender) {
+  const url = String(message?.url || '').trim();
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, reason: 'unsupported-scheme' };
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return { ok: false, reason: 'unsupported-scheme' };
+  }
+
+  const response = await fetch(parsed.href, { credentials: 'include', redirect: 'follow' }).catch((error) => ({
+    ok: false,
+    status: 0,
+    error
+  }));
+  if (!response?.ok) {
+    return { ok: false, reason: 'fetch-failed', status: response?.status || 0 };
+  }
+  const contentType = String(response.headers?.get?.('content-type') || '').split(';')[0].trim().toLowerCase();
+  if (contentType && contentType !== 'text/html' && contentType !== 'application/xhtml+xml') {
+    return { ok: false, reason: 'not-html' };
+  }
+
+  const html = await response.text();
+  const finalUrl = response.url || parsed.href;
+  await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+  const options = await getOptions();
+  const processed = await browser.runtime.sendMessage({
+    target: 'offscreen',
+    type: 'reader-prepare-and-process',
+    html,
+    finalUrl,
+    options,
+    suppressTemplate: true
+  });
+  if (!processed?.ok) {
+    return { ok: false, reason: 'process-failed', error: processed?.error || '' };
+  }
+
+  const result = processed.result || {};
+  const pageUrl = result.article?.pageURL || finalUrl;
+  const highlights = await loadReaderHighlights(pageUrl);
+  const sessionId = await saveReaderSession({
+    ...result,
+    pageUrl,
+    title: result.article?.title || 'Reader View',
+    settings: getReaderSettings(options),
+    highlights,
+    sourceTabId: null,
+    readerTabId: sender?.tab?.id || null
+  });
+  return { ok: true, sessionId };
+}
+
+async function getOpenReaderActionTab(session, sender) {
+  if (Number.isInteger(session?.sourceTabId)) {
+    const sourceTab = await browser.tabs.get(session.sourceTabId).catch(() => null);
+    if (sourceTab?.id) return sourceTab.id;
+  }
+  if (Number.isInteger(sender?.tab?.id)) {
+    return sender.tab.id;
+  }
+  const activeTab = await getCommandTargetTab();
+  return activeTab?.id || null;
+}
+
+async function copyReaderMarkdown(message) {
+  const session = await readReaderSession(message?.sessionId);
+  if (!session) {
+    return { ok: false, reason: 'session-missing' };
+  }
+  await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+  const copied = await browser.runtime.sendMessage({
+    target: 'offscreen',
+    type: 'copy-to-clipboard',
+    text: session.markdown || ''
+  });
+  return { ok: copied === true };
+}
+
+async function downloadReaderMarkdown(message, sender) {
+  const session = await readReaderSession(message?.sessionId);
+  if (!session) {
+    return { ok: false, reason: 'session-missing' };
+  }
+  await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+  const actionTabId = await getOpenReaderActionTab(session, sender);
+  const options = {
+    ...(session.effectiveOptions || await getOptions()),
+    downloadMode: 'downloadsApi'
+  };
+  await browser.runtime.sendMessage({
+    target: 'offscreen',
+    type: 'download-markdown',
+    markdown: session.markdown || '',
+    title: session.title || session.article?.title || 'Reader View',
+    tabId: actionTabId,
+    imageList: session.imageList || {},
+    mdClipsFolder: session.mdClipsFolder || '',
+    options,
+    notificationDelta: SINGLE_DOWNLOAD_NOTIFICATION_DELTA
+  });
+  return { ok: true };
+}
+
+async function sendReaderMarkdownToObsidian(message, sender) {
+  const session = await readReaderSession(message?.sessionId);
+  if (!session) {
+    return { ok: false, reason: 'session-missing' };
+  }
+  const options = {
+    ...(await getOptions()),
+    ...(session.effectiveOptions || {})
+  };
+  const markdown = markSnipObsidian.prepareMarkdownForObsidian(
+    session.markdown || '',
+    session.sourceImageMap || {}
+  );
+  const uriInfo = markSnipObsidian.createObsidianAdvancedUri({
+    vault: options.obsidianVault || '',
+    folder: options.obsidianFolder || '',
+    title: session.title || session.article?.title || 'Reader View',
+    markdown
+  });
+  const actionTabId = Number.isInteger(sender?.tab?.id)
+    ? sender.tab.id
+    : await getOpenReaderActionTab(session, sender);
+
+  if (uriInfo.transport === 'clipboard') {
+    await ensureOffscreenDocumentExists({ allowFirefoxTab: true });
+    await browser.runtime.sendMessage({
+      target: 'offscreen',
+      type: 'copy-to-clipboard',
+      text: markdown
+    });
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
+  if (Number.isInteger(actionTabId)) {
+    await browser.tabs.update(actionTabId, { url: uriInfo.uri });
+  } else {
+    await browser.tabs.update({ url: uriInfo.uri });
+  }
+  await recordNotificationMetrics({ obsidianSends: 1, exports: 1 }, {
+    tabId: actionTabId
+  });
+  return { ok: true, transport: uriInfo.transport };
+}
+
 async function getCommandTargetTab() {
   const queryStrategies = [
     { active: true, lastFocusedWindow: true },
@@ -3160,7 +3624,8 @@ function isRestrictedTabUrl(url) {
     url.startsWith('about:') ||
     url.startsWith('moz-extension://') ||
     url.startsWith('chrome-extension://') ||
-    url.startsWith('view-source:')
+    url.startsWith('view-source:') ||
+    /\.pdf(?:$|[?#])/i.test(url)
   );
 }
 
@@ -3454,6 +3919,9 @@ async function handleCommands(command) {
     else if (command == "copy_tab_to_obsidian") {
       const info = { menuItemId: "copy-markdown-obsall" };
       await copyMarkdownFromContext(info, tab);
+    }
+    else if (command == "toggle_reader_view") {
+      await toggleReaderViewForTab(tab);
     }
   } catch (error) {
     console.error(`[Commands] Failed to execute "${command}":`, error);

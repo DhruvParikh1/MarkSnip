@@ -4313,6 +4313,25 @@ input[type="file"] {
     color: var(--text-tertiary);
 }
 
+/* Reader View typography fields — 3-up grid that collapses on narrow panels */
+.reader-options-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-4);
+    margin-top: var(--space-3);
+    margin-bottom: var(--space-4);
+}
+
+.reader-options-grid .input-group {
+    margin: 0;
+}
+
+@media (max-width: 720px) {
+    .reader-options-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 .input-hint a {
     color: var(--accent);
 }

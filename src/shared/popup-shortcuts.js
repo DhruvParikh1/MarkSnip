@@ -8,6 +8,7 @@
     'copy_selected_tab_as_markdown_link': 'Copy selected tabs as Markdown links',
     'copy_selection_to_obsidian':         'Copy selection to Obsidian',
     'copy_tab_to_obsidian':               'Copy tab to Obsidian',
+    'toggle_reader_view':                 'Toggle Reader View',
   };
 
   const COMMAND_LABEL_KEYS = {
@@ -19,13 +20,14 @@
     'copy_selected_tab_as_markdown_link': 'shortcutCopySelectedTabsLinks',
     'copy_selection_to_obsidian':         'shortcutCopySelectionObsidian',
     'copy_tab_to_obsidian':               'shortcutCopyTabObsidian',
+    'toggle_reader_view':                 'shortcutToggleReader',
   };
 
   const COMMAND_ORDER = [
     '_execute_action', 'download_tab_as_markdown', 'copy_tab_as_markdown',
     'copy_tab_as_markdown_link', 'copy_selection_as_markdown',
     'copy_selected_tab_as_markdown_link', 'copy_selection_to_obsidian',
-    'copy_tab_to_obsidian',
+    'copy_tab_to_obsidian', 'toggle_reader_view',
   ];
 
   // Returns ['Alt', 'Shift', 'M'] for 'Alt+Shift+M', [] for empty/falsy

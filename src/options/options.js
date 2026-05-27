@@ -2526,6 +2526,10 @@ function normalizeImportedOptionsState(importedOptions) {
         tableFormatting: {
             ...(defaultOptions.tableFormatting || {}),
             ...((importedOptions && importedOptions.tableFormatting) || {})
+        },
+        readerSettings: {
+            ...(defaultOptions.readerSettings || {}),
+            ...((importedOptions && importedOptions.readerSettings) || {})
         }
     };
 
@@ -2586,6 +2590,19 @@ function resetOptionKeysState(keys) {
             if (!optionName) return;
             nextOptions.tableFormatting = nextOptions.tableFormatting || {};
             nextOptions.tableFormatting[optionName] = defaultOptions.tableFormatting?.[optionName];
+            return;
+        }
+
+        if (key === 'readerSettings') {
+            nextOptions.readerSettings = JSON.parse(JSON.stringify(defaultOptions.readerSettings || {}));
+            return;
+        }
+
+        if (key.startsWith('readerSettings.')) {
+            const optionName = key.split('.')[1];
+            if (!optionName) return;
+            nextOptions.readerSettings = { ...(defaultOptions.readerSettings || {}), ...(nextOptions.readerSettings || {}) };
+            nextOptions.readerSettings[optionName] = defaultOptions.readerSettings?.[optionName];
             return;
         }
 
@@ -3031,6 +3048,22 @@ const setCurrentChoice = result => {
     document.querySelector("[name='tableFormatting.prettyPrint']").checked = Boolean(options.tableFormatting.prettyPrint);
     document.querySelector("[name='tableFormatting.centerText']").checked = Boolean(options.tableFormatting.centerText);
 
+    // Reader View settings
+    const readerEnabledEl = document.querySelector("[name='readerViewEnabled']");
+    if (readerEnabledEl) readerEnabledEl.checked = options.readerViewEnabled !== false;
+
+    const readerSettings = { ...(defaultOptions.readerSettings || {}), ...(options.readerSettings || {}) };
+    const setReaderInput = (selector, value) => {
+        const el = document.querySelector(selector);
+        if (el != null) el.value = value;
+    };
+    setReaderInput("[name='readerSettings.fontSize']", readerSettings.fontSize);
+    setReaderInput("[name='readerSettings.lineHeight']", readerSettings.lineHeight);
+    setReaderInput("[name='readerSettings.maxWidth']", readerSettings.maxWidth);
+    setReaderInput("[name='readerSettings.customCss']", readerSettings.customCss || '');
+    setCheckedValue(document.querySelectorAll("[name='readerSettings.appearance']"), readerSettings.appearance || 'auto');
+    setCheckedValue(document.querySelectorAll("[name='readerSettings.fontFamily']"), readerSettings.fontFamily || '');
+
     setCheckedValue(document.querySelectorAll("[name='headingStyle']"), options.headingStyle);
     setCheckedValue(document.querySelectorAll("[name='hr']"), options.hr);
     setCheckedValue(document.querySelectorAll("[name='bulletListMarker']"), options.bulletListMarker);
@@ -3328,6 +3361,16 @@ const inputChange = async (e) => {
 	                options.contextMenuItems = normalizeContextMenuItemsState(options.contextMenuItems);
 	                if (itemKey) {
 	                    options.contextMenuItems[itemKey] = Boolean(value);
+	                }
+	            } else if (key.startsWith('readerSettings.')) {
+	                const optionName = key.split('.')[1];
+	                const defaults = defaultOptions.readerSettings || {};
+	                options.readerSettings = { ...defaults, ...(options.readerSettings || {}) };
+	                if (e.target.type === 'number') {
+	                    const numeric = Number(value);
+	                    options.readerSettings[optionName] = Number.isFinite(numeric) ? numeric : defaults[optionName];
+	                } else {
+	                    options.readerSettings[optionName] = value;
 	                }
 	            } else {
 	                options[key] = value;
@@ -3807,7 +3850,13 @@ function initSearch() {
 
         sections.forEach(section => section.classList.remove('search-section-empty'));
 
-        const activeTab = sessionStorage.getItem('marksnip-options-tab') || 'templates';
+        // Honor a #section-<id> hash so the reader (and other surfaces) can deep-link
+        const hashMatch = (window.location.hash || '').match(/^#section-(.+)/);
+        const hashSection = hashMatch?.[1];
+        if (hashSection && document.getElementById(`section-${hashSection}`)) {
+            sessionStorage.setItem('marksnip-options-tab', hashSection);
+        }
+        const activeTab = hashSection || sessionStorage.getItem('marksnip-options-tab') || 'templates';
         const sidebarItems = document.querySelectorAll('.sidebar-item');
         const allSections = document.querySelectorAll('.section');
 

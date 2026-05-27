@@ -1,0 +1,1290 @@
+/* ============================================================
+   MarkSnip Reader View
+   Scoped under .ms-reader-root so the same stylesheet works
+   inside a closed shadow root (overlay mode) and as the top
+   stylesheet of reader.html (tab mode).
+   ============================================================ */
+
+.ms-reader-root,
+.ms-reader-root *,
+.ms-reader-root *::before,
+.ms-reader-root *::after {
+  box-sizing: border-box;
+}
+
+.ms-reader-root {
+  /* Neutral palette — mirrors popup.css */
+  --ms-stone-50:  #FAFAF9;
+  --ms-stone-100: #F5F5F4;
+  --ms-stone-200: #E7E5E4;
+  --ms-stone-300: #D6D3D1;
+  --ms-stone-400: #A8A29E;
+  --ms-stone-500: #78716C;
+  --ms-stone-600: #57534E;
+  --ms-stone-700: #44403C;
+  --ms-stone-800: #292524;
+  --ms-stone-900: #1C1917;
+
+  /* Sage accent */
+  --ms-accent:        #6B8E6F;
+  --ms-accent-soft:   #E8EDE7;
+  --ms-accent-strong: #56735A;
+
+  /* Highlight swatches */
+  --ms-hl-yellow: #FFE99A;
+  --ms-hl-green:  #B6E4C0;
+  --ms-hl-blue:   #BAD8F2;
+  --ms-hl-pink:   #F4B9CC;
+  --ms-hl-purple: #D9C2EE;
+
+  /* Light theme defaults */
+  --ms-bg:           #FFFFFF;
+  --ms-bg-elevated:  var(--ms-stone-50);
+  --ms-bg-muted:     var(--ms-stone-100);
+  --ms-bg-hover:     var(--ms-stone-200);
+  --ms-bg-overlay:   rgba(28, 25, 23, 0.5);
+
+  --ms-text:         var(--ms-stone-900);
+  --ms-text-muted:   var(--ms-stone-600);
+  --ms-text-subtle:  var(--ms-stone-500);
+  --ms-text-link:    var(--ms-accent-strong);
+
+  --ms-border:       var(--ms-stone-200);
+  --ms-border-strong:var(--ms-stone-300);
+
+  --ms-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --ms-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --ms-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+
+  --ms-bar-bg: color-mix(in srgb, var(--ms-bg) 78%, transparent);
+
+  /* Fonts — never depend on Inter being loaded inside a shadow root */
+  --ms-font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ms-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ms-font-serif: "Iowan Old Style", "Charter", Georgia, Cambria, "Times New Roman", Times, serif;
+  --ms-font-mono: ui-monospace, "SF Mono", Menlo, Monaco, Consolas, "Cascadia Code", "Roboto Mono", monospace;
+
+  /* Reader-tunable surface (overridden by toolbar) */
+  --ms-reader-font-size: 17px;
+  --ms-reader-line-height: 1.65;
+  --ms-reader-line-width: 38em;
+
+  /* Motion */
+  --ms-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --ms-dur-fast: 120ms;
+  --ms-dur: 180ms;
+  --ms-dur-slow: 240ms;
+
+  /* Radii */
+  --ms-r-sm: 6px;
+  --ms-r-md: 8px;
+  --ms-r-lg: 12px;
+  --ms-r-pill: 999px;
+
+  position: relative;
+  display: block;
+  min-height: 100%;
+  background: var(--ms-bg);
+  color: var(--ms-text);
+  font-family: var(--ms-font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1, "liga" 1;
+  letter-spacing: -0.005em;
+
+  transition:
+    background-color var(--ms-dur) var(--ms-ease),
+    color var(--ms-dur) var(--ms-ease);
+}
+
+/* Tab mode covers the viewport */
+.ms-reader-root[data-ms-reader-mode="tab"] {
+  min-height: 100vh;
+}
+
+/* ============================================================
+   Theme variants
+   ============================================================ */
+
+.ms-reader-root[data-ms-theme="dark"] {
+  --ms-bg:           #1C1917;
+  --ms-bg-elevated:  #292524;
+  --ms-bg-muted:     #1F1C1A;
+  --ms-bg-hover:     #44403C;
+  --ms-bg-overlay:   rgba(0, 0, 0, 0.6);
+
+  --ms-text:         #FAFAF9;
+  --ms-text-muted:   var(--ms-stone-400);
+  --ms-text-subtle:  var(--ms-stone-500);
+  --ms-text-link:    #98B89C;
+
+  --ms-border:       #2F2B28;
+  --ms-border-strong:#3F3A36;
+
+  --ms-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --ms-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --ms-shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.55);
+
+  --ms-bar-bg: color-mix(in srgb, var(--ms-bg) 78%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  .ms-reader-root[data-ms-theme="auto"] {
+    --ms-bg:           #1C1917;
+    --ms-bg-elevated:  #292524;
+    --ms-bg-muted:     #1F1C1A;
+    --ms-bg-hover:     #44403C;
+    --ms-bg-overlay:   rgba(0, 0, 0, 0.6);
+
+    --ms-text:         #FAFAF9;
+    --ms-text-muted:   var(--ms-stone-400);
+    --ms-text-subtle:  var(--ms-stone-500);
+    --ms-text-link:    #98B89C;
+
+    --ms-border:       #2F2B28;
+    --ms-border-strong:#3F3A36;
+
+    --ms-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --ms-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.45);
+    --ms-shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.55);
+
+    --ms-bar-bg: color-mix(in srgb, var(--ms-bg) 78%, transparent);
+  }
+}
+
+/* Body font family toggle */
+.ms-reader-root[data-ms-font="serif"] .ms-reader-content {
+  font-family: var(--ms-font-serif);
+}
+
+/* ============================================================
+   Layout — mirrors Obsidian Clipper:
+   `1fr auto 1fr` keeps the content column its own width and lets
+   the two flexible side rails balance, so the article stays
+   centered regardless of which sidebar is hidden.
+   ============================================================ */
+
+.ms-reader-container {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 28px;
+  align-items: start;
+  width: 100%;
+  margin: 0 auto;
+  padding: max(4rem, 4vh) 24px 96px;
+}
+
+.ms-reader-outline {
+  width: min(240px, 100%);
+  justify-self: end;
+}
+
+.ms-reader-content {
+  width: var(--ms-reader-line-width);
+  max-width: min(100%, 100vw - 64px);
+  justify-self: center;
+}
+
+.ms-reader-highlights {
+  width: min(260px, 100%);
+  justify-self: start;
+}
+
+@media (max-width: 1080px) {
+  .ms-reader-container {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding: 88px 20px 64px;
+  }
+  .ms-reader-outline,
+  .ms-reader-highlights {
+    display: none;
+  }
+  .ms-reader-content {
+    justify-self: stretch;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* ============================================================
+   Top bar
+   ============================================================ */
+
+.ms-reader-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 10px 20px;
+  background: var(--ms-bar-bg);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  backdrop-filter: saturate(180%) blur(14px);
+  border-bottom: 1px solid color-mix(in srgb, var(--ms-border) 70%, transparent);
+  transition:
+    background-color var(--ms-dur) var(--ms-ease),
+    border-color var(--ms-dur) var(--ms-ease);
+}
+
+.ms-reader-bar-title {
+  font-family: var(--ms-font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ms-text-muted);
+  letter-spacing: -0.005em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-reader-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ms-reader-bar-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--ms-border-strong);
+  margin: 0 4px;
+}
+
+/* Icon button — header style */
+.ms-reader-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--ms-r-md);
+  color: var(--ms-text-muted);
+  font-family: var(--ms-font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  cursor: pointer;
+  transition:
+    background-color var(--ms-dur) var(--ms-ease),
+    color var(--ms-dur) var(--ms-ease),
+    border-color var(--ms-dur) var(--ms-ease),
+    transform var(--ms-dur-fast) var(--ms-ease);
+}
+
+.ms-reader-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ms-reader-btn:hover {
+    background: var(--ms-bg-hover);
+    color: var(--ms-text);
+  }
+}
+
+.ms-reader-btn:focus-visible {
+  outline: none;
+  border-color: var(--ms-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ms-accent) 28%, transparent);
+}
+
+.ms-reader-btn:active {
+  transform: scale(0.97);
+}
+
+.ms-reader-btn[aria-expanded="true"],
+.ms-reader-btn[aria-pressed="true"] {
+  background: var(--ms-bg-hover);
+  color: var(--ms-text);
+}
+
+.ms-reader-btn--primary {
+  background: var(--ms-accent);
+  color: #FFFFFF;
+  padding: 0 12px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ms-reader-btn--primary:hover {
+    background: var(--ms-accent-strong);
+    color: #FFFFFF;
+  }
+}
+
+/* Reader-close prefers a slightly stronger affordance */
+.ms-reader-btn--close {
+  color: var(--ms-text);
+}
+
+/* Floating popovers (settings, action menu) */
+.ms-reader-popover-wrap {
+  position: relative;
+}
+
+.ms-reader-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 220px;
+  padding: 8px;
+  background: var(--ms-bg);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-r-lg);
+  box-shadow: var(--ms-shadow-lg);
+  transform-origin: top right;
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity var(--ms-dur) var(--ms-ease),
+    transform var(--ms-dur) var(--ms-ease);
+}
+
+.ms-reader-popover[hidden] {
+  display: none;
+}
+
+@starting-style {
+  .ms-reader-popover:not([hidden]) {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.ms-reader-popover--settings {
+  width: 280px;
+  padding: 14px;
+}
+
+/* Stepper rows inside settings popover */
+.ms-reader-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.ms-reader-control + .ms-reader-control {
+  border-top: 1px solid color-mix(in srgb, var(--ms-border) 60%, transparent);
+}
+
+.ms-reader-control-label {
+  font-family: var(--ms-font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ms-text-muted);
+  letter-spacing: 0;
+}
+
+.ms-reader-stepper {
+  display: inline-flex;
+  align-items: center;
+  background: var(--ms-bg-muted);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-r-md);
+  overflow: hidden;
+}
+
+.ms-reader-stepper button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  color: var(--ms-text);
+  font-family: var(--ms-font-ui);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color var(--ms-dur) var(--ms-ease),
+    transform var(--ms-dur-fast) var(--ms-ease);
+}
+
+.ms-reader-stepper button svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ms-reader-stepper button:hover {
+    background: var(--ms-bg-hover);
+  }
+}
+
+.ms-reader-stepper button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.ms-reader-stepper button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ms-reader-stepper-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 28px;
+  font-family: var(--ms-font-mono);
+  font-size: 12px;
+  color: var(--ms-text);
+  border-left: 1px solid var(--ms-border);
+  border-right: 1px solid var(--ms-border);
+}
+
+/* Segmented control (theme, font family) */
+.ms-reader-segmented {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--ms-bg-muted);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-r-md);
+}
+
+.ms-reader-segmented button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 38px;
+  height: 24px;
+  padding: 0 10px;
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  color: var(--ms-text-muted);
+  font-family: var(--ms-font-ui);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--ms-dur) var(--ms-ease),
+    color var(--ms-dur) var(--ms-ease),
+    transform var(--ms-dur-fast) var(--ms-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ms-reader-segmented button:hover {
+    color: var(--ms-text);
+  }
+}
+
+.ms-reader-segmented button[aria-checked="true"] {
+  background: var(--ms-bg);
+  color: var(--ms-text);
+  box-shadow: var(--ms-shadow-sm);
+}
+
+.ms-reader-segmented button:active {
+  transform: scale(0.96);
+}
+
+/* Action menu rows */
+.ms-reader-menu-item {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--ms-r-md);
+  color: var(--ms-text);
+  font-family: var(--ms-font-ui);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--ms-dur) var(--ms-ease),
+    transform var(--ms-dur-fast) var(--ms-ease);
+}
+
+.ms-reader-menu-item svg {
+  width: 16px;
+  height: 16px;
+  color: var(--ms-text-muted);
+  flex: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ms-reader-menu-item:hover {
+    background: var(--ms-bg-hover);
+  }
+}
+
+.ms-reader-menu-item:active {
+  transform: scale(0.98);
+}
+
+.ms-reader-menu-item-status {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--ms-text-subtle);
+  opacity: 0;
+  transition: opacity var(--ms-dur) var(--ms-ease);
+}
+
+.ms-reader-menu-item-status[data-state="success"] {
+  color: var(--ms-accent);
+  opacity: 1;
+}
+
+.ms-reader-menu-item-status[data-state="error"] {
+  color: #A05D56;
+  opacity: 1;
+}
+
+/* ============================================================
+   Outline (left rail)
+   ============================================================ */
+
+.ms-reader-outline {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding: 4px 4px 24px 0;
+  font-family: var(--ms-font-ui);
+  font-size: 12.5px;
+  scrollbar-width: thin;
+}
+
+.ms-reader-outline[hidden] {
+  display: none;
+}
+
+.ms-reader-outline ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ms-reader-outline li {
+  position: relative;
+}
+
+.ms-reader-outline a {
+  display: block;
+  padding: 6px 10px 6px 14px;
+  color: var(--ms-text-muted);
+  text-decoration: none;
+  border-radius: var(--ms-r-sm);
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+  transition:
+    background-color var(--ms-dur) var(--ms-ease),
+    color var(--ms-dur) var(--ms-ease),
+    border-color var(--ms-dur) var(--ms-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ms-reader-outline a:hover {
+    color: var(--ms-text);
+    background: var(--ms-bg-muted);
+  }
+}
+
+.ms-reader-outline a[aria-current="true"] {
+  color: var(--ms-text);
+  border-left-color: var(--ms-accent);
+  font-weight: 500;
+}
+
+.ms-reader-outline li[data-level="3"] a { padding-left: 22px; }
+.ms-reader-outline li[data-level="4"] a { padding-left: 30px; }
+.ms-reader-outline li[data-level="5"] a { padding-left: 38px; }
+.ms-reader-outline li[data-level="6"] a { padding-left: 46px; }
+
+/* ============================================================
+   Content
+   ============================================================ */
+
+.ms-reader-content {
+  font-size: var(--ms-reader-font-size);
+  line-height: var(--ms-reader-line-height);
+  color: var(--ms-text);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
+}
+
+.ms-reader-title {
+  margin: 0 0 12px;
+  font-family: var(--ms-font-sans);
+  font-size: clamp(1.85rem, 1.4rem + 1.4vw, 2.6rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ms-text);
+  text-wrap: balance;
+}
+
+.ms-reader-root[data-ms-font="serif"] .ms-reader-title {
+  font-family: var(--ms-font-serif);
+  letter-spacing: -0.01em;
+}
+
+.ms-reader-metadata {
+  margin: 0 0 40px;
+  font-family: var(--ms-font-ui);
+  font-size: 13px;
+  color: var(--ms-text-subtle);
+  letter-spacing: 0;
+}
+
+.ms-reader-metadata:empty {
+  display: none;
+}
+
+.ms-reader-content article {
+  margin: 0 auto;
+}
+
+/* Prose */
+.ms-reader-content article > * + * {
+  margin-top: 1em;
+}
+
+.ms-reader-content article h1,
+.ms-reader-content article h2,
+.ms-reader-content article h3,
+.ms-reader-content article h4,
+.ms-reader-content article h5,
+.ms-reader-content article h6 {
+  font-family: var(--ms-font-sans);
+  font-weight: 700;
+  letter-spacing: -0.012em;
+  line-height: 1.25;
+  margin-top: 2em;
+  margin-bottom: 0.6em;
+  color: var(--ms-text);
+}
+
+.ms-reader-root[data-ms-font="serif"] .ms-reader-content article h1,
+.ms-reader-root[data-ms-font="serif"] .ms-reader-content article h2,
+.ms-reader-root[data-ms-font="serif"] .ms-reader-content article h3 {
+  font-family: var(--ms-font-serif);
+}
+
+.ms-reader-content article h2 { font-size: 1.4em; }
+.ms-reader-content article h3 { font-size: 1.18em; }
+.ms-reader-content article h4 { font-size: 1.05em; }
+.ms-reader-content article h5,
+.ms-reader-content article h6 { font-size: 1em; color: var(--ms-text-muted); }
+
+.ms-reader-content article p {
+  margin: 0;
+}
+
+.ms-reader-content article a {
+  color: var(--ms-text-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: color-mix(in srgb, var(--ms-text-link) 40%, transparent);
+  transition: text-decoration-color var(--ms-dur) var(--ms-ease), color var(--ms-dur) var(--ms-ease);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ms-reader-content article a:hover {
+    text-decoration-color: var(--ms-text-link);
+  }
+}
+
+.ms-reader-content article strong { font-weight: 700; }
+.ms-reader-content article em { font-style: italic; }
+
+.ms-reader-content article blockquote {
+  margin: 1.5em 0;
+  padding: 4px 0 4px 18px;
+  border-left: 3px solid color-mix(in srgb, var(--ms-accent) 55%, var(--ms-border-strong));
+  color: var(--ms-text);
+  font-style: italic;
+}
+
+/* When a blockquote nests a paragraph (the common case) the italic still applies. */
+.ms-reader-content article blockquote > :first-child { margin-top: 0; }
+.ms-reader-content article blockquote > :last-child  { margin-bottom: 0; }
+
+/* ============================================================
+   Callouts — Obsidian / GitHub-style admonitions.
+   No colored side-stripe: full 1px border tinted by the accent
+   plus a soft background tint. Body text uses default text color
+   so inline <code> doesn't dominate as the only readable element.
+
+   Three trigger surfaces, all share the same custom-property
+   chain so styles cascade uniformly:
+     1. `.ms-reader-callout`                 (post-processed)
+     2. `blockquote[data-callout]`           (Obsidian native)
+     3. `blockquote.callout`                 (legacy class)
+   ============================================================ */
+
+.ms-reader-content article .ms-reader-callout,
+.ms-reader-content article blockquote[data-callout],
+.ms-reader-content article blockquote.callout {
+  --ms-callout-accent: var(--ms-accent);
+  --ms-callout-tint: color-mix(in srgb, var(--ms-callout-accent) 12%, var(--ms-bg));
+  --ms-callout-edge: color-mix(in srgb, var(--ms-callout-accent) 28%, var(--ms-border));
+
+  margin: 1.75em 0;
+  padding: 14px 18px;
+  background: var(--ms-callout-tint);
+  border: 1px solid var(--ms-callout-edge);
+  border-radius: var(--ms-r-md);
+  color: var(--ms-text);
+  font-style: normal;
+}
+
+.ms-reader-content article .ms-reader-callout > :first-child,
+.ms-reader-content article blockquote[data-callout] > :first-child,
+.ms-reader-content article blockquote.callout > :first-child { margin-top: 0; }
+.ms-reader-content article .ms-reader-callout > :last-child,
+.ms-reader-content article blockquote[data-callout] > :last-child,
+.ms-reader-content article blockquote.callout > :last-child  { margin-bottom: 0; }
+
+.ms-reader-content article .ms-reader-callout-title,
+.ms-reader-content article .callout-title {
+  margin: 0 0 6px;
+  font-family: var(--ms-font-ui);
+  font-size: 0.92em;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: 0.005em;
+  color: color-mix(in srgb, var(--ms-callout-accent) 88%, var(--ms-text));
+  font-style: normal;
+}
+
+/* Obsidian's title row contains <svg.callout-icon> + inner text; align them. */
+.ms-reader-content article .callout-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ms-reader-content article .ms-reader-callout-content,
+.ms-reader-content article .callout-content {
+  /* Default text color, not muted — fixes the "only <code> is visible" bug */
+  color: var(--ms-text);
+  font-style: normal;
+}
+
+.ms-reader-content article .ms-reader-callout-content > * + *,
+.ms-reader-content article .callout-content > * + * {
+  margin-top: 0.75em;
+}
+
+.ms-reader-content article .ms-reader-callout-content p,
+.ms-reader-content article .callout-content p {
+  margin: 0;
+}
+
+/* Inline <code> inside a callout integrates with the surface instead of
+   competing with the body text. */
+.ms-reader-content article .ms-reader-callout code,
+.ms-reader-content article blockquote[data-callout] code,
+.ms-reader-content article blockquote.callout code {
+  background: color-mix(in srgb, var(--ms-callout-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--ms-callout-accent) 30%, transparent);
+  color: var(--ms-text);
+}
+
+.ms-reader-content article .ms-reader-callout pre,
+.ms-reader-content article blockquote[data-callout] pre,
+.ms-reader-content article blockquote.callout pre {
+  background: color-mix(in srgb, var(--ms-callout-accent) 8%, var(--ms-bg));
+  border-color: color-mix(in srgb, var(--ms-callout-accent) 22%, var(--ms-border));
+}
+
+.ms-reader-content article .ms-reader-callout pre code,
+.ms-reader-content article blockquote[data-callout] pre code,
+.ms-reader-content article blockquote.callout pre code {
+  background: transparent;
+  border: none;
+}
+
+/* Color variants — only the accent changes; tint and edge cascade via custom
+   properties on the same element. Each kind has three trigger forms:
+   class on a transformed wrapper, the Obsidian native data-callout, and
+   the legacy `.callout-<kind>` class some processors emit. */
+
+.ms-reader-content article .ms-reader-callout-note,
+.ms-reader-content article blockquote[data-callout="note"] {
+  --ms-callout-accent: var(--ms-accent);
+}
+.ms-reader-content article .ms-reader-callout-info,
+.ms-reader-content article .ms-reader-callout-todo,
+.ms-reader-content article blockquote[data-callout="info"],
+.ms-reader-content article blockquote[data-callout="todo"] {
+  --ms-callout-accent: #5589BC;
+}
+.ms-reader-content article .ms-reader-callout-tip,
+.ms-reader-content article .ms-reader-callout-success,
+.ms-reader-content article .ms-reader-callout-check,
+.ms-reader-content article blockquote[data-callout="tip"],
+.ms-reader-content article blockquote[data-callout="hint"],
+.ms-reader-content article blockquote[data-callout="success"],
+.ms-reader-content article blockquote[data-callout="check"] {
+  --ms-callout-accent: #4F8A5F;
+}
+.ms-reader-content article .ms-reader-callout-warning,
+.ms-reader-content article .ms-reader-callout-caution,
+.ms-reader-content article .ms-reader-callout-important,
+.ms-reader-content article blockquote[data-callout="warning"],
+.ms-reader-content article blockquote[data-callout="caution"],
+.ms-reader-content article blockquote[data-callout="attention"],
+.ms-reader-content article blockquote[data-callout="important"] {
+  --ms-callout-accent: #B17A2C;
+}
+.ms-reader-content article .ms-reader-callout-danger,
+.ms-reader-content article .ms-reader-callout-failure,
+.ms-reader-content article .ms-reader-callout-fail,
+.ms-reader-content article .ms-reader-callout-bug,
+.ms-reader-content article .ms-reader-callout-error,
+.ms-reader-content article blockquote[data-callout="danger"],
+.ms-reader-content article blockquote[data-callout="failure"],
+.ms-reader-content article blockquote[data-callout="fail"],
+.ms-reader-content article blockquote[data-callout="bug"],
+.ms-reader-content article blockquote[data-callout="error"] {
+  --ms-callout-accent: #B65454;
+}
+.ms-reader-content article .ms-reader-callout-question,
+.ms-reader-content article .ms-reader-callout-example,
+.ms-reader-content article blockquote[data-callout="question"],
+.ms-reader-content article blockquote[data-callout="help"],
+.ms-reader-content article blockquote[data-callout="example"] {
+  --ms-callout-accent: #8472BD;
+}
+.ms-reader-content article .ms-reader-callout-quote,
+.ms-reader-content article .ms-reader-callout-cite,
+.ms-reader-content article .ms-reader-callout-abstract,
+.ms-reader-content article .ms-reader-callout-summary,
+.ms-reader-content article blockquote[data-callout="quote"],
+.ms-reader-content article blockquote[data-callout="cite"],
+.ms-reader-content article blockquote[data-callout="abstract"],
+.ms-reader-content article blockquote[data-callout="summary"],
+.ms-reader-content article blockquote[data-callout="tldr"] {
+  --ms-callout-accent: var(--ms-text-subtle);
+  --ms-callout-tint: var(--ms-bg-muted);
+  --ms-callout-edge: var(--ms-border);
+}
+
+/* In dark theme the accent-tinted backgrounds resolve to dark, but the
+   color-mix can leave them nearly identical to the page background. Bump
+   the tint a touch in dark so the callout still reads as a discrete card. */
+.ms-reader-root[data-ms-theme="dark"] .ms-reader-content article .ms-reader-callout,
+.ms-reader-root[data-ms-theme="dark"] .ms-reader-content article blockquote[data-callout],
+.ms-reader-root[data-ms-theme="dark"] .ms-reader-content article blockquote.callout,
+.ms-reader-root[data-ms-theme="auto"] .ms-reader-content article .ms-reader-callout,
+.ms-reader-root[data-ms-theme="auto"] .ms-reader-content article blockquote[data-callout],
+.ms-reader-root[data-ms-theme="auto"] .ms-reader-content article blockquote.callout {
+  --ms-callout-tint: color-mix(in srgb, var(--ms-callout-accent) 18%, var(--ms-bg));
+  --ms-callout-edge: color-mix(in srgb, var(--ms-callout-accent) 36%, var(--ms-border));
+}
+
+@media (prefers-color-scheme: light) {
+  .ms-reader-root[data-ms-theme="auto"] .ms-reader-content article .ms-reader-callout,
+  .ms-reader-root[data-ms-theme="auto"] .ms-reader-content article blockquote[data-callout],
+  .ms-reader-root[data-ms-theme="auto"] .ms-reader-content article blockquote.callout {
+    --ms-callout-tint: color-mix(in srgb, var(--ms-callout-accent) 12%, var(--ms-bg));
+    --ms-callout-edge: color-mix(in srgb, var(--ms-callout-accent) 28%, var(--ms-border));
+  }
+}
+
+.ms-reader-content article ul,
+.ms-reader-content article ol {
+  padding-left: 1.5em;
+  margin: 0;
+}
+
+.ms-reader-content article li + li {
+  margin-top: 0.4em;
+}
+
+.ms-reader-content article ul ul,
+.ms-reader-content article ol ol,
+.ms-reader-content article ul ol,
+.ms-reader-content article ol ul {
+  margin-top: 0.4em;
+}
+
+.ms-reader-content article hr {
+  border: none;
+  border-top: 1px solid var(--ms-border);
+  margin: 2.5em auto;
+  max-width: calc(var(--ms-reader-line-width) - 6em);
+}
+
+/* Code */
+.ms-reader-content article code {
+  font-family: var(--ms-font-mono);
+  font-size: 0.88em;
+  padding: 2px 6px;
+  background: var(--ms-bg-muted);
+  border: 1px solid var(--ms-border);
+  border-radius: 5px;
+  color: var(--ms-text);
+}
+
+.ms-reader-content article pre {
+  margin: 1.5em 0;
+  padding: 16px 18px;
+  background: var(--ms-bg-elevated);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-r-md);
+  overflow-x: auto;
+  font-family: var(--ms-font-mono);
+  font-size: 0.86em;
+  line-height: 1.55;
+}
+
+.ms-reader-content article pre code {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font-size: 1em;
+}
+
+/* Images & figures */
+.ms-reader-content article img,
+.ms-reader-content article video {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5em auto;
+  border-radius: var(--ms-r-md);
+  background: var(--ms-bg-muted);
+}
+
+.ms-reader-content article figure {
+  margin: 1.75em auto;
+}
+
+.ms-reader-content article figcaption {
+  margin-top: 8px;
+  font-family: var(--ms-font-ui);
+  font-size: 13px;
+  color: var(--ms-text-subtle);
+  text-align: center;
+}
+
+/* Allow figures and images to break out a little for breathing room */
+.ms-reader-content article figure,
+.ms-reader-content article > img,
+.ms-reader-content article > video {
+  max-width: min(calc(var(--ms-reader-line-width) + 6em), 100%);
+}
+
+/* Tables */
+.ms-reader-content article table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 0.93em;
+}
+
+.ms-reader-content article thead th {
+  text-align: left;
+  font-weight: 600;
+  background: var(--ms-bg-muted);
+  color: var(--ms-text);
+}
+
+.ms-reader-content article th,
+.ms-reader-content article td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--ms-border);
+}
+
+.ms-reader-content article tbody tr:hover {
+  background: color-mix(in srgb, var(--ms-bg-muted) 60%, transparent);
+}
+
+/* Image cursor — encourage lightbox */
+.ms-reader-content article img {
+  cursor: zoom-in;
+}
+
+/* Cursor restore for non-clickable images is acceptable to skip */
+
+/* ============================================================
+   Highlights (right sidebar)
+   ============================================================ */
+
+.ms-reader-highlights {
+  position: sticky;
+  top: 80px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding-top: 4px;
+  scrollbar-width: thin;
+}
+
+.ms-reader-highlights[hidden] { display: none; }
+
+.ms-reader-highlights::before {
+  content: attr(data-label);
+  display: block;
+  margin: 0 0 12px 4px;
+  font-family: var(--ms-font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ms-text-subtle);
+}
+
+.ms-reader-highlights-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ms-reader-highlights-list li {
+  position: relative;
+  padding: 10px 12px 10px 16px;
+  background: var(--ms-bg-elevated);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-r-md);
+  font-family: var(--ms-font-ui);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ms-text-muted);
+}
+
+.ms-reader-highlights-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--ms-hl-yellow);
+}
+
+.ms-reader-highlights-list li[data-color="green"]::before  { background: var(--ms-hl-green); }
+.ms-reader-highlights-list li[data-color="blue"]::before   { background: var(--ms-hl-blue); }
+.ms-reader-highlights-list li[data-color="pink"]::before   { background: var(--ms-hl-pink); }
+.ms-reader-highlights-list li[data-color="purple"]::before { background: var(--ms-hl-purple); }
+
+.ms-reader-highlight-text {
+  display: block;
+  color: var(--ms-text);
+  /* fall back to two-line clamp for long highlights */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ms-reader-highlight-note {
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--ms-text-subtle);
+  border-top: 1px dashed color-mix(in srgb, var(--ms-border) 70%, transparent);
+  padding-top: 6px;
+}
+
+/* Inline highlight marks inside the article body */
+.ms-reader-content mark.ms-reader-mark {
+  background: color-mix(in srgb, var(--ms-hl-yellow) 70%, transparent);
+  color: inherit;
+  padding: 1px 2px;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.ms-reader-content mark.ms-reader-mark[data-color="green"]  { background: color-mix(in srgb, var(--ms-hl-green)  70%, transparent); }
+.ms-reader-content mark.ms-reader-mark[data-color="blue"]   { background: color-mix(in srgb, var(--ms-hl-blue)   70%, transparent); }
+.ms-reader-content mark.ms-reader-mark[data-color="pink"]   { background: color-mix(in srgb, var(--ms-hl-pink)   70%, transparent); }
+.ms-reader-content mark.ms-reader-mark[data-color="purple"] { background: color-mix(in srgb, var(--ms-hl-purple) 70%, transparent); }
+
+.ms-reader-root[data-ms-theme="dark"] .ms-reader-content mark.ms-reader-mark {
+  color: #1c1917;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ms-reader-root[data-ms-theme="auto"] .ms-reader-content mark.ms-reader-mark {
+    color: #1c1917;
+  }
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+
+.ms-reader-footer {
+  max-width: 1216px;
+  margin: 0 auto;
+  padding: 24px 32px 48px;
+  font-family: var(--ms-font-ui);
+  font-size: 12px;
+  color: var(--ms-text-subtle);
+  text-align: center;
+  word-break: break-all;
+}
+
+.ms-reader-footer:empty { display: none; }
+
+/* ============================================================
+   Lightbox
+   ============================================================ */
+
+.ms-reader-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background: var(--ms-bg-overlay);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  opacity: 1;
+  transition: opacity var(--ms-dur) var(--ms-ease);
+}
+
+@starting-style {
+  .ms-reader-lightbox {
+    opacity: 0;
+  }
+}
+
+.ms-reader-lightbox img {
+  max-width: min(96vw, 1600px);
+  max-height: 88vh;
+  border-radius: var(--ms-r-md);
+  box-shadow: var(--ms-shadow-lg);
+  background: #000;
+}
+
+.ms-reader-lightbox-close {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1C1917;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0;
+  box-shadow: var(--ms-shadow-md);
+  transition:
+    background-color var(--ms-dur) var(--ms-ease),
+    transform var(--ms-dur-fast) var(--ms-ease);
+}
+
+.ms-reader-lightbox-close::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231C1917' stroke-width='2.25' stroke-linecap='round' stroke-linejoin='round'%3e%3cpath d='M18 6 6 18M6 6l12 12'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ms-reader-lightbox-close:hover {
+    background: rgba(255, 255, 255, 1);
+  }
+}
+
+.ms-reader-lightbox-close:active {
+  transform: scale(0.94);
+}
+
+/* ============================================================
+   Footnote popover
+   ============================================================ */
+
+.ms-reader-footnote-popover {
+  position: fixed;
+  z-index: 2147483645;
+  max-width: 360px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 14px 16px;
+  background: var(--ms-bg);
+  border: 1px solid var(--ms-border);
+  border-radius: var(--ms-r-md);
+  box-shadow: var(--ms-shadow-md);
+  color: var(--ms-text);
+  font-family: var(--ms-font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  opacity: 1;
+  transition: opacity var(--ms-dur-fast) var(--ms-ease), transform var(--ms-dur-fast) var(--ms-ease);
+  transform-origin: top left;
+}
+
+@starting-style {
+  .ms-reader-footnote-popover {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.ms-reader-footnote-popover p:first-child { margin-top: 0; }
+.ms-reader-footnote-popover p:last-child  { margin-bottom: 0; }
+.ms-reader-footnote-popover a {
+  color: var(--ms-text-link);
+}
+
+/* ============================================================
+   Reader page (standalone tab) helpers
+   ============================================================ */
+
+.ms-reader-loading,
+.ms-reader-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 32px;
+  font-family: var(--ms-font-ui);
+  font-size: 14px;
+  color: var(--ms-text-muted);
+}
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-reader-root,
+  .ms-reader-root * {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
+}

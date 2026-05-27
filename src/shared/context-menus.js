@@ -179,6 +179,24 @@ const CONTEXT_MENU_PAGE_GROUPS = [
       })
     },
     {
+      key: "reader-toggle",
+      enabledWhen: (options) => options.readerViewEnabled !== false,
+      getProps: () => ({
+        id: "open-reader-overlay",
+        title: contextMenuMessage("contextOpenReaderOverlay", null, "Open in Reader View"),
+        contexts: ["all"]
+      })
+    },
+    {
+      key: "reader-open-tab",
+      enabledWhen: (options) => options.readerViewEnabled !== false,
+      getProps: () => ({
+        id: "open-reader-tab",
+        title: contextMenuMessage("contextOpenReaderTab", null, "Open in reader tab"),
+        contexts: ["all"]
+      })
+    },
+    {
       key: "highlightSelection",
       enabledWhen: (options) => options.highlighterEnabled !== false,
       getProps: () => ({

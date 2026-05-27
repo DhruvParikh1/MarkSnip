@@ -165,6 +165,10 @@ function handleMessages(message, sender) {
 		      break;
     case 'process-content-return':
       return await processContentForReturn(message);
+    case 'reader-prepare-and-process':
+      return await prepareAndProcessReaderHtml(message);
+    case 'reader-render-markdown':
+      return await renderReaderMarkdown(message);
     case 'process-element-content':
       return await processElementContent(message);
     case 'download-markdown':
@@ -262,6 +266,18 @@ function attachHighlightFieldsToArticle(article, highlights, options) {
   return highlightApi.attachHighlightFields(article, highlights, options);
 }
 
+function cloneArticlePayload(article) {
+  if (!article || typeof article !== 'object') {
+    return article;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(article));
+  } catch {
+    return { ...article };
+  }
+}
+
 function prepareDomWithInlineHighlights(domString, highlights, options) {
   const highlightApi = getHighlightStateApi();
   if (!highlightApi?.applyInlineHighlightsToDomString || !highlights?.length) {
@@ -286,15 +302,26 @@ function replaceArticleContentWithHighlights(article, highlights, options) {
   };
 }
 
-async function buildMarkdownResultFromPageContent(data, options = defaultOptions, suppressTemplate = false) {
+async function buildMarkdownResultFromPageContent(data, options = defaultOptions, suppressTemplate = false, context = {}) {
   const pageHighlights = await loadHighlightsForPage(data.pageUrl);
   const highlightBehavior = getHighlightClipBehavior(options);
+  const skipMarkdown = context?.skipMarkdown === true;
   let domForArticle = buildDomWithSelection(data.dom, data.selection, !!data.clipSelection);
   if (highlightBehavior === 'inline') {
     domForArticle = prepareDomWithInlineHighlights(domForArticle, pageHighlights, options);
   }
 
   let article = await getArticleFromDom(domForArticle, options, data.pageUrl);
+  let readerArticle = null;
+  if (context?.readerView && highlightBehavior !== 'replace-content') {
+    try {
+      readerArticle = await getArticleFromDom(domForArticle, options, data.pageUrl, {
+        readerView: true
+      });
+    } catch (error) {
+      console.warn('[Reader] Semantic reader extraction failed; falling back to regular article content:', error);
+    }
+  }
   article = attachHighlightFieldsToArticle(article, pageHighlights, options);
   if (highlightBehavior === 'replace-content') {
     article = attachHighlightFieldsToArticle(
@@ -303,28 +330,46 @@ async function buildMarkdownResultFromPageContent(data, options = defaultOptions
       options
     );
   }
+  const readerExportArticle = skipMarkdown ? cloneArticlePayload(article) : null;
+  if (highlightBehavior !== 'replace-content' && readerArticle?.content) {
+    article.readerContent = readerArticle.content;
+  }
   const resolved = resolveOptionsForArticle(article, options);
   const templateOptions = { ...resolved.options };
   const effectiveOptions = suppressTemplate
     ? { ...resolved.options, includeTemplate: false }
     : resolved.options;
 
-  const { markdown, imageList, sourceImageMap } = await convertArticleToMarkdown(article, null, effectiveOptions);
+  let markdown = '';
+  let imageList = {};
+  let sourceImageMap = {};
+  if (!skipMarkdown) {
+    const markdownResult = await convertArticleToMarkdown(article, null, effectiveOptions);
+    markdown = markdownResult.markdown;
+    imageList = markdownResult.imageList;
+    sourceImageMap = markdownResult.sourceImageMap;
+  }
 
   article.title = await formatTitle(article, effectiveOptions);
   const mdClipsFolder = await formatMdClipsFolder(article, effectiveOptions);
 
-  return {
-    markdown,
+  const result = {
     article,
-    imageList,
-    sourceImageMap,
     mdClipsFolder,
     effectiveOptions,
     templateOptions,
     matchedSiteRule: resolved.matchedRule,
     overriddenKeys: resolved.overriddenKeys
   };
+  if (skipMarkdown) {
+    result.markdownDeferred = true;
+    result.readerExportArticle = readerExportArticle;
+  } else {
+    result.markdown = markdown;
+    result.imageList = imageList;
+    result.sourceImageMap = sourceImageMap;
+  }
+  return result;
 }
 
 async function processContent(message) {
@@ -354,7 +399,11 @@ async function processContentForReturn(message) {
     const result = await buildMarkdownResultFromPageContent(
       data,
       options || defaultOptions,
-      !!message.suppressTemplate
+      !!message.suppressTemplate,
+      {
+        readerView: !!message.readerView,
+        skipMarkdown: !!message.skipMarkdown
+      }
     );
     return { ok: true, result };
   } catch (error) {
@@ -363,6 +412,94 @@ async function processContentForReturn(message) {
       ok: false,
       error: error.message
     };
+  }
+}
+
+async function renderReaderMarkdown(message) {
+  try {
+    const article = cloneArticlePayload(message.article);
+    if (!article?.content) {
+      throw new Error('Missing reader article content');
+    }
+
+    const options = message.options || defaultOptions;
+    const { markdown, imageList, sourceImageMap } = await convertArticleToMarkdown(article, null, options);
+    const formattedTitle = message.title || await formatTitle(article, options);
+    const mdClipsFolder = typeof message.mdClipsFolder === 'string'
+      ? message.mdClipsFolder
+      : await formatMdClipsFolder({ ...article, title: formattedTitle }, options);
+
+    return {
+      ok: true,
+      result: {
+        markdown,
+        imageList,
+        sourceImageMap,
+        mdClipsFolder
+      }
+    };
+  } catch (error) {
+    console.error('Error rendering reader markdown:', error);
+    return {
+      ok: false,
+      error: error.message
+    };
+  }
+}
+
+function prepareReaderHtmlWithBase(html, finalUrl) {
+  const parser = new DOMParser();
+  const dom = parser.parseFromString(String(html || ''), 'text/html');
+  if (dom.documentElement.nodeName === 'parsererror' || !dom.body) {
+    throw new Error('Unable to parse reader HTML');
+  }
+
+  if (!dom.head) {
+    const head = dom.createElement('head');
+    dom.documentElement.insertBefore(head, dom.body);
+  }
+
+  if (!dom.head.querySelector('title')) {
+    const title = dom.createElement('title');
+    title.textContent = dom.title || finalUrl || 'Reader View';
+    dom.head.appendChild(title);
+  }
+
+  let base = dom.head.querySelector('base');
+  if (!base) {
+    base = dom.createElement('base');
+    dom.head.prepend(base);
+  }
+  base.setAttribute('href', finalUrl);
+
+  return dom.documentElement.outerHTML;
+}
+
+async function prepareAndProcessReaderHtml(message) {
+  try {
+    const finalUrl = String(message.finalUrl || '').trim();
+    if (!finalUrl) {
+      throw new Error('Missing reader URL');
+    }
+    const dom = prepareReaderHtmlWithBase(message.html, finalUrl);
+    const result = await buildMarkdownResultFromPageContent(
+      {
+        dom,
+        selection: null,
+        pageUrl: finalUrl,
+        clipSelection: false
+      },
+      message.options || defaultOptions,
+      !!message.suppressTemplate,
+      {
+        readerView: true,
+        skipMarkdown: !!message.skipMarkdown
+      }
+    );
+    return { ok: true, result };
+  } catch (error) {
+    console.error('Error preparing reader HTML:', error);
+    return { ok: false, error: error.message };
   }
 }
 
@@ -1585,6 +1722,17 @@ function getReadabilityRecoveryApi() {
   };
 }
 
+function getReaderSemanticsApi() {
+  return globalThis.MarkSnipReaderSemantics || {
+    prepareReaderDomForReadability(document) {
+      return document;
+    },
+    enhanceReaderArticleHtml(html) {
+      return html;
+    }
+  };
+}
+
 function normalizeMeaningfulText(text) {
   return String(text || '').replace(/\s+/g, ' ').trim();
 }
@@ -1686,7 +1834,11 @@ function isMathMLSourceType(type) {
   return /(?:^|[/+])mml\b|mathml/i.test(String(type || ''));
 }
 
-function prepareDomForReadability(dom, options, recoveryApi) {
+function prepareDomForReadability(dom, options, recoveryApi, context = {}) {
+  if (context?.readerView) {
+    getReaderSemanticsApi().prepareReaderDomForReadability(dom);
+  }
+
   // Now options is defined
   if (!options.preserveCodeFormatting) {
     dom.querySelectorAll('pre code').forEach(codeBlock => {
@@ -1856,7 +2008,7 @@ function prepareDomForReadability(dom, options, recoveryApi) {
   return { dom, math };
 }
 
-function finalizeArticleMetadata(article, dom, pageUrl, math, recoveryApi, options = defaultOptions, recoveryDom = dom) {
+function finalizeArticleMetadata(article, dom, pageUrl, math, recoveryApi, options = defaultOptions, recoveryDom = dom, context = {}) {
   if (!article) {
     throw new Error('Readability failed to extract article');
   }
@@ -1889,6 +2041,9 @@ function finalizeArticleMetadata(article, dom, pageUrl, math, recoveryApi, optio
   }
 
   article.content = recoveryApi.stripStructuralAnchorsFromHtml(article.content);
+  if (context?.readerView) {
+    article.content = getReaderSemanticsApi().enhanceReaderArticleHtml(article.content);
+  }
 
   // Add essential metadata with fallbacks.
   // Keep baseURI semantics tied to the parsed document/base tag, and expose pageURL/tabURL separately.
@@ -1950,7 +2105,7 @@ function finalizeArticleMetadata(article, dom, pageUrl, math, recoveryApi, optio
   return article;
 }
 
-function extractArticleWithRecovery(domString, options) {
+function extractArticleWithRecovery(domString, options, context = {}) {
   const recoveryApi = getReadabilityRecoveryApi();
   const shouldIncludeHiddenContent = options?.skipHiddenContent !== true;
   const readabilityOptions = {
@@ -1959,7 +2114,7 @@ function extractArticleWithRecovery(domString, options) {
 
   const firstPassParser = new DOMParser();
   const firstPassDom = firstPassParser.parseFromString(domString, "text/html");
-  const firstPassPrepared = prepareDomForReadability(firstPassDom, options, recoveryApi);
+  const firstPassPrepared = prepareDomForReadability(firstPassDom, options, recoveryApi, context);
   // Keep Readability scoring anchored to the visible page. Hidden content is restored
   // into the selected article later so collapsible bodies do not become the article.
   const firstPassRecoveryDom = shouldIncludeHiddenContent && typeof recoveryApi.cloneDocumentWithoutHiddenContent === 'function'
@@ -1992,7 +2147,7 @@ function extractArticleWithRecovery(domString, options) {
 
   const secondPassParser = new DOMParser();
   const secondPassDom = secondPassParser.parseFromString(domString, "text/html");
-  const secondPassPrepared = prepareDomForReadability(secondPassDom, options, recoveryApi);
+  const secondPassPrepared = prepareDomForReadability(secondPassDom, options, recoveryApi, context);
   const secondPassRecoveryDom = shouldIncludeHiddenContent && typeof recoveryApi.cloneDocumentWithoutHiddenContent === 'function'
     ? recoveryApi.cloneDocumentWithoutHiddenContent(secondPassPrepared.dom)
     : secondPassPrepared.dom;
@@ -2054,12 +2209,12 @@ function extractArticleWithRecovery(domString, options) {
   };
 }
 
-async function getArticleFromDom(domString, options, pageUrl = null) {
+async function getArticleFromDom(domString, options, pageUrl = null, context = {}) {
   if (!domString) {
     throw new Error('Invalid DOM string provided');
   }
 
-  const extracted = extractArticleWithRecovery(domString, options);
+  const extracted = extractArticleWithRecovery(domString, options, context);
   if (!extracted) {
     throw new Error('Readability failed to extract article');
   }
@@ -2071,7 +2226,8 @@ async function getArticleFromDom(domString, options, pageUrl = null) {
     extracted.math,
     getReadabilityRecoveryApi(),
     options,
-    extracted.recoveryDom
+    extracted.recoveryDom,
+    context
   );
 }
 

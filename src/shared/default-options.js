@@ -13,6 +13,8 @@ const DEFAULT_CONTEXT_MENU_ITEMS = {
   sendSelectionToObsidian: true,
   sendTabToObsidian: true,
   toggleHighlighter: true,
+  'reader-toggle': true,
+  'reader-open-tab': true,
   highlightSelection: true,
   openHighlights: true,
   toggleIncludeTemplate: true,
@@ -93,6 +95,15 @@ const defaultOptions = {
   interpreterModelId: '',
   defaultPromptContext: '{{content}}',
   interpreterExportWarning: true,
+  readerViewEnabled: true,
+  readerSettings: {
+    fontSize: 16,
+    lineHeight: 1.6,
+    maxWidth: 38,
+    appearance: 'auto',
+    fontFamily: '',
+    customCss: ''
+  },
 }
 
 const LEGACY_DEFAULT_FRONTMATTER = "---\ncreated: {date:YYYY-MM-DDTHH:mm:ss} (UTC {date:Z})\ntags: [{keywords}]\nsource: {baseURI}\nauthor: {byline}\n---\n\n# {pageTitle}\n\n> ## Excerpt\n> {excerpt}\n\n---";
@@ -125,6 +136,44 @@ function normalizeContextMenuItems(contextMenuItems) {
   }, {});
 }
 
+function clampNumber(value, min, max, fallback) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, numeric));
+}
+
+function sanitizeReaderCustomCss(customCss) {
+  return String(customCss || '')
+    .replace(/@import\b[^;]*(?:;|$)/gi, '')
+    .replace(/expression\s*\(/gi, '')
+    .replace(/url\s*\(\s*(['"]?)\s*javascript:[^)]+?\1\s*\)/gi, 'url(about:blank)')
+    .replace(/url\s*\(\s*(['"]?)\s*data:text\/html[^)]+?\1\s*\)/gi, 'url(about:blank)');
+}
+
+function normalizeReaderSettings(rawSettings) {
+  const defaults = defaultOptions.readerSettings;
+  const source = rawSettings && Object.prototype.toString.call(rawSettings) === '[object Object]'
+    ? rawSettings
+    : {};
+  const appearance = ['auto', 'light', 'dark'].includes(source.appearance)
+    ? source.appearance
+    : defaults.appearance;
+  const fontFamily = source.fontFamily === '__serif__' || source.fontFamily === ''
+    ? source.fontFamily
+    : defaults.fontFamily;
+
+  return {
+    fontSize: clampNumber(source.fontSize, 9, 32, defaults.fontSize),
+    lineHeight: clampNumber(source.lineHeight, 1.1, 2.4, defaults.lineHeight),
+    maxWidth: clampNumber(source.maxWidth, 24, 72, defaults.maxWidth),
+    appearance,
+    fontFamily,
+    customCss: sanitizeReaderCustomCss(source.customCss)
+  };
+}
+
 // function to get the options from storage and substitute default options if it fails
 async function getOptions() {
   let options = defaultOptions;
@@ -137,6 +186,7 @@ async function getOptions() {
     options.frontmatter = defaultOptions.frontmatter;
   }
   options.contextMenuItems = normalizeContextMenuItems(options.contextMenuItems);
+  options.readerSettings = normalizeReaderSettings(options.readerSettings);
   const siteRulesApi = getSiteRulesApi();
   if (siteRulesApi?.normalizeSiteRules) {
     options.siteRules = siteRulesApi.normalizeSiteRules(options.siteRules);
@@ -149,6 +199,8 @@ async function getOptions() {
 
 if (typeof globalThis !== 'undefined') {
   globalThis.defaultOptions = defaultOptions;
+  globalThis.normalizeReaderSettings = normalizeReaderSettings;
+  globalThis.sanitizeReaderCustomCss = sanitizeReaderCustomCss;
 }
 
 if (typeof module === 'object' && module.exports) {
@@ -157,6 +209,8 @@ if (typeof module === 'object' && module.exports) {
     defaultOptions,
     LEGACY_DEFAULT_FRONTMATTER,
     getOptions,
-    normalizeContextMenuItems
+    normalizeContextMenuItems,
+    normalizeReaderSettings,
+    sanitizeReaderCustomCss
   };
 }

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reader View</title>
+  <style>
+    /* Flash prevention — paint themed background before reader.css loads */
+    html, body { margin: 0; min-height: 100%; background: #FFFFFF; }
+    @media (prefers-color-scheme: dark) {
+      html, body { background: #1C1917; }
+    }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: transparent;
+    }
+    #reader-root:empty::before {
+      content: "Loading reader…";
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60vh;
+      color: #78716C;
+      font-size: 14px;
+    }
+  </style>
+  <link rel="stylesheet" href="reader.css">
+  <script src="../browser-polyfill.min.js"></script>
+  <script src="sanitize.js"></script>
+  <script src="outline.js"></script>
+  <script src="lightbox.js"></script>
+  <script src="footnotes.js"></script>
+  <script src="highlights.js"></script>
+  <script src="toolbar.js"></script>
+  <script src="renderer.js"></script>
+  <script src="reader-page.js"></script>
+</head>
+<body>
+  <main id="reader-root"></main>
+</body>
+</html>
