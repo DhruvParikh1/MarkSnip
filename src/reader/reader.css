@@ -1093,9 +1093,10 @@
 .ms-reader-highlight-text {
   display: block;
   color: var(--ms-text);
-  /* fall back to two-line clamp for long highlights */
+  /* Clamp long highlights — keep both prefixed and standard forms */
   display: -webkit-box;
   -webkit-line-clamp: 4;
+  line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
