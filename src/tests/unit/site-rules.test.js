@@ -6,6 +6,7 @@ describe('site-rules helper', () => {
     downloadImages: true,
     imageStyle: 'markdown',
     imageRefStyle: 'inlined',
+    imagePlacement: 'sidecar',
     frontmatter: 'front',
     backmatter: 'back',
     title: '{pageTitle}',
@@ -123,6 +124,35 @@ describe('site-rules helper', () => {
     expect(result.options.mdClipsFolder).toBe('');
     expect(result.options.downloadImages).toBe(false);
     expect(result.options.imageStyle).toBe('noImage');
+  });
+
+  test('lets legacy imagePrefix overrides infer placement after site-rule resolution', () => {
+    const result = siteRules.resolveSiteRuleOptions('https://assets.example.com/page', {
+      ...baseOptions,
+      siteRules: [
+        {
+          id: 'assets',
+          name: 'Assets',
+          enabled: true,
+          pattern: 'assets.example.com/*',
+          overrides: {
+            imagePrefix: 'assets/'
+          }
+        }
+      ]
+    });
+
+    expect(result.options.imagePrefix).toBe('assets/');
+    expect(result.options.imagePlacement).toBe('');
+    expect(result.overriddenKeys).toEqual(['imagePrefix']);
+  });
+
+  test('accepts explicit imagePlacement overrides', () => {
+    const normalized = siteRules.normalizeSiteRuleOverrides({
+      imagePlacement: 'sameFolder'
+    });
+
+    expect(normalized).toEqual({ imagePlacement: 'sameFolder' });
   });
 
   test('skips disabled rules and falls back to base options', () => {

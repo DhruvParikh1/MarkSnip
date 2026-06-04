@@ -58,7 +58,61 @@
     return href;
   }
 
-  function getImageFilename(src, options, prependFilePath = true) {
+  const IMAGE_PLACEMENT_MODES = Object.freeze({
+    SAME_FOLDER: 'sameFolder',
+    SIDECAR: 'sidecar',
+    CUSTOM_PREFIX: 'customPrefix'
+  });
+
+  const VALID_IMAGE_PLACEMENT_MODES = new Set(Object.values(IMAGE_PLACEMENT_MODES));
+
+  function normalizePathSeparators(value) {
+    return String(value || '').replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+  }
+
+  function stripLeadingSlashes(value) {
+    return String(value || '').replace(/^\/+/, '');
+  }
+
+  function joinPathSegments(...segments) {
+    return stripLeadingSlashes(segments
+      .map((segment) => normalizePathSeparators(segment).replace(/^\/+|\/+$/g, ''))
+      .filter(Boolean)
+      .join('/'));
+  }
+
+  function getMarkdownTitleFolder(title) {
+    const normalizedTitle = stripLeadingSlashes(normalizePathSeparators(title).replace(/\/+$/g, ''));
+    const lastSlashIndex = normalizedTitle.lastIndexOf('/');
+    return lastSlashIndex >= 0 ? normalizedTitle.substring(0, lastSlashIndex + 1) : '';
+  }
+
+  function getMarkdownTitleBaseName(title) {
+    const normalizedTitle = stripLeadingSlashes(normalizePathSeparators(title).replace(/\/+$/g, ''));
+    const lastSlashIndex = normalizedTitle.lastIndexOf('/');
+    return lastSlashIndex >= 0 ? normalizedTitle.substring(lastSlashIndex + 1) : normalizedTitle;
+  }
+
+  function normalizeImagePlacementMode(options = {}) {
+    const mode = String(options.imagePlacement || '').trim();
+    if (VALID_IMAGE_PLACEMENT_MODES.has(mode)) {
+      return mode;
+    }
+
+    const imagePrefix = String(options.imagePrefix ?? '');
+    if (!imagePrefix) {
+      return IMAGE_PLACEMENT_MODES.SAME_FOLDER;
+    }
+
+    const normalizedPrefix = normalizePathSeparators(imagePrefix);
+    if (normalizedPrefix === '{pageTitle}/' || normalizedPrefix === '{title}/') {
+      return IMAGE_PLACEMENT_MODES.SIDECAR;
+    }
+
+    return IMAGE_PLACEMENT_MODES.CUSTOM_PREFIX;
+  }
+
+  function getImageBaseFilename(src, options = {}) {
     const templateUtils = getTemplateUtils();
     const generateValidFileName = templateUtils.generateValidFileName;
     const effectiveOptions = options || {};
@@ -66,15 +120,6 @@
     const slashPos = src.lastIndexOf('/');
     const queryPos = src.indexOf('?');
     let filename = src.substring(slashPos + 1, queryPos > 0 ? queryPos : src.length);
-
-    let imagePrefix = (effectiveOptions.imagePrefix || '');
-    const title = String(effectiveOptions.title || '');
-
-    if (prependFilePath && title.includes('/')) {
-      imagePrefix = title.substring(0, title.lastIndexOf('/') + 1) + imagePrefix;
-    } else if (prependFilePath) {
-      imagePrefix = title + (imagePrefix.startsWith('/') ? '' : '/') + imagePrefix;
-    }
 
     if (filename.includes(';base64,')) {
       filename = 'image.' + filename.substring(0, filename.indexOf(';'));
@@ -91,13 +136,77 @@
       effectiveOptions.disallowedCharReplacement
     );
 
-    return imagePrefix + filename;
+    return filename;
+  }
+
+  function resolveImagePath(src, options = {}) {
+    const templateUtils = getTemplateUtils();
+    const generateValidFileName = templateUtils.generateValidFileName;
+    const effectiveOptions = options || {};
+    const filename = getImageBaseFilename(src, effectiveOptions);
+    const placement = normalizeImagePlacementMode(effectiveOptions);
+    const title = String(effectiveOptions.title || '');
+    let relativePath = filename;
+
+    if (placement === IMAGE_PLACEMENT_MODES.SIDECAR) {
+      const sidecarFolder = generateValidFileName(
+        getMarkdownTitleBaseName(title),
+        effectiveOptions.disallowedChars,
+        effectiveOptions.disallowedCharReplacement
+      );
+      relativePath = joinPathSegments(sidecarFolder, filename);
+    } else if (placement === IMAGE_PLACEMENT_MODES.CUSTOM_PREFIX) {
+      relativePath = stripLeadingSlashes(normalizePathSeparators(String(effectiveOptions.imagePrefix || ''))) + filename;
+    }
+
+    return {
+      filename,
+      imagePlacement: placement,
+      markdownPath: stripLeadingSlashes(normalizePathSeparators(relativePath)),
+      markdownTitleFolder: getMarkdownTitleFolder(title)
+    };
+  }
+
+  function buildImageDownloadFilename(markdownImagePath, title = '', mdClipsFolder = '') {
+    return joinPathSegments(
+      mdClipsFolder,
+      getMarkdownTitleFolder(title),
+      markdownImagePath
+    );
+  }
+
+  function resolveImageDownloadPath(src, options = {}, mdClipsFolder = '') {
+    const resolved = resolveImagePath(src, options);
+    return {
+      ...resolved,
+      downloadFilename: buildImageDownloadFilename(
+        resolved.markdownPath,
+        options?.title || '',
+        mdClipsFolder
+      )
+    };
+  }
+
+  function getImageFilename(src, options, prependFilePath = true) {
+    const resolved = resolveImagePath(src, options || {});
+    if (!prependFilePath) {
+      return resolved.markdownPath;
+    }
+    return buildImageDownloadFilename(resolved.markdownPath, options?.title || '', '');
   }
 
   return {
+    IMAGE_PLACEMENT_MODES,
     safeParseUrl,
     resolveArticleUrl,
     validateUri,
+    normalizeImagePlacementMode,
+    getMarkdownTitleFolder,
+    getMarkdownTitleBaseName,
+    getImageBaseFilename,
+    resolveImagePath,
+    buildImageDownloadFilename,
+    resolveImageDownloadPath,
     getImageFilename
   };
 });

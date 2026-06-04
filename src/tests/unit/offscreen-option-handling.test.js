@@ -38,6 +38,7 @@ describe('Offscreen markdown option handling', () => {
     expect(derivedOptions.downloadImages).toBe(false);
     expect(derivedOptions.frontmatter).toBe('');
     expect(derivedOptions.backmatter).toBe('');
+    expect(derivedOptions.imagePlacement).toBe('customPrefix');
     expect(derivedOptions.imagePrefix).toBe('DocPage Title/assets');
     expect(originalOptions).toEqual(snapshot);
   });
@@ -59,6 +60,7 @@ describe('Offscreen markdown option handling', () => {
 
     expect(derivedOptions.frontmatter).toBe('title: Doc/Page Title\n');
     expect(derivedOptions.backmatter).toBe('\nsource: https://example.com/docs/page');
+    expect(derivedOptions.imagePlacement).toBe('customPrefix');
     expect(derivedOptions.imagePrefix).toBe('DocPage Title/images');
     expect(originalOptions.frontmatter).toBe('title: {pageTitle}');
     expect(originalOptions.backmatter).toBe('source: {pageURL}');
@@ -113,6 +115,32 @@ describe('Offscreen markdown option handling', () => {
     expect(derived.downloadImages).toBe(true);
     expect(originalOptions.downloadImages).toBe(false);
     expect(derived.imagePrefix).toBe('assets/');
+  });
+
+  test('infers legacy sidecar placement before imagePrefix templates are expanded', () => {
+    const derived = createEffectiveMarkdownOptions(article, {
+      includeTemplate: false,
+      downloadImages: true,
+      imagePrefix: '{pageTitle}/',
+      disallowedChars: '[]#^',
+      tableFormatting: {}
+    }, null);
+
+    expect(derived.imagePlacement).toBe('sidecar');
+    expect(derived.imagePrefix).toBe('DocPage Title/');
+  });
+
+  test('infers legacy same-folder placement for blank imagePrefix', () => {
+    const derived = createEffectiveMarkdownOptions(article, {
+      includeTemplate: false,
+      downloadImages: true,
+      imagePrefix: '',
+      disallowedChars: '[]#^',
+      tableFormatting: {}
+    }, null);
+
+    expect(derived.imagePlacement).toBe('sameFolder');
+    expect(derived.imagePrefix).toBe('');
   });
 
   test('sanitizes imagePrefix segments via generateValidFileName', () => {

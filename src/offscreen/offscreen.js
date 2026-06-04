@@ -921,6 +921,12 @@ function createEffectiveMarkdownOptions(article, providedOptions = null, downloa
     options.downloadImages = downloadImages;
   }
 
+  if (getUrlUtilsApi()?.normalizeImagePlacementMode) {
+    options.imagePlacement = getUrlUtilsApi().normalizeImagePlacementMode(options);
+  } else if (!['sameFolder', 'sidecar', 'customPrefix'].includes(options.imagePlacement)) {
+    options.imagePlacement = options.imagePrefix ? 'customPrefix' : 'sameFolder';
+  }
+
   if (options.includeTemplate) {
     // With the Interpreter disabled, a {{prompt:"..."}} can never be resolved,
     // so drop it rather than leaking the raw token into the output.
@@ -2588,7 +2594,7 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
        console.log('🖼️ [Offscreen] Delegating image downloads to service worker:', Object.keys(imageList).length, 'images');
        
        // Send image download request to service worker
-       await browser.runtime.sendMessage({
+      await browser.runtime.sendMessage({
          type: 'download-images',
          imageList: imageList,
          mdClipsFolder: mdClipsFolder,
@@ -2626,16 +2632,17 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
      console.log(`🎯 [Offscreen] Created blob URL: ${url}, delegating to service worker`);
      
      // Send blob URL to service worker for Downloads API
-     await browser.runtime.sendMessage({
-       type: 'service-worker-download',
-       blobUrl: url,
-       filename: fullFilename,
-       tabId: tabId,
-       imageList: imageList,
-       mdClipsFolder: mdClipsFolder,
-       options: options,
-       notificationDelta: notificationDelta
-     });
+      await browser.runtime.sendMessage({
+        type: 'service-worker-download',
+        blobUrl: url,
+        filename: fullFilename,
+        title: title,
+        tabId: tabId,
+        imageList: imageList,
+        mdClipsFolder: mdClipsFolder,
+        options: options,
+        notificationDelta: notificationDelta
+      });
    } catch (err) {
      console.error("❌ [Offscreen] Failed to create blob, falling back to content script:", err);
      await downloadViaContentScript(markdown, title, tabId, imageList, mdClipsFolder, options, notificationDelta);

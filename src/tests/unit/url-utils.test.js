@@ -2,6 +2,11 @@ const {
   safeParseUrl,
   resolveArticleUrl,
   validateUri,
+  normalizeImagePlacementMode,
+  getMarkdownTitleFolder,
+  getMarkdownTitleBaseName,
+  resolveImagePath,
+  buildImageDownloadFilename,
   getImageFilename
 } = require('../../shared/url-utils');
 
@@ -75,6 +80,70 @@ describe('URL utils', () => {
       expect(filename).toMatch(/image\.png$/);
     });
 
+    test('resolves same-folder image placement relative to the markdown folder', () => {
+      const options = {
+        title: 'Page',
+        imagePlacement: 'sameFolder',
+        imagePrefix: '{pageTitle}/',
+        disallowedChars: '#[]'
+      };
+      const resolved = resolveImagePath('https://example.com/path/photo.png', options);
+
+      expect(resolved.markdownPath).toBe('photo.png');
+      expect(buildImageDownloadFilename(resolved.markdownPath, options.title, 'Clips/'))
+        .toBe('Clips/photo.png');
+    });
+
+    test('resolves sidecar image placement from the markdown title', () => {
+      const options = {
+        title: 'Page',
+        imagePlacement: 'sidecar',
+        imagePrefix: '',
+        disallowedChars: '#[]'
+      };
+      const resolved = resolveImagePath('https://example.com/path/photo.png', options);
+
+      expect(resolved.markdownPath).toBe('Page/photo.png');
+      expect(buildImageDownloadFilename(resolved.markdownPath, options.title, 'Clips/'))
+        .toBe('Clips/Page/photo.png');
+    });
+
+    test('keeps image paths relative to nested markdown title folders', () => {
+      const options = {
+        title: 'Research/Page',
+        imagePlacement: 'sidecar',
+        imagePrefix: '',
+        disallowedChars: '#[]'
+      };
+      const resolved = resolveImagePath('https://example.com/path/photo.png', options);
+
+      expect(getMarkdownTitleFolder(options.title)).toBe('Research/');
+      expect(getMarkdownTitleBaseName(options.title)).toBe('Page');
+      expect(resolved.markdownPath).toBe('Page/photo.png');
+      expect(buildImageDownloadFilename(resolved.markdownPath, options.title, 'Clips/'))
+        .toBe('Clips/Research/Page/photo.png');
+    });
+
+    test('resolves custom image prefixes relative to the markdown folder', () => {
+      const options = {
+        title: 'Page',
+        imagePlacement: 'customPrefix',
+        imagePrefix: 'assets/',
+        disallowedChars: '#[]'
+      };
+      const resolved = resolveImagePath('https://example.com/path/photo.png', options);
+
+      expect(resolved.markdownPath).toBe('assets/photo.png');
+      expect(buildImageDownloadFilename(resolved.markdownPath, options.title, 'Clips/'))
+        .toBe('Clips/assets/photo.png');
+    });
+
+    test('infers legacy placement from imagePrefix when imagePlacement is missing', () => {
+      expect(normalizeImagePlacementMode({ imagePrefix: '' })).toBe('sameFolder');
+      expect(normalizeImagePlacementMode({ imagePrefix: '{pageTitle}/' })).toBe('sidecar');
+      expect(normalizeImagePlacementMode({ imagePrefix: 'assets/' })).toBe('customPrefix');
+    });
+
     test('handles base64 data URIs and missing extension', () => {
       const options = { title: 'Clips/Batch' };
       const filename = getImageFilename('https://example.com/path/image;base64,abc', options);
@@ -125,7 +194,7 @@ describe('URL utils', () => {
           imagePrefix: 'gallery/'
         });
 
-        expect(filename).toBe('Docs/gallery/image.png');
+        expect(filename).toBe('gallery/image.png');
       });
     });
 
@@ -145,7 +214,7 @@ describe('URL utils', () => {
             imagePrefix: 'gallery/'
           });
 
-          expect(filename).toBe('Docs/gallery/image.idunno');
+          expect(filename).toBe('gallery/image.idunno');
         });
       } finally {
         jest.dontMock('../../shared/template-utils');

@@ -952,6 +952,35 @@
                         </div>
                     </div>
 
+                    <div class="setting-card" id="imagePlacement" data-setting-key="imagePlacement"
+                        data-search-keywords="image folder,image location,image placement,sidecar,same folder,attachments">
+                        <h3 class="card-title">Image folder location</h3>
+                        <p class="card-desc">Choose where downloaded images are saved relative to the Markdown file.</p>
+                        <div class="radio-card-group">
+                            <div class="radio-card">
+                                <input type="radio" name="imagePlacement" id="imagePlacementSidecar" value="sidecar" />
+                                <label for="imagePlacementSidecar">
+                                    <div class="radio-card-title">Sidecar folder</div>
+                                    <div class="radio-card-desc"><code>Page.md</code> with images in <code>Page/</code></div>
+                                </label>
+                            </div>
+                            <div class="radio-card">
+                                <input type="radio" name="imagePlacement" id="imagePlacementSameFolder" value="sameFolder" />
+                                <label for="imagePlacementSameFolder">
+                                    <div class="radio-card-title">Same folder</div>
+                                    <div class="radio-card-desc">Images sit next to the Markdown file</div>
+                                </label>
+                            </div>
+                            <div class="radio-card">
+                                <input type="radio" name="imagePlacement" id="imagePlacementCustomPrefix" value="customPrefix" />
+                                <label for="imagePlacementCustomPrefix">
+                                    <div class="radio-card-title">Custom prefix</div>
+                                    <div class="radio-card-desc">Use the image filename prefix template below</div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="setting-card" id="imagePrefix" data-setting-key="imagePrefix">
                         <div class="input-group">
                             <label class="input-label" for="imagePrefix">Image filename prefix template</label>

@@ -10,6 +10,7 @@ if (typeof importScripts === 'function') {
     'shared/site-rules.js',
     'shared/default-options.js',
     'shared/template-utils.js',
+    'shared/url-utils.js',
     'shared/webhook-utils.js',
     'shared/interpreter-utils.js',
     'shared/agent-bridge-state.js',
@@ -108,6 +109,25 @@ function i18nMessage(key, substitutions, fallback) {
 
 function ensureI18nReady() {
   return globalThis.markSnipI18n?.ready?.().catch(() => {}) || Promise.resolve();
+}
+
+function getUrlUtilsApi() {
+  return globalThis.markSnipUrlUtils || null;
+}
+
+function buildImageDownloadFilename(markdownImagePath, title = '', mdClipsFolder = '') {
+  const sharedApi = getUrlUtilsApi();
+  if (sharedApi?.buildImageDownloadFilename) {
+    return sharedApi.buildImageDownloadFilename(markdownImagePath, title, mdClipsFolder);
+  }
+
+  const normalizedTitle = String(title || '').replace(/\\/g, '/').replace(/\/+$/g, '');
+  const lastSlashIndex = normalizedTitle.lastIndexOf('/');
+  const titleFolder = lastSlashIndex >= 0 ? normalizedTitle.substring(0, lastSlashIndex + 1) : '';
+  return [mdClipsFolder, titleFolder, markdownImagePath]
+    .map((segment) => String(segment || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, ''))
+    .filter(Boolean)
+    .join('/');
 }
 
 function runNotificationStateTask(task) {
@@ -1109,6 +1129,7 @@ async function handleMessages(message, sender, _sendResponse) {
       await handleDownloadWithBlobUrl(
         message.blobUrl,
         message.filename,
+        message.title,
         message.tabId,
         message.imageList,
         message.mdClipsFolder,
@@ -2117,16 +2138,12 @@ async function handleImageDownloads(message) {
   try {
     console.log('🖼️ Service worker handling image downloads:', Object.keys(imageList).length, 'images');
     
-    // Calculate the destination path for images
-    const destPath = mdClipsFolder + title.substring(0, title.lastIndexOf('/'));
-    const adjustedDestPath = destPath && !destPath.endsWith('/') ? destPath + '/' : destPath;
-    
     // Download each image
     for (const [src, filename] of Object.entries(imageList)) {
       try {
         console.log('🖼️ Downloading image:', src, '->', filename);
         
-        const fullImagePath = adjustedDestPath ? adjustedDestPath + filename : filename;
+        const fullImagePath = buildImageDownloadFilename(filename, title, mdClipsFolder);
         
         // If this is a blob URL (pre-processed image), track it by URL
         if (src.startsWith('blob:')) {
@@ -4492,7 +4509,7 @@ async function getArticleFromContent(tabId, selection = false, options = null) {
 /**
  * Handle download using blob URL created by offscreen document
  */
-async function handleDownloadWithBlobUrl(blobUrl, filename, tabId, imageList = {}, mdClipsFolder = '', options = null, notificationDelta = SINGLE_DOWNLOAD_NOTIFICATION_DELTA) {
+async function handleDownloadWithBlobUrl(blobUrl, filename, title = null, tabId, imageList = {}, mdClipsFolder = '', options = null, notificationDelta = SINGLE_DOWNLOAD_NOTIFICATION_DELTA) {
   if (!options) options = await getOptions();
   
   // CRITICAL: Ensure filename is never empty
@@ -4547,7 +4564,7 @@ async function handleDownloadWithBlobUrl(blobUrl, filename, tabId, imageList = {
       
       // Handle images if needed
       if (options.downloadImages) {
-        await handleImageDownloadsDirectly(imageList, mdClipsFolder, filename.replace('.md', ''), options);
+        await handleImageDownloadsDirectly(imageList, mdClipsFolder, title || filename.replace(/\.md$/i, ''), options);
       }
       
     } catch (err) {
@@ -4772,6 +4789,7 @@ async function downloadGeneratedFile(message = {}) {
     await handleDownloadWithBlobUrl(
       blobUrl,
       filename,
+      null,
       tabId,
       {},
       mdClipsFolder,
@@ -4942,12 +4960,9 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
  * Handle image downloads directly (for Firefox path)
  */
 async function handleImageDownloadsDirectly(imageList, mdClipsFolder, title, _options) {
-  const destPath = mdClipsFolder + title.substring(0, title.lastIndexOf('/'));
-  const adjustedDestPath = destPath && !destPath.endsWith('/') ? destPath + '/' : destPath;
-  
   for (const [src, filename] of Object.entries(imageList)) {
     try {
-      const fullImagePath = adjustedDestPath ? adjustedDestPath + filename : filename;
+      const fullImagePath = buildImageDownloadFilename(filename, title, mdClipsFolder);
       
       console.log(`🖼️ Starting image download: ${src} -> ${fullImagePath}`);
       

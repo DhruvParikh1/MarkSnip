@@ -2607,6 +2607,8 @@ const defaultOptions = {
     includeTemplate: false,
     clipSelection: true,
     downloadImages: false,
+    imagePlacement: '',
+    imagePrefix: '{pageTitle}/',
     skipHiddenContent: false,
     defaultExportType: 'markdown',
     defaultSendToTarget: DEFAULT_SEND_TO_TARGET,

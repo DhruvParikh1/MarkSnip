@@ -67,6 +67,7 @@ const baseOptions = {
   includeTemplate: false,
   saveAs: false,
   downloadImages: false,
+  imagePlacement: '',
   imagePrefix: '{pageTitle}/',
   mdClipsFolder: '',
   disallowedChars: '[]#^',

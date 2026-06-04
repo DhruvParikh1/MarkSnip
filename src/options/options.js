@@ -58,6 +58,7 @@ const SITE_RULE_TEXT_FIELD_IDS = {
 	    mdClipsFolder: 'Downloads Folder',
 	    imageStyle: 'Image Style',
 	    imageRefStyle: 'Image Refs',
+	    imagePlacement: 'Image Folder',
 	    'tableFormatting.stripLinks': 'Strip Links',
 	    'tableFormatting.stripFormatting': 'Strip Formatting',
 	    'tableFormatting.prettyPrint': 'Pretty Print',
@@ -3017,6 +3018,7 @@ const setCurrentChoice = result => {
     document.querySelector("[name='includeTemplate']").checked = options.includeTemplate;
     document.querySelector("[name='saveAs']").checked = options.saveAs;
     document.querySelector("[name='downloadImages']").checked = options.downloadImages;
+    setCheckedValue(document.querySelectorAll("[name='imagePlacement']"), options.imagePlacement || 'sidecar');
     document.querySelector("[name='imagePrefix']").value = options.imagePrefix;
     document.querySelector("[name='mdClipsFolder']").value = result.mdClipsFolder;
 	    document.querySelector("[name='turndownEscape']").checked = options.turndownEscape;
@@ -3246,7 +3248,8 @@ const refreshElements = () => {
 
     const downloadImages = options.downloadImages && options.downloadMode == 'downloadsApi';
 
-    show(document.getElementById("imagePrefix"), downloadImages);
+    show(document.getElementById("imagePlacement"), downloadImages);
+    show(document.getElementById("imagePrefix"), downloadImages && options.imagePlacement === 'customPrefix');
 
     document.getElementById('markdown').disabled = !downloadImages;
     document.getElementById('base64').disabled = !downloadImages;

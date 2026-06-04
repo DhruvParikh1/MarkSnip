@@ -49,6 +49,7 @@ const defaultOptions = {
   includeTemplate: false,
   saveAs: false,
   downloadImages: false,
+  imagePlacement: '',
   imagePrefix: '{pageTitle}/',
   mdClipsFolder: null,
   disallowedChars: '[]#^',
@@ -124,6 +125,22 @@ function getSiteRulesApi() {
   return null;
 }
 
+function getUrlUtilsApi() {
+  if (globalThis.markSnipUrlUtils) {
+    return globalThis.markSnipUrlUtils;
+  }
+
+  if (typeof require === 'function') {
+    try {
+      return require('./url-utils');
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 function normalizeContextMenuItems(contextMenuItems) {
   const source = contextMenuItems && Object.prototype.toString.call(contextMenuItems) === '[object Object]'
     ? contextMenuItems
@@ -184,6 +201,10 @@ async function getOptions() {
   }
   if (options.frontmatter === LEGACY_DEFAULT_FRONTMATTER) {
     options.frontmatter = defaultOptions.frontmatter;
+  }
+  const urlUtilsApi = getUrlUtilsApi();
+  if (urlUtilsApi?.normalizeImagePlacementMode) {
+    options.imagePlacement = urlUtilsApi.normalizeImagePlacementMode(options);
   }
   options.contextMenuItems = normalizeContextMenuItems(options.contextMenuItems);
   options.readerSettings = normalizeReaderSettings(options.readerSettings);

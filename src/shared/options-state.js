@@ -24,6 +24,7 @@
   const BUILTIN_SEND_TO_TARGETS = new Set(['chatgpt', 'claude', 'perplexity']);
   const DEFAULT_SEND_TO_TARGET = 'chatgpt';
   const DEFAULT_SEND_TO_MAX_URL_LENGTH = 3600;
+  const IMAGE_PLACEMENT_MODES = new Set(['sameFolder', 'sidecar', 'customPrefix']);
 
   function countPromptPlaceholders(value) {
     const matches = String(value || '').match(/\{prompt\}/g);
@@ -129,6 +130,25 @@
     return Number.isFinite(parsedValue) && parsedValue > 0
       ? parsedValue
       : normalizedFallback;
+  }
+
+  function normalizeImagePlacementMode(options = {}) {
+    const mode = String(options.imagePlacement || '').trim();
+    if (IMAGE_PLACEMENT_MODES.has(mode)) {
+      return mode;
+    }
+
+    const imagePrefix = String(options.imagePrefix ?? '');
+    if (!imagePrefix) {
+      return 'sameFolder';
+    }
+
+    const normalizedPrefix = imagePrefix.replace(/\\/g, '/');
+    if (normalizedPrefix === '{pageTitle}/' || normalizedPrefix === '{title}/') {
+      return 'sidecar';
+    }
+
+    return 'customPrefix';
   }
 
   function normalizeContextMenuItems(contextMenuItems, defaultContextMenuItems = {}) {
@@ -302,6 +322,7 @@
       normalized.sendToMaxUrlLength,
       normalizeSendToMaxUrlLength(safeDefaults.sendToMaxUrlLength)
     );
+    normalized.imagePlacement = normalizeImagePlacementMode(normalized);
     normalized.webhookTargets = normalizeWebhookTargets(normalized.webhookTargets);
 
     const exportType = String(normalized.defaultExportType || '').trim();
@@ -391,6 +412,7 @@
     normalizeCustomSendToTargets,
     normalizeDefaultSendToTarget,
     normalizeSendToMaxUrlLength,
+    normalizeImagePlacementMode,
     normalizeContextMenuItems,
     normalizeWebhookTargets
   };

@@ -242,13 +242,23 @@ Forces the browser's Save As dialog to appear for every download, regardless of 
 
 When enabled, images are downloaded alongside the Markdown file. The Markdown output is adjusted to reference the local images rather than the remote URLs (depending on your [Image Style](#image-style) setting).
 
-### Image Filename Prefix
+### Image Folder Location
 
 **Only available when Download Images is on.**
 
+Controls where downloaded images are saved relative to the Markdown file:
+
+- **Sidecar folder** _(default)_ — images go into a folder named after the Markdown file, such as `Page/photo.png` next to `Page.md`.
+- **Same folder** — images are saved next to the Markdown file, such as `photo.png`.
+- **Custom prefix** — uses the [Image Filename Prefix](#image-filename-prefix) template.
+
+### Image Filename Prefix
+
+**Only available when Download Images is on and Image Folder Location is Custom prefix.**
+
 A prefix or subfolder for downloaded images. Uses [Custom Text Substitutions](#custom-text-substitutions). Including a `/` creates a subfolder.
 
-**Default:** `{pageTitle}/` (images go into a folder named after the page title)
+Older settings that used a blank prefix now map to Same folder. Older settings that used `{pageTitle}/` keep the sidecar behavior.
 
 ---
 

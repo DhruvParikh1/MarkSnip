@@ -74,6 +74,7 @@ async function downloadGeneratedFile(message = {}, deps = {}) {
     await deps.handleDownloadWithBlobUrl(
       blobUrl,
       filename,
+      null,
       tabId,
       {},
       mdClipsFolder,
@@ -165,6 +166,7 @@ describe('Generated download helpers', () => {
     expect(handleDownloadWithBlobUrl).toHaveBeenCalledWith(
       'blob:generated-export',
       'Exports/Clip 1.txt',
+      null,
       12,
       {},
       'Exports',

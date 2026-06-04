@@ -10,7 +10,8 @@
   const TEXT_OVERRIDE_KEYS = ['frontmatter', 'backmatter', 'title', 'imagePrefix', 'mdClipsFolder'];
   const ENUM_OVERRIDE_VALUES = {
     imageStyle: new Set(['originalSource', 'noImage', 'markdown', 'base64', 'obsidian', 'obsidian-nofolder']),
-    imageRefStyle: new Set(['inlined', 'referenced'])
+    imageRefStyle: new Set(['inlined', 'referenced']),
+    imagePlacement: new Set(['sameFolder', 'sidecar', 'customPrefix'])
   };
   const TABLE_FORMATTING_KEYS = ['stripLinks', 'stripFormatting', 'prettyPrint', 'centerText'];
   const DEFAULT_RULE_NAME_PREFIX = 'Site Rule';
@@ -243,6 +244,8 @@
 
   function applySiteRuleOverrides(baseOptions = {}, overrides = {}) {
     const nextOptions = deepClone(isPlainObject(baseOptions) ? baseOptions : {});
+    const hasImagePrefixOverride = Object.prototype.hasOwnProperty.call(overrides, 'imagePrefix');
+    const hasImagePlacementOverride = Object.prototype.hasOwnProperty.call(overrides, 'imagePlacement');
 
     delete nextOptions.siteRules;
 
@@ -251,6 +254,10 @@
         nextOptions[key] = deepClone(overrides[key]);
       }
     });
+
+    if (hasImagePrefixOverride && !hasImagePlacementOverride) {
+      nextOptions.imagePlacement = '';
+    }
 
     if (isPlainObject(overrides.tableFormatting)) {
       const nextTableFormatting = isPlainObject(nextOptions.tableFormatting)

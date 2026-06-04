@@ -2765,7 +2765,7 @@
     "description": "Subheading for Image Filename Prefix"
   },
   "guideObsidianImagePrefixDesc": {
-    "message": "A prefix or subfolder for downloaded images. Uses <a href=\"#text-substitutions\">text substitutions</a>. Including a <code>/</code> creates a subfolder. Default: <code>{pageTitle}/</code>.",
+    "message": "A prefix or subfolder for downloaded images when Image Folder Location is Custom prefix. Uses <a href=\"#text-substitutions\">text substitutions</a>. Including a <code>/</code> creates a subfolder.",
     "description": "Description for Image Filename Prefix"
   },
   "guidePermissionsHeading": {

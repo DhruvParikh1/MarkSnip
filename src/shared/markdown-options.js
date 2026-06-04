@@ -35,8 +35,29 @@
     }
   }
 
+  function getUrlUtils() {
+    if (root.markSnipUrlUtils) {
+      return root.markSnipUrlUtils;
+    }
+
+    try {
+      return require('./url-utils');
+    } catch {
+      return null;
+    }
+  }
+
+  function fallbackNormalizeImagePlacementMode(options = {}) {
+    const mode = String(options.imagePlacement || '').trim();
+    if (mode === 'sameFolder' || mode === 'sidecar' || mode === 'customPrefix') {
+      return mode;
+    }
+    return String(options.imagePrefix || '') ? 'customPrefix' : 'sameFolder';
+  }
+
   function createEffectiveMarkdownOptions(article, providedOptions = null, downloadImages = null) {
     const templateUtils = getTemplateUtils();
+    const urlUtils = getUrlUtils();
     const textReplace = templateUtils.textReplace;
     const generateValidFileName = templateUtils.generateValidFileName;
     const stripPromptPlaceholders = typeof templateUtils.stripPromptPlaceholders === 'function'
@@ -59,6 +80,10 @@
     if (downloadImages != null) {
       options.downloadImages = downloadImages;
     }
+
+    options.imagePlacement = urlUtils?.normalizeImagePlacementMode
+      ? urlUtils.normalizeImagePlacementMode(options)
+      : fallbackNormalizeImagePlacementMode(options);
 
     if (options.includeTemplate) {
       if (!options.interpreterEnabled) {

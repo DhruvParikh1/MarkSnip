@@ -193,12 +193,12 @@ describe('URL Processing and Normalization', () => {
       expect(result).toBe('photo.jpg');
     });
 
-    test('should include title and image prefix when prepend path is enabled', () => {
+    test('should include image prefix relative to the markdown folder when prepend path is enabled', () => {
       const src = 'https://example.com/images/photo.jpg';
       const options = { ...baseOptions, imagePrefix: 'img-' };
       const result = getImageFilename(src, options, true);
 
-      expect(result).toBe('Article/img-photo.jpg');
+      expect(result).toBe('img-photo.jpg');
     });
 
     test('should extract filename without query string', () => {

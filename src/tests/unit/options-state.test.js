@@ -22,6 +22,7 @@ const defaultOptions = {
   },
   batchProcessingEnabled: true,
   includeTemplate: false,
+  imagePlacement: '',
   imagePrefix: '{pageTitle}/',
   defaultExportType: 'markdown',
   defaultSendToTarget: 'chatgpt',
@@ -60,6 +61,7 @@ const defaultOptions = {
     const normalized = optionsState.normalizeImportedOptions(importedOptions, defaultOptions);
 
     expect(normalized.includeTemplate).toBe(true);
+    expect(normalized.imagePlacement).toBe('sidecar');
     expect(normalized.imagePrefix).toBe('{pageTitle}/');
     expect(normalized.specialTheme).toBe('ben10');
     expect(normalized.colorBlindTheme).toBe('tritanopia');
@@ -253,6 +255,15 @@ const defaultOptions = {
     expect(result.contextMenuAction).toBe('create');
   });
 
+  test('normalizeImportedOptions infers legacy image placement from image prefix', () => {
+    expect(optionsState.normalizeImportedOptions({ imagePrefix: '' }, defaultOptions).imagePlacement)
+      .toBe('sameFolder');
+    expect(optionsState.normalizeImportedOptions({ imagePrefix: 'assets/' }, defaultOptions).imagePlacement)
+      .toBe('customPrefix');
+    expect(optionsState.normalizeImportedOptions({ imagePlacement: 'sameFolder', imagePrefix: '{pageTitle}/' }, defaultOptions).imagePlacement)
+      .toBe('sameFolder');
+  });
+
   test('resetOptionKeys recreates context menus when item preferences change while enabled', () => {
     const currentOptions = {
       ...defaultOptions,
@@ -279,7 +290,10 @@ const defaultOptions = {
     };
 
     const result = optionsState.resetAllOptions(currentOptions, defaultsWithoutMenus);
-    expect(result.options).toEqual(defaultsWithoutMenus);
+    expect(result.options).toEqual({
+      ...defaultsWithoutMenus,
+      imagePlacement: 'sidecar'
+    });
   expect(result.contextMenuAction).toBe('remove');
 });
 
@@ -291,6 +305,7 @@ test('normalizeImportedOptions ignores non-plain option inputs', () => {
     siteRules: [],
     defaultExportType: 'markdown',
     defaultSendToTarget: 'chatgpt',
+    imagePlacement: 'sameFolder',
     sendToCustomTargets: [],
     sendToMaxUrlLength: 3600,
     webhookTargets: []
@@ -325,6 +340,7 @@ test('resetAllOptions handles non-plain defaults without blowing up', () => {
     siteRules: [],
     defaultExportType: 'markdown',
     defaultSendToTarget: 'chatgpt',
+    imagePlacement: 'sameFolder',
     sendToCustomTargets: [],
     sendToMaxUrlLength: 3600,
     webhookTargets: []
