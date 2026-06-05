@@ -1,6 +1,40 @@
 const interpreter = require('../../shared/interpreter-utils');
 
+function createStorageArea(initial = {}) {
+  const data = { ...initial };
+  return {
+    data,
+    get: jest.fn(async (key) => {
+      if (Array.isArray(key)) {
+        return key.reduce((result, item) => {
+          result[item] = data[item];
+          return result;
+        }, {});
+      }
+      if (typeof key === 'string') {
+        return { [key]: data[key] };
+      }
+      if (key && typeof key === 'object') {
+        return Object.keys(key).reduce((result, item) => {
+          result[item] = data[item] === undefined ? key[item] : data[item];
+          return result;
+        }, {});
+      }
+      return { ...data };
+    }),
+    set: jest.fn(async (value) => {
+      Object.assign(data, value);
+    })
+  };
+}
+
 describe('interpreter-utils', () => {
+  afterEach(() => {
+    delete global.browser;
+    delete global.chrome;
+    delete global.fetch;
+  });
+
   describe('collectPromptVariables', () => {
     test('finds placeholders and assigns sequential keys', () => {
       const vars = interpreter.collectPromptVariables('a {{prompt:"sum"}} b {{"tags"}} c');
@@ -107,31 +141,6 @@ describe('interpreter-utils', () => {
       expect(req.url).toBe('https://api-inference.huggingface.co/models/meta-llama/Llama-3/chat/completions');
       expect(req.headers.Authorization).toBe('Bearer hf-key');
       expect(req.body.model).toBe('meta-llama/Llama-3');
-    });
-  });
-
-  describe('parsePresetProviders', () => {
-    test('parses a providers.json object into a preset array', () => {
-      const presets = interpreter.parsePresetProviders({
-        version: '2026-01-01',
-        anthropic: {
-          id: 'anthropic', name: 'Anthropic', family: 'anthropic',
-          baseUrl: 'https://api.anthropic.com/v1/messages', apiKeyRequired: true,
-          popularModels: [{ id: 'claude-x', name: 'Claude X' }]
-        },
-        custom: { id: 'custom', name: 'Custom', family: 'mystery', baseUrl: 'u' }
-      });
-      expect(presets).toHaveLength(2);
-      const anthropic = presets.find((p) => p.id === 'anthropic');
-      expect(anthropic.family).toBe('anthropic');
-      expect(anthropic.popularModels).toHaveLength(1);
-      // Unknown family coerced to openai.
-      expect(presets.find((p) => p.id === 'custom').family).toBe('openai');
-    });
-
-    test('returns null for an empty or invalid object', () => {
-      expect(interpreter.parsePresetProviders(null)).toBeNull();
-      expect(interpreter.parsePresetProviders({ version: '1' })).toBeNull();
     });
   });
 
@@ -300,6 +309,106 @@ describe('interpreter-utils', () => {
     test('Gemini preset uses the OpenAI-compatible endpoint path', () => {
       const gemini = interpreter.PROVIDER_PRESETS.find((p) => p.id === 'google-gemini');
       expect(gemini.baseUrl).toContain('/openai/');
+    });
+
+    test('getPresetProviders does not fetch a remote provider catalog', async () => {
+      global.fetch = jest.fn();
+
+      const presets = await interpreter.getPresetProviders();
+
+      expect(presets.length).toBeGreaterThan(0);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    test('sanitizeProviderPresets drops invalid model IDs and caps model labels', () => {
+      const longName = 'A'.repeat(300);
+      const presets = interpreter.sanitizeProviderPresets([
+        {
+          id: 'openai',
+          name: 'OpenAI',
+          family: 'openai',
+          baseUrl: 'https://api.openai.com/v1/chat/completions',
+          popularModels: [
+            { id: 'valid-model', name: longName },
+            { id: 'bad\u0001model', name: 'Bad' },
+            { id: '', name: 'Empty' }
+          ]
+        }
+      ]);
+
+      expect(presets[0].popularModels).toHaveLength(1);
+      expect(presets[0].popularModels[0].id).toBe('valid-model');
+      expect(presets[0].popularModels[0].name).toHaveLength(160);
+    });
+  });
+
+  describe('interpreter API key storage', () => {
+    test('saves API keys to session storage by default and strips local config', async () => {
+      const local = createStorageArea();
+      const session = createStorageArea();
+      global.browser = { storage: { local, session } };
+
+      await interpreter.saveInterpreterConfig({
+        providers: [{ id: 'p1', name: 'P1', family: 'openai', baseUrl: 'https://api.example.com', apiKey: 'sk-session', apiKeyRequired: true }],
+        models: []
+      });
+
+      expect(local.data[interpreter.INTERPRETER_STORAGE_KEY].providers[0].apiKey).toBe('');
+      expect(local.data[interpreter.INTERPRETER_KEYS_STORAGE_KEY]).toEqual({});
+      expect(session.data[interpreter.INTERPRETER_KEYS_STORAGE_KEY]).toEqual({ p1: 'sk-session' });
+
+      const loaded = await interpreter.loadInterpreterConfig();
+      expect(loaded.providers[0].apiKey).toBe('sk-session');
+      expect(loaded.providers[0].rememberApiKey).toBe(false);
+    });
+
+    test('saves remembered API keys to the local key store', async () => {
+      const local = createStorageArea();
+      const session = createStorageArea();
+      global.browser = { storage: { local, session } };
+
+      await interpreter.saveInterpreterConfig({
+        providers: [{ id: 'p1', name: 'P1', family: 'openai', baseUrl: 'https://api.example.com', apiKey: 'sk-local', apiKeyRequired: true, rememberApiKey: true }],
+        models: []
+      });
+
+      expect(local.data[interpreter.INTERPRETER_STORAGE_KEY].providers[0].apiKey).toBe('');
+      expect(local.data[interpreter.INTERPRETER_STORAGE_KEY].providers[0].rememberApiKey).toBe(true);
+      expect(local.data[interpreter.INTERPRETER_KEYS_STORAGE_KEY]).toEqual({ p1: 'sk-local' });
+      expect(session.data[interpreter.INTERPRETER_KEYS_STORAGE_KEY]).toEqual({});
+    });
+
+    test('migrates legacy plaintext config keys into session storage on load', async () => {
+      const local = createStorageArea({
+        [interpreter.INTERPRETER_STORAGE_KEY]: {
+          providers: [{ id: 'p1', name: 'P1', family: 'openai', baseUrl: 'https://api.example.com', apiKey: 'sk-legacy', apiKeyRequired: true }],
+          models: []
+        }
+      });
+      const session = createStorageArea();
+      global.browser = { storage: { local, session } };
+
+      const loaded = await interpreter.loadInterpreterConfig();
+
+      expect(loaded.providers[0].apiKey).toBe('sk-legacy');
+      expect(session.data[interpreter.INTERPRETER_KEYS_STORAGE_KEY]).toEqual({ p1: 'sk-legacy' });
+      expect(local.data[interpreter.INTERPRETER_STORAGE_KEY].providers[0].apiKey).toBe('');
+    });
+
+    test('requires remember opt-in when session storage is unavailable', async () => {
+      const local = createStorageArea();
+      global.browser = { storage: { local } };
+
+      await expect(interpreter.saveInterpreterConfig({
+        providers: [{ id: 'p1', name: 'P1', family: 'openai', baseUrl: 'https://api.example.com', apiKey: 'sk-session', apiKeyRequired: true }],
+        models: []
+      })).rejects.toThrow(/Session storage is unavailable/);
+
+      await interpreter.saveInterpreterConfig({
+        providers: [{ id: 'p1', name: 'P1', family: 'openai', baseUrl: 'https://api.example.com', apiKey: 'sk-local', apiKeyRequired: true, rememberApiKey: true }],
+        models: []
+      });
+      expect(local.data[interpreter.INTERPRETER_KEYS_STORAGE_KEY]).toEqual({ p1: 'sk-local' });
     });
   });
 });

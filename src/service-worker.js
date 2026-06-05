@@ -804,10 +804,21 @@ async function handleWebhookSend(message) {
       publishedTime: ''
     };
 
-  const request = globalThis.markSnipWebhookUtils.buildWebhookFetchRequest({
-    target,
-    article
-  });
+  let request;
+  try {
+    request = globalThis.markSnipWebhookUtils.buildWebhookFetchRequest({
+      target,
+      article
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: globalThis.markSnipWebhookUtils.resolveWebhookSendErrorMessage(
+        error,
+        'Webhook target URL is not allowed'
+      )
+    };
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), WEBHOOK_FETCH_TIMEOUT_MS);
@@ -3697,6 +3708,7 @@ function isRestrictedTabUrl(url) {
     url.startsWith('chrome://') ||
     url.startsWith('edge://') ||
     url.startsWith('about:') ||
+    url.startsWith('file:') ||
     url.startsWith('moz-extension://') ||
     url.startsWith('chrome-extension://') ||
     url.startsWith('view-source:') ||

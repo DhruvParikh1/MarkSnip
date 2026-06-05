@@ -28,6 +28,9 @@
   "host_permissions": [
     "<all_urls>"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'self' http: https:; frame-ancestors 'none'; connect-src 'self' http: https: data: blob:"
+  },
   "action": {
     "default_title": "__MSG_actionTitle__",
     "default_popup": "popup/popup.html",

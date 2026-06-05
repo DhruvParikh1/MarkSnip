@@ -747,15 +747,9 @@ function handleSaveWebhookTarget() {
         return;
     }
 
-    try {
-        const parsedUrl = new URL(url);
-        if (parsedUrl.protocol !== 'https:') {
-            showToast('URL must use HTTPS', 'error');
-            urlInput?.focus();
-            return;
-        }
-    } catch {
-        showToast('Please enter a valid URL', 'error');
+    const webhookValidation = globalThis.markSnipWebhookUtils?.validateWebhookUrl?.(url);
+    if (!webhookValidation?.valid) {
+        showToast(webhookValidation?.error || 'Please enter a valid public HTTPS URL', 'error');
         urlInput?.focus();
         return;
     }
@@ -1016,7 +1010,9 @@ function renderInterpreterProvidersList() {
 
         const badge = document.createElement('span');
         badge.className = 'interpreter-state-badge ' + (provider.apiKey ? 'is-on' : 'is-off');
-        badge.textContent = provider.apiKey ? 'KEY SET' : 'NO KEY';
+        badge.textContent = provider.apiKey
+            ? (provider.rememberApiKey ? 'KEY REMEMBERED' : 'SESSION KEY')
+            : 'NO KEY';
 
         const name = document.createElement('h4');
         name.className = 'assistant-target-item__name';
@@ -1210,7 +1206,7 @@ function applyProviderPresetToForm(presetId) {
     if (requiresKeyGroup) requiresKeyGroup.hidden = !isCustom;
 
     if (isCustom) {
-        if (hint) hint.textContent = 'Your API key for this provider. Stored locally on this device only.';
+        if (hint) hint.textContent = 'Your API key for this provider. Stored for this browser session unless remembered below.';
         return;
     }
 
@@ -1229,7 +1225,7 @@ function applyProviderPresetToForm(presetId) {
             link.textContent = `Get your ${preset.name} API key here.`;
             hint.appendChild(link);
         } else {
-            hint.appendChild(document.createTextNode('Stored locally on this device only.'));
+            hint.appendChild(document.createTextNode('Stored for this browser session unless remembered below.'));
         }
     }
 }
@@ -1258,6 +1254,7 @@ function openInterpreterProviderDialog(provider) {
     const requiresKeyInput = document.getElementById('interpreterProviderRequiresKey');
     const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
     const apiKeyInput = document.getElementById('interpreterProviderApiKey');
+    const rememberKeyInput = document.getElementById('interpreterProviderRememberKey');
     const clearKeyButton = document.getElementById('interpreterClearProviderKey');
 
     let presetId;
@@ -1287,12 +1284,14 @@ function openInterpreterProviderDialog(provider) {
                 ? 'Leave blank to keep the saved key'
                 : 'API key';
         }
+        if (rememberKeyInput) rememberKeyInput.checked = provider.rememberApiKey === true;
         if (clearKeyButton) clearKeyButton.hidden = !provider.apiKey;
     } else {
         if (nameInput) nameInput.value = '';
         if (familySelect) familySelect.value = 'openai';
         if (requiresKeyInput) requiresKeyInput.checked = true;
         if (apiKeyInput) apiKeyInput.placeholder = 'API key';
+        if (rememberKeyInput) rememberKeyInput.checked = false;
         if (clearKeyButton) clearKeyButton.hidden = true;
     }
 
@@ -1318,6 +1317,7 @@ function handleSaveInterpreterProvider() {
     const requiresKeyInput = document.getElementById('interpreterProviderRequiresKey');
     const baseUrlInput = document.getElementById('interpreterProviderBaseUrl');
     const apiKeyInput = document.getElementById('interpreterProviderApiKey');
+    const rememberKeyInput = document.getElementById('interpreterProviderRememberKey');
 
     const presetId = String(presetSelect?.value || 'custom');
     const isCustom = presetId === 'custom';
@@ -1331,6 +1331,7 @@ function handleSaveInterpreterProvider() {
         : (preset ? preset.family : 'openai');
     const baseUrl = String(baseUrlInput?.value || '').trim();
     const apiKeyEntered = String(apiKeyInput?.value || '');
+    const rememberApiKey = rememberKeyInput?.checked === true;
     const apiKeyRequired = isCustom
         ? Boolean(requiresKeyInput?.checked)
         : (preset ? preset.apiKeyRequired !== false : false);
@@ -1368,8 +1369,18 @@ function handleSaveInterpreterProvider() {
     }
 
     const config = getInterpreterConfig();
+    const existingProvider = editingInterpreterProviderId
+        ? config.providers.find((p) => p.id === editingInterpreterProviderId)
+        : null;
+    const existingKeyWouldBeKept = Boolean(existingProvider?.apiKey && !apiKeyEntered && !interpreterClearProviderKeyFlag);
+    if (!rememberApiKey && !browser.storage?.session && (apiKeyEntered || existingKeyWouldBeKept)) {
+        showToast('This browser cannot keep session-only API keys. Enable "Remember API key on this device" to save it.', 'error');
+        rememberKeyInput?.focus();
+        return;
+    }
+
     if (editingInterpreterProviderId) {
-        const provider = config.providers.find((p) => p.id === editingInterpreterProviderId);
+        const provider = existingProvider;
         if (provider) {
             // A typed value replaces the key; an untouched field keeps the
             // saved key unless the user pressed "Clear saved key".
@@ -1384,6 +1395,7 @@ function handleSaveInterpreterProvider() {
             provider.baseUrl = baseUrl;
             provider.apiKey = apiKey;
             provider.apiKeyRequired = apiKeyRequired;
+            provider.rememberApiKey = rememberApiKey;
             provider.presetId = isCustom ? undefined : presetId;
         }
     } else {
@@ -1393,7 +1405,8 @@ function handleSaveInterpreterProvider() {
             family,
             baseUrl,
             apiKey: apiKeyEntered,
-            apiKeyRequired
+            apiKeyRequired,
+            rememberApiKey
         };
         if (!isCustom) {
             newProvider.presetId = presetId;
@@ -1588,11 +1601,9 @@ function removeInterpreterModel(modelId) {
 function initInterpreterControls() {
     populateProviderPresetSelect();
 
-    // Refresh presets from the remote providers.json; falls back silently.
-    // Only each provider's popular-model list changes (see mergePresets) — the
-    // provider set and names are bundled-constant, so the preset <select> is
-    // NOT rebuilt here. Rebuilding it could reset the selection of an open
-    // Add/Edit Provider dialog mid-edit; the model picker reads presets live.
+    // Provider presets are bundled. This async path keeps the model picker
+    // reading the same source the service worker uses without rebuilding the
+    // Add/Edit Provider dialog mid-edit.
     const interpreterUtils = getInterpreterUtilsApi();
     if (interpreterUtils && typeof interpreterUtils.getPresetProviders === 'function') {
         interpreterUtils.getPresetProviders().then((presets) => {

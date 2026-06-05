@@ -2046,7 +2046,7 @@ const helloWorld = () => {
                 <div class="setting-card" id="interpreterProvidersCard"
                     data-search-keywords="interpreter,provider,api key,base url,anthropic,openai,gemini,ollama,openrouter,llm endpoint">
                     <h3 class="card-title" data-i18n="optionsInterpreterProviders">Providers</h3>
-                    <p class="card-desc">An LLM endpoint and its API key. Add the providers you want to use — API keys are stored locally on this device and never synced.</p>
+                    <p class="card-desc">An LLM endpoint and its API key. Add the providers you want to use — API keys are kept for the browser session unless you choose to remember them on this device.</p>
 
                     <div id="interpreterProvidersList" class="webhook-targets-list" aria-live="polite"></div>
 
@@ -2101,8 +2101,21 @@ const helloWorld = () => {
                                 <label class="input-label" for="interpreterProviderApiKey" data-i18n="optionsInterpreterApiKey">API key</label>
                                 <button type="button" id="interpreterClearProviderKey" class="interpreter-clear-key" hidden>Clear saved key</button>
                             </div>
-                            <p class="input-hint" id="interpreterProviderApiKeyHint">Your API key for this provider. Stored locally on this device only.</p>
+                            <p class="input-hint" id="interpreterProviderApiKeyHint">Your API key for this provider. Stored for this browser session unless remembered below.</p>
                             <input type="password" id="interpreterProviderApiKey" class="text-input" autocomplete="off" spellcheck="false" placeholder="API key" />
+                        </div>
+
+                        <div class="input-group">
+                            <div class="toggle-row">
+                                <div class="toggle-info">
+                                    <label class="toggle-label-text" for="interpreterProviderRememberKey">Remember API key on this device</label>
+                                    <p class="toggle-hint">Stores this provider key in plaintext extension storage on this device.</p>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input id="interpreterProviderRememberKey" type="checkbox" />
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
                         </div>
 
                         <div class="input-group" id="interpreterProviderRequiresKeyGroup" hidden>
@@ -2487,8 +2500,8 @@ blockquote { font-style: normal; }"></textarea>
     <script src="../shared/agent-bridge-state.js"></script>
     <script src="../shared/library-state.js"></script>
     <script src="../shared/search-core.js"></script>
-    <script src="../shared/options-state.js"></script>
     <script src="../shared/webhook-utils.js"></script>
+    <script src="../shared/options-state.js"></script>
     <script src="../shared/interpreter-utils.js"></script>
     <script src="options-search.js"></script>
     <script src="options.js"></script>

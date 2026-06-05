@@ -9,10 +9,10 @@
   'use strict';
 
   const INTERPRETER_STORAGE_KEY = 'interpreterConfig';
-  // Remote provider catalog — refreshed without shipping an extension update.
-  const PROVIDERS_URL = 'https://raw.githubusercontent.com/DhruvParikh1/markdownload-extension-updated/main/providers.json';
-  const PRESETS_CACHE_KEY = 'interpreterProviderPresets';
-  const PRESETS_CACHE_TTL = 21600000; // 6 hours
+  const INTERPRETER_KEYS_STORAGE_KEY = 'interpreterApiKeys';
+  const MAX_PROVIDER_MODEL_ID_LENGTH = 160;
+  const MAX_PROVIDER_MODEL_NAME_LENGTH = 160;
+  const VALID_PROVIDER_FAMILIES = ['anthropic', 'openai', 'ollama', 'azure', 'huggingface'];
 
   // Prompt placeholder syntax: {{prompt:"..."}} or {{"..."}}, optionally with a
   // trailing |filter chain. Kept identical to the protector regex in
@@ -29,10 +29,10 @@
     'responses concise. For example, your response should look like: ' +
     '{"prompts_responses":{"prompt_1":"tag1, tag2, tag3","prompt_2":"- bullet1\n- bullet 2\n- bullet3"}}';
 
-  // Bundled provider presets — the offline fallback for getPresetProviders().
-  // The remote providers.json (same shape) is preferred when reachable.
+  // Bundled provider presets. Model suggestions update only with extension
+  // releases so installed clients do not silently trust a remote catalog.
   // `family` drives request routing and is immutable.
-  const PROVIDER_PRESETS = [
+  const RAW_PROVIDER_PRESETS = [
     {
       id: 'anthropic',
       name: 'Anthropic',
@@ -188,7 +188,7 @@
     }
   ];
 
-  const VALID_PROVIDER_FAMILIES = ['anthropic', 'openai', 'ollama', 'azure', 'huggingface'];
+  const PROVIDER_PRESETS = sanitizeProviderPresets(RAW_PROVIDER_PRESETS);
 
   const OPENROUTER_REFERER = 'https://github.com/DhruvParikh1/markdownload-extension-updated';
   const OPENROUTER_TITLE = 'MarkSnip';
@@ -219,6 +219,52 @@
       out += str[i];
     }
     return out;
+  }
+
+  function containsControlChars(value) {
+    return stripControlChars(value) !== String(value);
+  }
+
+  function sanitizeProviderModel(raw) {
+    if (!raw || typeof raw !== 'object') {
+      return null;
+    }
+
+    const id = String(raw.id || '').trim();
+    if (!id || containsControlChars(id)) {
+      return null;
+    }
+
+    const name = String(raw.name || id).trim();
+    const cleanName = stripControlChars(name).trim() || id;
+    return {
+      id: id.slice(0, MAX_PROVIDER_MODEL_ID_LENGTH),
+      name: cleanName.slice(0, MAX_PROVIDER_MODEL_NAME_LENGTH)
+    };
+  }
+
+  function sanitizePopularModels(models) {
+    if (!Array.isArray(models)) {
+      return [];
+    }
+
+    const seenIds = new Set();
+    return models.reduce((normalized, model) => {
+      const next = sanitizeProviderModel(model);
+      if (!next || seenIds.has(next.id)) {
+        return normalized;
+      }
+      seenIds.add(next.id);
+      normalized.push(next);
+      return normalized;
+    }, []);
+  }
+
+  function sanitizeProviderPresets(presets) {
+    return (Array.isArray(presets) ? presets : []).map((preset) => ({
+      ...preset,
+      popularModels: sanitizePopularModels(preset?.popularModels)
+    }));
   }
 
   // Interpreter starts with nothing configured. PROVIDER_PRESETS only seed the
@@ -590,7 +636,8 @@
       family,
       baseUrl: String(raw.baseUrl || '').trim(),
       apiKey: typeof raw.apiKey === 'string' ? raw.apiKey : '',
-      apiKeyRequired: raw.apiKeyRequired !== false
+      apiKeyRequired: raw.apiKeyRequired !== false,
+      rememberApiKey: raw.rememberApiKey === true
     };
     if (raw.presetId) {
       provider.presetId = String(raw.presetId);
@@ -638,150 +685,167 @@
     return { providers, models };
   }
 
-  // Parse a providers.json object ({version, <id>:{...}}) into a preset array.
-  function parsePresetProviders(data) {
-    if (!data || typeof data !== 'object') {
+  function normalizeApiKeyStore(raw) {
+    const source = raw && typeof raw === 'object' ? raw : {};
+    return Object.keys(source).reduce((normalized, providerId) => {
+      const id = String(providerId || '').trim();
+      const key = typeof source[providerId] === 'string' ? source[providerId] : '';
+      if (id && key) {
+        normalized[id] = key;
+      }
+      return normalized;
+    }, {});
+  }
+
+  async function readStorageKey(area, key) {
+    if (!area || !key) {
       return null;
     }
-    const presets = [];
-    Object.keys(data).forEach((key) => {
-      if (key === 'version') {
-        return;
+    const stored = await Promise.resolve(area.get(key));
+    return stored ? stored[key] : null;
+  }
+
+  function stripApiKeysFromConfig(config) {
+    const normalized = normalizeInterpreterConfig(config);
+    return {
+      ...normalized,
+      providers: normalized.providers.map((provider) => ({
+        ...provider,
+        apiKey: ''
+      }))
+    };
+  }
+
+  function collectApiKeys(config) {
+    const normalized = normalizeInterpreterConfig(config);
+    return normalized.providers.reduce((keys, provider) => {
+      if (provider.apiKey) {
+        keys[provider.id] = provider.apiKey;
       }
-      const entry = data[key];
-      if (!entry || typeof entry !== 'object') {
-        return;
-      }
-      const id = String(entry.id || key).trim();
-      if (!id) {
-        return;
-      }
-      presets.push({
-        id,
-        name: String(entry.name || id),
-        family: VALID_PROVIDER_FAMILIES.indexOf(entry.family) !== -1 ? entry.family : 'openai',
-        baseUrl: String(entry.baseUrl || ''),
-        apiKeyRequired: entry.apiKeyRequired !== false,
-        apiKeyUrl: String(entry.apiKeyUrl || ''),
-        modelsList: String(entry.modelsList || ''),
-        popularModels: Array.isArray(entry.popularModels)
-          ? entry.popularModels
-            .filter((m) => m && m.id)
-            .map((m) => ({ id: String(m.id), name: String(m.name || m.id) }))
-          : []
-      });
-    });
-    return presets.length ? presets : null;
+      return keys;
+    }, {});
+  }
+
+  function attachApiKeys(config, keyStore) {
+    const keys = normalizeApiKeyStore(keyStore);
+    const normalized = normalizeInterpreterConfig(config);
+    return {
+      ...normalized,
+      providers: normalized.providers.map((provider) => ({
+        ...provider,
+        apiKey: keys[provider.id] || ''
+      }))
+    };
   }
 
   let presetsMemoryCache = null;
-  let presetsFetchedAt = 0;
 
-  // Security boundary: request routing (baseUrl, family, apiKeyUrl, modelsList,
-  // the provider set itself) ALWAYS comes from the bundled PROVIDER_PRESETS.
-  // The remote providers.json may only refresh the `popularModels` list of an
-  // already-bundled provider — so a changed/compromised remote catalog can
-  // never redirect a trusted provider's requests or introduce a new endpoint.
-  function mergePresets(remotePresets) {
-    const merged = clone(PROVIDER_PRESETS);
-    if (!Array.isArray(remotePresets)) {
-      return merged;
+  // Provider presets are bundled and never fetched remotely at runtime.
+  async function getPresetProviders() {
+    if (!presetsMemoryCache) {
+      presetsMemoryCache = clone(PROVIDER_PRESETS);
     }
-    const remoteById = {};
-    remotePresets.forEach((preset) => {
-      if (preset && preset.id) {
-        remoteById[preset.id] = preset;
-      }
-    });
-    merged.forEach((preset) => {
-      const remote = remoteById[preset.id];
-      if (remote && Array.isArray(remote.popularModels) && remote.popularModels.length) {
-        preset.popularModels = remote.popularModels
-          .filter((m) => m && m.id)
-          .map((m) => ({ id: String(m.id), name: String(m.name || m.id) }));
-      }
-    });
-    return merged;
+    return presetsMemoryCache;
   }
 
-  // Provider presets — the bundled list with each provider's popular-model
-  // list refreshed from the remote providers.json (cached in storage.local).
-  // Never rejects; routing data stays bundled (see mergePresets).
-  async function getPresetProviders() {
-    const now = Date.now();
-    if (presetsMemoryCache && (now - presetsFetchedAt) < PRESETS_CACHE_TTL) {
-      return presetsMemoryCache;
-    }
-
+  async function loadInterpreterConfig() {
     const api = getBrowser();
-    let cached = null;
-    if (api && api.storage && api.storage.local) {
-      try {
-        const stored = await api.storage.local.get(PRESETS_CACHE_KEY);
-        cached = stored ? stored[PRESETS_CACHE_KEY] : null;
-      } catch {}
-    }
-
-    if (cached && Array.isArray(cached.presets) && (now - (cached.fetchedAt || 0)) < PRESETS_CACHE_TTL) {
-      presetsMemoryCache = mergePresets(cached.presets);
-      presetsFetchedAt = cached.fetchedAt || now;
-      return presetsMemoryCache;
+    if (!api || !api.storage || !api.storage.local) {
+      return clone(DEFAULT_INTERPRETER_CONFIG);
     }
 
     try {
-      const response = await fetch(PROVIDERS_URL, { cache: 'no-cache' });
-      if (response.ok) {
-        const data = await response.json();
-        const parsed = parsePresetProviders(data);
-        if (parsed) {
-          presetsMemoryCache = mergePresets(parsed);
-          presetsFetchedAt = now;
-          if (api && api.storage && api.storage.local) {
-            try {
-              await api.storage.local.set({
-                [PRESETS_CACHE_KEY]: { presets: parsed, fetchedAt: now, version: String(data.version || '') }
-              });
-            } catch {}
-          }
-          return presetsMemoryCache;
+      const sessionArea = api.storage.session || null;
+      const storedConfig = await readStorageKey(api.storage.local, INTERPRETER_STORAGE_KEY);
+      const normalized = normalizeInterpreterConfig(storedConfig);
+      const legacyKeys = collectApiKeys(normalized);
+      let localKeys = normalizeApiKeyStore(await readStorageKey(api.storage.local, INTERPRETER_KEYS_STORAGE_KEY));
+      let sessionKeys = normalizeApiKeyStore(await readStorageKey(sessionArea, INTERPRETER_KEYS_STORAGE_KEY));
+
+      if (Object.keys(legacyKeys).length) {
+        if (sessionArea) {
+          sessionKeys = { ...sessionKeys, ...legacyKeys };
+          await Promise.resolve(sessionArea.set({ [INTERPRETER_KEYS_STORAGE_KEY]: sessionKeys }));
+        } else {
+          normalized.providers.forEach((provider) => {
+            if (provider.rememberApiKey && legacyKeys[provider.id]) {
+              localKeys[provider.id] = legacyKeys[provider.id];
+            }
+          });
         }
+        await Promise.resolve(api.storage.local.set({
+          [INTERPRETER_STORAGE_KEY]: stripApiKeysFromConfig(normalized),
+          [INTERPRETER_KEYS_STORAGE_KEY]: localKeys
+        }));
       }
-    } catch {}
 
-    if (cached && Array.isArray(cached.presets) && cached.presets.length) {
-      presetsMemoryCache = mergePresets(cached.presets);
-      presetsFetchedAt = now;
-      return presetsMemoryCache;
+      return attachApiKeys(normalized, { ...localKeys, ...sessionKeys });
+    } catch {
+      return clone(DEFAULT_INTERPRETER_CONFIG);
     }
-    return clone(PROVIDER_PRESETS);
   }
 
-  function loadInterpreterConfig() {
+  async function saveInterpreterConfig(config) {
     const api = getBrowser();
     if (!api || !api.storage || !api.storage.local) {
-      return Promise.resolve(clone(DEFAULT_INTERPRETER_CONFIG));
+      return;
     }
-    return Promise.resolve(api.storage.local.get(INTERPRETER_STORAGE_KEY))
-      .then((stored) => normalizeInterpreterConfig(stored ? stored[INTERPRETER_STORAGE_KEY] : null))
-      .catch(() => clone(DEFAULT_INTERPRETER_CONFIG));
-  }
 
-  function saveInterpreterConfig(config) {
-    const api = getBrowser();
-    if (!api || !api.storage || !api.storage.local) {
-      return Promise.resolve();
-    }
     const normalized = normalizeInterpreterConfig(config);
-    return Promise.resolve(api.storage.local.set({ [INTERPRETER_STORAGE_KEY]: normalized }));
+    const sessionArea = api.storage.session || null;
+    const providerIds = new Set(normalized.providers.map((provider) => provider.id));
+
+    if (!sessionArea) {
+      const hasSessionOnlyKey = normalized.providers.some((provider) => provider.apiKey && !provider.rememberApiKey);
+      if (hasSessionOnlyKey) {
+        throw new Error('Session storage is unavailable. Enable "Remember API key on this device" to save this key.');
+      }
+    }
+
+    const nextLocalKeys = normalizeApiKeyStore(await readStorageKey(api.storage.local, INTERPRETER_KEYS_STORAGE_KEY));
+    const nextSessionKeys = normalizeApiKeyStore(await readStorageKey(sessionArea, INTERPRETER_KEYS_STORAGE_KEY));
+
+    Object.keys(nextLocalKeys).forEach((providerId) => {
+      if (!providerIds.has(providerId)) {
+        delete nextLocalKeys[providerId];
+      }
+    });
+    Object.keys(nextSessionKeys).forEach((providerId) => {
+      if (!providerIds.has(providerId)) {
+        delete nextSessionKeys[providerId];
+      }
+    });
+
+    normalized.providers.forEach((provider) => {
+      delete nextLocalKeys[provider.id];
+      delete nextSessionKeys[provider.id];
+      if (!provider.apiKey) {
+        return;
+      }
+      if (provider.rememberApiKey) {
+        nextLocalKeys[provider.id] = provider.apiKey;
+      } else if (sessionArea) {
+        nextSessionKeys[provider.id] = provider.apiKey;
+      }
+    });
+
+    if (sessionArea) {
+      await Promise.resolve(sessionArea.set({ [INTERPRETER_KEYS_STORAGE_KEY]: nextSessionKeys }));
+    }
+    await Promise.resolve(api.storage.local.set({
+      [INTERPRETER_STORAGE_KEY]: stripApiKeysFromConfig(normalized),
+      [INTERPRETER_KEYS_STORAGE_KEY]: nextLocalKeys
+    }));
   }
 
   return {
     INTERPRETER_STORAGE_KEY,
+    INTERPRETER_KEYS_STORAGE_KEY,
     SYSTEM_PROMPT,
     PROVIDER_PRESETS,
     DEFAULT_INTERPRETER_CONFIG,
     getPresetProviders,
-    parsePresetProviders,
+    sanitizeProviderPresets,
     createPromptRegex,
     collectPromptVariables,
     hasPromptPlaceholders,

@@ -7,7 +7,8 @@ const {
   buildWebhookSendMessage,
   buildWebhookArticleFromMessage,
   summarizeWebhookResponseText,
-  resolveWebhookSendErrorMessage
+  resolveWebhookSendErrorMessage,
+  validateWebhookUrl
 } = require('../../shared/webhook-utils');
 
 describe('Webhook utilities', () => {
@@ -212,6 +213,73 @@ describe('Webhook utilities', () => {
     });
 
     expect(request.url).toBe('https://example.com/api/my-test-article');
+  });
+
+  test('rejects non-public webhook URLs before fetch', () => {
+    [
+      'file:///tmp/clip.json',
+      'http://example.com/hook',
+      'ftp://example.com/hook',
+      'https://localhost/hook',
+      'https://localhost.localdomain/hook',
+      'https://internal/hook',
+      'https://service.internal/hook',
+      'https://service.lan/hook',
+      'https://127.0.0.1/hook',
+      'https://10.0.0.5/hook',
+      'https://172.16.0.5/hook',
+      'https://172.31.255.255/hook',
+      'https://192.168.1.10/hook',
+      'https://169.254.169.254/latest/meta-data',
+      'https://[::1]/hook',
+      'https://[fe80::1]/hook',
+      'https://[fc00::1]/hook',
+      'https://[fd12:3456::1]/hook',
+      'https://user:pass@example.com/hook'
+    ].forEach((url) => {
+      expect(validateWebhookUrl(url).valid).toBe(false);
+    });
+
+    expect(validateWebhookUrl('https://example.com/hooks/notes').valid).toBe(true);
+    expect(validateWebhookUrl('https://8.8.8.8/hooks/notes').valid).toBe(true);
+  });
+
+  test('rejects unsafe URLs after webhook template rendering', () => {
+    expect(() => buildWebhookFetchRequest({
+      target: {
+        url: 'https://example.com.evil/{title}',
+        method: 'POST',
+        headers: [],
+        bodyTemplate: JSON.stringify({ content: '{content}' })
+      },
+      article: {
+        title: '../../hooks',
+        content: 'body text',
+        pageURL: 'https://example.com/post',
+        excerpt: '',
+        byline: '',
+        keywords: [],
+        publishedTime: '2026-05-05T00:00:00.000Z'
+      }
+    })).not.toThrow();
+
+    expect(() => buildWebhookFetchRequest({
+      target: {
+        url: 'https://{title}/hooks',
+        method: 'POST',
+        headers: [],
+        bodyTemplate: JSON.stringify({ content: '{content}' })
+      },
+      article: {
+        title: 'localhost',
+        content: 'body text',
+        pageURL: 'https://example.com/post',
+        excerpt: '',
+        byline: '',
+        keywords: [],
+        publishedTime: '2026-05-05T00:00:00.000Z'
+      }
+    })).toThrow(/public hostname|public HTTPS host|not allowed/i);
   });
 
   test('renders publishedTime templates independently from the current clip date', () => {

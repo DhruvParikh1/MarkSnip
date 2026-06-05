@@ -15,6 +15,22 @@
     return null;
   }
 
+  function getWebhookUtilsApi() {
+    if (root.markSnipWebhookUtils) {
+      return root.markSnipWebhookUtils;
+    }
+
+    if (typeof require === 'function') {
+      try {
+        return require('./webhook-utils');
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
   function isPlainObject(value) {
     return Object.prototype.toString.call(value) === '[object Object]';
   }
@@ -196,7 +212,12 @@
         return normalized;
       }
 
-      if (parsedUrl.protocol !== 'https:') {
+      const webhookValidation = getWebhookUtilsApi()?.validateWebhookUrl?.(url);
+      if (webhookValidation && !webhookValidation.valid) {
+        return normalized;
+      }
+
+      if (!webhookValidation && parsedUrl.protocol !== 'https:') {
         return normalized;
       }
 

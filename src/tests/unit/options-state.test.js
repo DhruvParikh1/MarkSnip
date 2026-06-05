@@ -182,6 +182,41 @@ const defaultOptions = {
     ]);
   });
 
+  test('normalizeImportedOptions drops local or private webhook targets', () => {
+    const normalized = optionsState.normalizeImportedOptions({
+      defaultExportType: 'webhook:loopback',
+      webhookTargets: [
+        {
+          id: 'loopback',
+          name: 'Loopback',
+          url: 'https://127.0.0.1/hooks',
+          method: 'POST',
+          headers: [],
+          bodyTemplate: JSON.stringify({ content: '{content}' })
+        },
+        {
+          id: 'internal',
+          name: 'Internal',
+          url: 'https://notes.internal/hooks',
+          method: 'POST',
+          headers: [],
+          bodyTemplate: JSON.stringify({ content: '{content}' })
+        },
+        {
+          id: 'public',
+          name: 'Public',
+          url: 'https://example.com/hooks/{title:kebab}',
+          method: 'POST',
+          headers: [],
+          bodyTemplate: JSON.stringify({ content: '{content}' })
+        }
+      ]
+    }, defaultOptions);
+
+    expect(normalized.webhookTargets.map((target) => target.id)).toEqual(['public']);
+    expect(normalized.defaultExportType).toBe('markdown');
+  });
+
   test('normalizeImportedOptions falls back to ChatGPT when the selected custom target is missing', () => {
     const normalized = optionsState.normalizeImportedOptions({
       defaultExportType: 'sendTo',

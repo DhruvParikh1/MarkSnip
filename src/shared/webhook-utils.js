@@ -70,6 +70,183 @@
     }, []);
   }
 
+  function normalizeWebhookHostname(hostname) {
+    return String(hostname || '')
+      .trim()
+      .replace(/^\[/, '')
+      .replace(/\]$/, '')
+      .replace(/\.$/, '')
+      .toLowerCase();
+  }
+
+  function parseIPv4Address(hostname) {
+    const value = normalizeWebhookHostname(hostname);
+    if (!/^\d+\.\d+\.\d+\.\d+$/.test(value)) {
+      return null;
+    }
+
+    const parts = value.split('.').map((part) => Number(part));
+    if (parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) {
+      return null;
+    }
+
+    return parts;
+  }
+
+  function isPrivateWebhookIPv4(parts) {
+    if (!Array.isArray(parts) || parts.length !== 4) {
+      return false;
+    }
+
+    const [a, b] = parts;
+    return (
+      a === 0 ||
+      a === 10 ||
+      a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 192 && b === 0) ||
+      a >= 224
+    );
+  }
+
+  function parseIPv6Address(hostname) {
+    const value = normalizeWebhookHostname(hostname);
+    if (!value.includes(':') || value.includes('%')) {
+      return null;
+    }
+
+    const ipv4Match = value.match(/(?:^|:)(\d+\.\d+\.\d+\.\d+)$/);
+    let ipv4Parts = null;
+    let ipv6Value = value;
+    if (ipv4Match) {
+      ipv4Parts = parseIPv4Address(ipv4Match[1]);
+      if (!ipv4Parts) {
+        return null;
+      }
+      const hi = ((ipv4Parts[0] << 8) | ipv4Parts[1]).toString(16);
+      const lo = ((ipv4Parts[2] << 8) | ipv4Parts[3]).toString(16);
+      ipv6Value = value.replace(ipv4Match[1], `${hi}:${lo}`);
+    }
+
+    const pieces = ipv6Value.split('::');
+    if (pieces.length > 2) {
+      return null;
+    }
+
+    const left = pieces[0] ? pieces[0].split(':') : [];
+    const right = pieces.length === 2 && pieces[1] ? pieces[1].split(':') : [];
+    const explicit = [...left, ...right];
+    if (explicit.some((part) => !/^[0-9a-f]{1,4}$/i.test(part))) {
+      return null;
+    }
+
+    const missing = pieces.length === 2 ? 8 - explicit.length : 0;
+    if ((pieces.length === 1 && explicit.length !== 8) || missing < 0) {
+      return null;
+    }
+
+    return [
+      ...left.map((part) => Number.parseInt(part, 16)),
+      ...Array(missing).fill(0),
+      ...right.map((part) => Number.parseInt(part, 16))
+    ];
+  }
+
+  function isPrivateWebhookIPv6(parts) {
+    if (!Array.isArray(parts) || parts.length !== 8) {
+      return false;
+    }
+
+    const isLoopback = parts.slice(0, 7).every((part) => part === 0) && parts[7] === 1;
+    const isUnspecified = parts.every((part) => part === 0);
+    const isLinkLocal = (parts[0] & 0xffc0) === 0xfe80;
+    const isUniqueLocal = (parts[0] & 0xfe00) === 0xfc00;
+    const isMulticast = (parts[0] & 0xff00) === 0xff00;
+    const isIPv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
+    const mappedIPv4 = isIPv4Mapped
+      ? [(parts[6] >> 8) & 255, parts[6] & 255, (parts[7] >> 8) & 255, parts[7] & 255]
+      : null;
+
+    return (
+      isLoopback ||
+      isUnspecified ||
+      isLinkLocal ||
+      isUniqueLocal ||
+      isMulticast ||
+      (mappedIPv4 && isPrivateWebhookIPv4(mappedIPv4))
+    );
+  }
+
+  // Blocks https-only webhook targets that point at loopback/RFC-1918/link-local
+  // hosts. This is a literal check on the parsed (WHATWG-normalized) hostname, so
+  // obfuscated IP forms (octal/hex/integer) are caught, but a public hostname that
+  // *resolves* to a private address via DNS (e.g. 127.0.0.1.nip.io, or DNS
+  // rebinding) is not — that would require resolving DNS, which fetch() does not
+  // expose to the extension.
+  function validateWebhookUrl(url) {
+    const rawUrl = String(url || '').trim();
+    if (!rawUrl) {
+      return { valid: false, url: '', error: 'Webhook URL is required' };
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      return { valid: false, url: rawUrl, error: 'Webhook URL must be a valid HTTPS URL' };
+    }
+
+    if (parsed.protocol !== 'https:') {
+      return { valid: false, url: rawUrl, error: 'Webhook URL must use https://' };
+    }
+
+    if (parsed.username || parsed.password) {
+      return { valid: false, url: rawUrl, error: 'Webhook URL must not include credentials' };
+    }
+
+    const hostname = normalizeWebhookHostname(parsed.hostname);
+    if (!hostname) {
+      return { valid: false, url: rawUrl, error: 'Webhook URL must include a public hostname' };
+    }
+
+    const ipv4 = parseIPv4Address(hostname);
+    if (ipv4) {
+      if (isPrivateWebhookIPv4(ipv4)) {
+        return { valid: false, url: rawUrl, error: 'Webhook URL must point to a public HTTPS host' };
+      }
+      return { valid: true, url: parsed.href, error: '' };
+    }
+
+    const ipv6 = parseIPv6Address(hostname);
+    if (ipv6) {
+      if (isPrivateWebhookIPv6(ipv6)) {
+        return { valid: false, url: rawUrl, error: 'Webhook URL must point to a public HTTPS host' };
+      }
+      return { valid: true, url: parsed.href, error: '' };
+    }
+
+    if (!hostname.includes('.')) {
+      return { valid: false, url: rawUrl, error: 'Webhook URL must use a public hostname' };
+    }
+
+    if (/\.(local|localhost|localdomain|internal|lan|home|corp)$/.test(hostname)) {
+      return { valid: false, url: rawUrl, error: 'Webhook URL must not target a local or internal hostname' };
+    }
+
+    return { valid: true, url: parsed.href, error: '' };
+  }
+
+  function assertValidWebhookUrl(url) {
+    const result = validateWebhookUrl(url);
+    if (!result.valid) {
+      throw new Error(result.error || 'Webhook URL is not allowed');
+    }
+    return result.url;
+  }
+
   function buildWebhookSendMessage({ targetId, markdown, title, sourceUrl, clipState } = {}) {
     const content = String(markdown ?? clipState?.markdown ?? '');
     const resolvedTitle = String(title ?? clipState?.title ?? '').trim();
@@ -324,8 +501,9 @@
   }
 
   function buildWebhookFetchRequest({ target, article } = {}) {
+    const renderedUrl = renderWebhookTemplateString(String(target?.url || ''), article);
     return {
-      url: renderWebhookTemplateString(String(target?.url || ''), article),
+      url: assertValidWebhookUrl(renderedUrl),
       method: String(target?.method || 'POST').trim().toUpperCase() || 'POST',
       headers: buildWebhookHeaders(target?.headers, article),
       body: renderWebhookJsonBody(target?.bodyTemplate, article)
@@ -338,6 +516,8 @@
     normalizeWebhookKeywords,
     renderWebhookTemplateString,
     renderWebhookJsonBody,
+    validateWebhookUrl,
+    assertValidWebhookUrl,
     buildWebhookFetchRequest,
     summarizeWebhookResponseText,
     resolveWebhookSendErrorMessage

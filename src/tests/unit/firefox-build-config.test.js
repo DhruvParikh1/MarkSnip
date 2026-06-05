@@ -53,6 +53,15 @@ describe('Firefox build configuration', () => {
     expect(firefoxManifest.permissions).not.toContain('offscreen');
   });
 
+  test('preserves explicit extension CSP in generated browser manifests', () => {
+    const sourceManifest = readJson('manifest.json');
+    const chromeManifest = createChromeManifest(sourceManifest);
+    const firefoxManifest = createFirefoxManifest(sourceManifest);
+
+    expect(chromeManifest.content_security_policy).toEqual(sourceManifest.content_security_policy);
+    expect(firefoxManifest.content_security_policy).toEqual(sourceManifest.content_security_policy);
+  });
+
   test('loads MathML conversion before the offscreen runtime', () => {
     const offscreenHtml = fs.readFileSync(path.join(srcRoot, 'offscreen/offscreen.html'), 'utf8');
     const mathMLScriptIndex = offscreenHtml.indexOf('../shared/mathml-to-tex.js');
