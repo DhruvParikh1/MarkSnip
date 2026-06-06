@@ -1,5 +1,26 @@
 # Changelog
 
+## 5.2.0
+
+### User Highlights
+
+- Reader View now opens readable pages from the popup, right-click menu, or a configured browser shortcut, either as an overlay on the page or in a dedicated reader tab.
+- Reader View has live controls for text size, reading width, line height, light, dark, or Auto theme, sans or serif fonts, and scoped custom CSS.
+- Reader articles include an outline, footnotes, an image lightbox, and direct actions to copy Markdown, download Markdown, or send the article to Obsidian.
+- Highlights now carry into Reader View, and saved reader highlights can be exported with cleaner merging when marks overlap on the page.
+- Image downloads now have clear folder choices: sidecar folder, same folder, or custom prefix. Webhook URLs must use public HTTPS hosts, and Interpreter API keys stay out of saved config unless you choose to remember them.
+
+### Technical Notes
+
+- **Reader View**: Added popup, context-menu, and command entry points for a focused reader surface, with both in-page overlay and standalone reader-tab modes. Reader sessions are stored separately and route copy, download, and Obsidian export actions through the existing Markdown pipeline.
+- **Reader Rendering and Controls**: Added reader sanitization, outline generation, footnote handling, image lightbox support, toolbar controls, live typography settings, light/dark/auto appearance, font selection, and scoped custom CSS.
+- **Reader Semantics**: Added pre-Readability cleanup that strips leading page metadata blocks and normalizes callouts, code blocks, lazy and noscript images, pictures, figures, footnotes, drop caps, custom elements, layout tables, trailing headings, and permalink anchors.
+- **Highlighter Integration**: Added reader-surface highlighting, saved-highlight loading inside Reader View, reader-aware highlight export, merged overlay rectangles for overlapping marks, and restoration of page highlights after leaving Reader View.
+- **Image Placement**: Added `imagePlacement` modes for sidecar folders, same-folder images, and custom prefixes. Shared URL utilities now resolve Markdown image paths and download filenames consistently, including subfolder titles and older prefix settings.
+- **Security and Interpreter Storage**: Webhook Targets now validate rendered URLs before fetch, rejecting non-HTTPS, credentialed, local, private, and internal hosts. Interpreter API keys are separated from saved provider config and kept in session storage unless the provider is set to remember the key.
+- **Firefox and CSP**: Added an explicit extension CSP that allows the popup offscreen bridge to self-frame, included shared URL utilities in generated Firefox background scripts, and updated the Firefox live smoke harness to avoid the BiDi tab-create path.
+- **Options, Localization, and Coverage**: Added hash deep-linking for options sections, moved Tables settings under Markdown, completed missing Reader View locale keys across non-English catalogs, fixed edited-popup Interpreter prompts so Interpret uses the latest editor state, and added focused unit, integration, and E2E coverage for the new reader, highlighter, image path, security, Firefox, and Interpreter paths.
+
 ## 5.1.0
 
 ### User Highlights

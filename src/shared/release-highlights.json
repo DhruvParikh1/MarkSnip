@@ -1,7 +1,14 @@
 {
-  "generatedAt": "2026-05-27T02:31:36.584Z",
+  "generatedAt": "2026-06-06T16:36:35.421Z",
   "source": "CHANGELOG.md",
   "versions": {
+    "5.2.0": [
+      "Reader View now opens readable pages from the popup, right-click menu, or a configured browser shortcut, either as an overlay on the page or in a dedicated reader tab.",
+      "Reader View has live controls for text size, reading width, line height, light, dark, or Auto theme, sans or serif fonts, and scoped custom CSS.",
+      "Reader articles include an outline, footnotes, an image lightbox, and direct actions to copy Markdown, download Markdown, or send the article to Obsidian.",
+      "Highlights now carry into Reader View, and saved reader highlights can be exported with cleaner merging when marks overlap on the page.",
+      "Image downloads now have clear folder choices: sidecar folder, same folder, or custom prefix. Webhook URLs must use public HTTPS hosts, and Interpreter API keys stay out of saved config unless you choose to remember them."
+    ],
     "5.1.0": [
       "New Click & Clip automation can step through interactive pages, capture repeated states such as tabs, accordions, load-more flows, pagination, and sidebars, then export the results without manually copying each view.",
       "Batch Processing has a redesigned flow with clearer capture choices, picked-link reuse, and output options for ZIP files, individual Markdown files, or one combined Markdown document.",
