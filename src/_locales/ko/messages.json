@@ -216,6 +216,18 @@
     "message": "현재 탭을 마크다운으로 Obsidian에 복사",
     "description": "Command description"
   },
+  "cmdToggleReader": {
+    "message": "리더 보기 전환",
+    "description": "Command description"
+  },
+  "popupReaderRestricted": {
+    "message": "이 페이지는 리더 보기로 표시할 수 없습니다.",
+    "description": "Toast shown when Reader View is invoked on a restricted page"
+  },
+  "popupReaderFailed": {
+    "message": "리더 보기를 열지 못했습니다.",
+    "description": "Toast shown when Reader View fails to open"
+  },
   "contextDownloadTab": {
     "message": "탭을 마크다운으로 다운로드",
     "description": "Context menu item"
@@ -295,6 +307,14 @@
   "highlighterSave": {
     "message": "저장",
     "description": "Save highlight note button label"
+  },
+  "contextOpenReaderOverlay": {
+    "message": "리더 보기로 열기",
+    "description": "Context menu item for opening the current page in the Reader View overlay"
+  },
+  "contextOpenReaderTab": {
+    "message": "리더 탭에서 열기",
+    "description": "Context menu item for opening the current page in a standalone reader tab"
   },
   "contextCopySelection": {
     "message": "선택 영역을 마크다운으로 복사",
@@ -3961,6 +3981,10 @@
   "shortcutCopyTabObsidian": {
     "message": "탭을 Obsidian으로 복사",
     "description": "Keyboard shortcut label for copying tab to Obsidian"
+  },
+  "shortcutToggleReader": {
+    "message": "리더 보기 전환",
+    "description": "Keyboard shortcut label for toggling Reader View"
   },
   "shortcutUnsetSymbolLabel": {
     "message": "지정되지 않음",

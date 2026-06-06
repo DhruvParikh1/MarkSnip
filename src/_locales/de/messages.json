@@ -216,6 +216,18 @@
     "message": "Aktuellen Tab als Markdown an Obsidian senden",
     "description": "Command description"
   },
+  "cmdToggleReader": {
+    "message": "Leseansicht ein-/ausschalten",
+    "description": "Command description"
+  },
+  "popupReaderRestricted": {
+    "message": "Diese Seite kann nicht in der Leseansicht angezeigt werden.",
+    "description": "Toast shown when Reader View is invoked on a restricted page"
+  },
+  "popupReaderFailed": {
+    "message": "Leseansicht konnte nicht geöffnet werden.",
+    "description": "Toast shown when Reader View fails to open"
+  },
   "contextDownloadTab": {
     "message": "Tab als Markdown herunterladen",
     "description": "Context menu item"
@@ -295,6 +307,14 @@
   "highlighterSave": {
     "message": "Speichern",
     "description": "Save highlight note button label"
+  },
+  "contextOpenReaderOverlay": {
+    "message": "In Leseansicht öffnen",
+    "description": "Context menu item for opening the current page in the Reader View overlay"
+  },
+  "contextOpenReaderTab": {
+    "message": "In Lese-Tab öffnen",
+    "description": "Context menu item for opening the current page in a standalone reader tab"
   },
   "contextCopySelection": {
     "message": "Auswahl als Markdown kopieren",
@@ -3961,6 +3981,10 @@
   "shortcutCopyTabObsidian": {
     "message": "Tab an Obsidian kopieren",
     "description": "Keyboard shortcut label for copying tab to Obsidian"
+  },
+  "shortcutToggleReader": {
+    "message": "Leseansicht ein-/ausschalten",
+    "description": "Keyboard shortcut label for toggling Reader View"
   },
   "shortcutUnsetSymbolLabel": {
     "message": "Nicht festgelegt",

@@ -216,6 +216,18 @@
     "message": "現在のタブをMarkdownとしてObsidianに送信",
     "description": "Command description"
   },
+  "cmdToggleReader": {
+    "message": "リーダー表示を切り替え",
+    "description": "Command description"
+  },
+  "popupReaderRestricted": {
+    "message": "このページはリーダー表示で読み込めません。",
+    "description": "Toast shown when Reader View is invoked on a restricted page"
+  },
+  "popupReaderFailed": {
+    "message": "リーダー表示を開けませんでした。",
+    "description": "Toast shown when Reader View fails to open"
+  },
   "contextDownloadTab": {
     "message": "タブをMarkdownとしてダウンロード",
     "description": "Context menu item"
@@ -295,6 +307,14 @@
   "highlighterSave": {
     "message": "保存",
     "description": "Save highlight note button label"
+  },
+  "contextOpenReaderOverlay": {
+    "message": "リーダー表示で開く",
+    "description": "Context menu item for opening the current page in the Reader View overlay"
+  },
+  "contextOpenReaderTab": {
+    "message": "リーダータブで開く",
+    "description": "Context menu item for opening the current page in a standalone reader tab"
   },
   "contextCopySelection": {
     "message": "選択範囲をMarkdownとしてコピー",
@@ -3961,6 +3981,10 @@
   "shortcutCopyTabObsidian": {
     "message": "タブをObsidianにコピー",
     "description": "Keyboard shortcut label for copying tab to Obsidian"
+  },
+  "shortcutToggleReader": {
+    "message": "リーダー表示を切り替え",
+    "description": "Keyboard shortcut label for toggling Reader View"
   },
   "shortcutUnsetSymbolLabel": {
     "message": "未設定",

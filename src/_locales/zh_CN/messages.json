@@ -216,6 +216,18 @@
     "message": "将当前标签页作为 Markdown 复制到 Obsidian",
     "description": "Command description"
   },
+  "cmdToggleReader": {
+    "message": "切换阅读视图",
+    "description": "Command description"
+  },
+  "popupReaderRestricted": {
+    "message": "此页面无法在阅读视图中显示。",
+    "description": "Toast shown when Reader View is invoked on a restricted page"
+  },
+  "popupReaderFailed": {
+    "message": "无法打开阅读视图。",
+    "description": "Toast shown when Reader View fails to open"
+  },
   "contextDownloadTab": {
     "message": "将标签页下载为 Markdown",
     "description": "Context menu item"
@@ -295,6 +307,14 @@
   "highlighterSave": {
     "message": "保存",
     "description": "Save highlight note button label"
+  },
+  "contextOpenReaderOverlay": {
+    "message": "在阅读视图中打开",
+    "description": "Context menu item for opening the current page in the Reader View overlay"
+  },
+  "contextOpenReaderTab": {
+    "message": "在阅读标签页中打开",
+    "description": "Context menu item for opening the current page in a standalone reader tab"
   },
   "contextCopySelection": {
     "message": "将选区复制为 Markdown",
@@ -3961,6 +3981,10 @@
   "shortcutCopyTabObsidian": {
     "message": "将标签页复制到 Obsidian",
     "description": "Keyboard shortcut label for copying tab to Obsidian"
+  },
+  "shortcutToggleReader": {
+    "message": "切换阅读视图",
+    "description": "Keyboard shortcut label for toggling Reader View"
   },
   "shortcutUnsetSymbolLabel": {
     "message": "未设置",

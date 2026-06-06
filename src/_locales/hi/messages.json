@@ -216,6 +216,18 @@
     "message": "वर्तमान टैब को मार्कडाउन के रूप में Obsidian में कॉपी करें",
     "description": "Command description"
   },
+  "cmdToggleReader": {
+    "message": "रीडर व्यू टॉगल करें",
+    "description": "Command description"
+  },
+  "popupReaderRestricted": {
+    "message": "इस पेज को रीडर व्यू में नहीं पढ़ा जा सकता।",
+    "description": "Toast shown when Reader View is invoked on a restricted page"
+  },
+  "popupReaderFailed": {
+    "message": "रीडर व्यू खोलने में विफल।",
+    "description": "Toast shown when Reader View fails to open"
+  },
   "contextDownloadTab": {
     "message": "टैब को मार्कडाउन के रूप में डाउनलोड करें",
     "description": "Context menu item"
@@ -295,6 +307,14 @@
   "highlighterSave": {
     "message": "सहेजें",
     "description": "Save highlight note button label"
+  },
+  "contextOpenReaderOverlay": {
+    "message": "रीडर व्यू में खोलें",
+    "description": "Context menu item for opening the current page in the Reader View overlay"
+  },
+  "contextOpenReaderTab": {
+    "message": "रीडर टैब में खोलें",
+    "description": "Context menu item for opening the current page in a standalone reader tab"
   },
   "contextCopySelection": {
     "message": "चयन को मार्कडाउन के रूप में कॉपी करें",
@@ -3961,6 +3981,10 @@
   "shortcutCopyTabObsidian": {
     "message": "टैब को Obsidian में कॉपी करें",
     "description": "Keyboard shortcut label for copying tab to Obsidian"
+  },
+  "shortcutToggleReader": {
+    "message": "रीडर व्यू टॉगल करें",
+    "description": "Keyboard shortcut label for toggling Reader View"
   },
   "shortcutUnsetSymbolLabel": {
     "message": "सेट नहीं है (Unset)",

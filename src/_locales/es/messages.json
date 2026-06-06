@@ -216,6 +216,18 @@
     "message": "Copiar pestaña actual como Markdown a Obsidian",
     "description": "Command description"
   },
+  "cmdToggleReader": {
+    "message": "Activar/desactivar vista de lectura",
+    "description": "Command description"
+  },
+  "popupReaderRestricted": {
+    "message": "Esta página no se puede mostrar en la vista de lectura.",
+    "description": "Toast shown when Reader View is invoked on a restricted page"
+  },
+  "popupReaderFailed": {
+    "message": "No se pudo abrir la vista de lectura.",
+    "description": "Toast shown when Reader View fails to open"
+  },
   "contextDownloadTab": {
     "message": "Descargar pestaña como Markdown",
     "description": "Context menu item"
@@ -295,6 +307,14 @@
   "highlighterSave": {
     "message": "Guardar",
     "description": "Save highlight note button label"
+  },
+  "contextOpenReaderOverlay": {
+    "message": "Abrir en vista de lectura",
+    "description": "Context menu item for opening the current page in the Reader View overlay"
+  },
+  "contextOpenReaderTab": {
+    "message": "Abrir en pestaña de lectura",
+    "description": "Context menu item for opening the current page in a standalone reader tab"
   },
   "contextCopySelection": {
     "message": "Copiar selección como Markdown",
@@ -3961,6 +3981,10 @@
   "shortcutCopyTabObsidian": {
     "message": "Copiar pestaña a Obsidian",
     "description": "Keyboard shortcut label for copying tab to Obsidian"
+  },
+  "shortcutToggleReader": {
+    "message": "Activar/desactivar vista de lectura",
+    "description": "Keyboard shortcut label for toggling Reader View"
   },
   "shortcutUnsetSymbolLabel": {
     "message": "Desasignado",
