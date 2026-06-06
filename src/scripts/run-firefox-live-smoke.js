@@ -416,22 +416,45 @@ function getExtensionContextFromTree(tree) {
   };
 }
 
-async function createExtensionPageContext(client, url, timeoutMs) {
-  const created = await client.send('browsingContext.create', {
-    type: 'tab'
-  }, timeoutMs);
+async function waitForContextUrl(client, url, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastUrls = [];
 
-  if (!created?.context) {
-    throw new Error(`Could not create extension page context for ${url}.`);
+  while (Date.now() < deadline) {
+    const tree = await client.send('browsingContext.getTree', {}, 10000).catch(() => null);
+    const contexts = flattenContexts(tree?.contexts || []);
+    const match = contexts.find(context => context.url === url);
+    if (match?.context) {
+      return match.context;
+    }
+    lastUrls = contexts.map(context => context.url || '').filter(Boolean);
+    await wait(250);
   }
 
-  await client.send('browsingContext.navigate', {
-    context: created.context,
-    url,
-    wait: 'none'
-  }, timeoutMs);
+  throw new Error(`Timed out waiting for context ${url}. Open contexts: ${lastUrls.join(', ')}`);
+}
 
-  return created.context;
+async function createExtensionPageContext(client, extensionContext, url, timeoutMs) {
+  const opened = await client.evaluate(
+    extensionContext,
+    `(async () => {
+      const tab = await browser.tabs.create({
+        url: ${JSON.stringify(url)},
+        active: true
+      });
+      return {
+        id: tab.id,
+        url: tab.url || ''
+      };
+    })()`,
+    timeoutMs
+  );
+
+  if (!Number.isInteger(opened?.id)) {
+    throw new Error(`Could not open extension page tab for ${url}: ${JSON.stringify(opened)}`);
+  }
+
+  return await waitForContextUrl(client, url, timeoutMs);
 }
 
 async function waitForPopupReady(client, popupContext, timeoutMs) {
@@ -646,6 +669,7 @@ async function main() {
 
     const popupContext = await createExtensionPageContext(
       client,
+      extensionContext.context,
       `moz-extension://${extensionContext.uuid}/popup/popup.html`,
       options.timeoutMs
     );
