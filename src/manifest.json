@@ -29,7 +29,7 @@
     "<all_urls>"
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'self' http: https:; frame-ancestors 'none'; connect-src 'self' http: https: data: blob:"
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'self' http: https:; frame-ancestors 'self'; connect-src 'self' http: https: data: blob:"
   },
   "action": {
     "default_title": "__MSG_actionTitle__",

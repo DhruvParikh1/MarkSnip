@@ -13,7 +13,7 @@ describe('Security surface hardening', () => {
     expect(csp).toContain("script-src 'self'");
     expect(csp).toContain("object-src 'none'");
     expect(csp).toContain("base-uri 'self'");
-    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("frame-ancestors 'self'");
     expect(csp).toContain('connect-src');
   });
 

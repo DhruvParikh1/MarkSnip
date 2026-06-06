@@ -416,6 +416,24 @@ function getExtensionContextFromTree(tree) {
   };
 }
 
+async function createExtensionPageContext(client, url, timeoutMs) {
+  const created = await client.send('browsingContext.create', {
+    type: 'tab'
+  }, timeoutMs);
+
+  if (!created?.context) {
+    throw new Error(`Could not create extension page context for ${url}.`);
+  }
+
+  await client.send('browsingContext.navigate', {
+    context: created.context,
+    url,
+    wait: 'none'
+  }, timeoutMs);
+
+  return created.context;
+}
+
 async function waitForPopupReady(client, popupContext, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
 
@@ -487,12 +505,41 @@ async function runPopupClip(client, popupContext, fixtureUrl, timeoutMs) {
       await ensureContentScriptInjected(target.id);
 
       const markdown = await new Promise((resolve, reject) => {
+        const seenMessages = [];
         const timeout = setTimeout(() => {
           browser.runtime.onMessage.removeListener(listener);
-          reject(new Error('Timed out waiting for display.md'));
+          Promise.all([
+            browser.tabs.query({}).catch(error => [{ error: error.message }]),
+            browser.storage.sync.get(defaultOptions).catch(error => ({ error: error.message })),
+            Promise.resolve().then(() => ({
+              readyState: document.readyState,
+              hasOffscreenBridgeFrame: !!document.getElementById('marksnip-offscreen-bridge'),
+              offscreenBridgeFrameSrc: document.getElementById('marksnip-offscreen-bridge')?.src || '',
+              editorLength: document.querySelector('#md')?.value?.length || 0,
+              errorText: document.body?.innerText?.match(/Error[^\\n]*/)?.[0] || ''
+            }))
+          ]).then(([tabs, options, popupState]) => {
+            reject(new Error('Timed out waiting for display.md: ' + JSON.stringify({
+              seenMessages,
+              popupState,
+              options: {
+                downloadMode: options.downloadMode,
+                includeTemplate: options.includeTemplate,
+                skipHiddenContent: options.skipHiddenContent
+              },
+              tabs: tabs.map(tab => ({
+                id: tab.id,
+                active: tab.active,
+                url: tab.url || tab.error || ''
+              }))
+            })));
+          });
         }, ${Math.max(30000, timeoutMs)});
 
         function listener(message) {
+          if (message?.type) {
+            seenMessages.push(message.type);
+          }
           if (message.type === 'display.md') {
             clearTimeout(timeout);
             browser.runtime.onMessage.removeListener(listener);
@@ -597,12 +644,11 @@ async function main() {
       throw new Error('Could not resolve an extension page context after installing the Firefox build.');
     }
 
-    const popupContext = extensionContext.context;
-    await client.send('browsingContext.navigate', {
-      context: popupContext,
-      url: `moz-extension://${extensionContext.uuid}/popup/popup.html`,
-      wait: 'none'
-    });
+    const popupContext = await createExtensionPageContext(
+      client,
+      `moz-extension://${extensionContext.uuid}/popup/popup.html`,
+      options.timeoutMs
+    );
     await wait(1000);
     await waitForPopupReady(client, popupContext, options.timeoutMs);
 
