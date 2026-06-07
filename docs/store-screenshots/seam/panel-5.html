@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MarkSnip — Panel 5 — Trust</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet">
+<link href="seam.css" rel="stylesheet">
+<style>
+  .panel { width: 1280px; height: 800px; }
+
+  .headline { position: absolute; top: 80px; left: 0; right: 0; text-align: center; font-size: 50px; }
+  .subhead {
+    position: absolute; top: 148px; left: 0; right: 0; text-align: center;
+    color: var(--ink-mid); font-size: 18px; font-weight: 420;
+  }
+
+  .grid {
+    position: absolute; left: 80px; right: 80px; top: 210px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 22px;
+  }
+  .card {
+    background: #fff; border: 1px solid var(--frame-edge); border-radius: 18px;
+    box-shadow: 0 18px 40px -30px rgba(28, 25, 23, 0.28);
+    padding: 32px 34px; display: flex; flex-direction: column; justify-content: center;
+    min-height: 188px;
+  }
+  .card .ic {
+    width: 46px; height: 46px; border-radius: 12px; background: var(--accent-light);
+    display: grid; place-items: center; margin-bottom: 20px;
+  }
+  .card .ic svg { width: 24px; height: 24px; }
+  .card .ic svg [stroke] { stroke: var(--accent-deeper); stroke-width: 1.6; fill: none;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .card .ic svg [fill] { fill: var(--accent-deeper); }
+  .card h3 { margin: 0 0 8px; font-size: 21px; font-weight: 600; letter-spacing: -0.018em; color: var(--ink); }
+  .card p { margin: 0; font-size: 15.5px; line-height: 1.48; color: var(--ink-mid); font-weight: 420; max-width: 42ch; }
+  .card p b { color: var(--ink-soft); font-weight: 560; }
+
+  .close { position: absolute; bottom: 66px; left: 0; right: 0; text-align: center; }
+  .close .lockup { display: inline-flex; align-items: center; gap: 14px; }
+  .close .lockup .badge { height: 38px; border-radius: 9px; }
+  .close .lockup .wm { font-size: 34px; font-weight: 660; letter-spacing: -0.03em; color: var(--ink); }
+  .close .tag {
+    margin-top: 16px; font-family: var(--mono); font-size: 14px; letter-spacing: 0.06em;
+    color: var(--ink-mute);
+  }
+  .close .tag .dot { color: var(--accent); padding: 0 6px; }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <h1 class="headline">Built for <span class="accent">trust</span>. Made to last.</h1>
+    <p class="subhead">A tool that touches your content should earn it. Here&rsquo;s how MarkSnip does.</p>
+
+    <section class="grid">
+      <div class="card">
+        <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M12 3 l7 3 v5 c0 4.2-3 7.4-7 8.6 -4-1.2-7-4.4-7-8.6 V6z"/><path stroke="" d="M9 12 l2 2 4-4.2"/></svg></span>
+        <h3>Runs locally</h3>
+        <p><b>Conversion happens in your browser.</b> Nothing is uploaded to a server.</p>
+      </div>
+
+      <div class="card">
+        <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M7 3 h7 l4 4 v14 H7z"/><path stroke="" d="M14 3 v4 h4"/><path stroke="" d="M9.5 13 v4 M9.5 13 l1.6 2.4 1.6-2.4 v4 M15 13 v4 h1.8"/></svg></span>
+        <h3>Plaintext is portable</h3>
+        <p><b>Your clips are .md files.</b> They outlive any single app.</p>
+      </div>
+
+      <div class="card">
+        <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M8 8 h8 a4 4 0 0 1 0 8 H8 a4 4 0 0 1 0-8z"/><circle cx="15" cy="12" r="2.4" fill=""/></svg></span>
+        <h3>Opt-in only</h3>
+        <p><b>AI and the local CLI</b> send data only when you switch them on.</p>
+      </div>
+
+      <div class="card">
+        <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M9.5 4 C7 4 7.5 8 6 10 c1.5 2 1 6 3.5 6 M14.5 4 C17 4 16.5 8 18 10 c-1.5 2-1 6-3.5 6"/></svg></span>
+        <h3>Free &amp; open source</h3>
+        <p><b>Inspect it, fork it, trust it.</b> The whole extension is on GitHub.</p>
+      </div>
+    </section>
+
+    <div class="close">
+      <span class="lockup">
+        <img class="badge" src="assets/marksnip-icon-512.png" alt="MarkSnip">
+        <span class="wm">MarkSnip</span>
+      </span>
+      <div class="tag">Webpage to Markdown<span class="dot">&middot;</span>Chrome &amp; Firefox</div>
+    </div>
+  </main>
+</body>
+</html>

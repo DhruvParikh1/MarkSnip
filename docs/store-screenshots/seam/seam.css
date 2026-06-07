@@ -1,0 +1,140 @@
+/* =====================================================================
+   MarkSnip — Chrome Web Store "seam" gallery
+   Shared design tokens + atoms. Layout lives per-panel (self-contained).
+
+   Concept: evidence, not claims. Ugly real input | clean MarkSnip output,
+   divided by one confident accent seam. Calm near-white frame, single
+   desaturated sage accent (the product's real --accent), no pure black.
+   Authored at logical 1280x800 (etc.), captured at 2x and downscaled.
+   ===================================================================== */
+
+:root {
+  /* Frame / ink — warm "stone" neutrals, matched to the real popup palette */
+  --frame:      #FAFAF8;   /* near-white warm neutral (Google grey backdrop) */
+  --frame-edge: #EFEEEA;   /* hairline panel edge */
+  --ink:        #1C1917;   /* stone-900 — NOT pure black */
+  --ink-soft:   #57534E;   /* stone-600 */
+  --ink-mid:    #78716C;   /* stone-500 */
+  --ink-mute:   #A8A29E;   /* stone-400 */
+
+  /* "Before" — the problem side: desaturated, cramped, faintly unpleasant */
+  --before-wash: #ECEAE6;
+  --before-ink:  #837C77;
+  --before-tag:  #9A938D;
+  --before-junk: #B06A62;  /* muddy clay — flags the garbage (nbsp, ad, utm) */
+  --before-tint: rgba(160, 93, 86, 0.045);
+
+  /* "After" — the resolved side: clean near-white, whisper of accent */
+  --after-wash: #FBFCFB;
+
+  /* Accent — the product's real sage. One accent only, <80% sat. */
+  --accent:        #6B8E6F;
+  --accent-deep:   #56735A;  /* seam line + emphasis — holds up at thumbnail */
+  --accent-deeper: #3F5441;
+  --accent-soft:   #8FA890;  /* muted markers */
+  --accent-light:  #E8EDE7;  /* fills, highlight, "after" tint */
+  --accent-glow:   rgba(107, 142, 111, 0.16);
+
+  --marker:        #F2E9A6;  /* == highlight == swipe (warm, used sparingly) */
+
+  --sans: "Geist", "Outfit", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  background: var(--frame);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+/* The fixed-size canvas. Width/height are set per panel in its own <style>. */
+.panel {
+  position: relative;
+  overflow: hidden;
+  background: var(--frame);
+}
+
+/* ---- Brand lockup ------------------------------------------------------ */
+.brandmark { display: inline-flex; align-items: center; gap: 11px; }
+.brandmark .badge {
+  display: block; height: 26px; width: auto; border-radius: 6px;
+}
+.brandmark .wordmark {
+  font-weight: 640; font-size: 21px; letter-spacing: -0.022em; color: var(--ink);
+}
+
+/* ---- Headline ---------------------------------------------------------- */
+.headline {
+  margin: 0; font-weight: 600; letter-spacing: -0.032em; line-height: 1.0;
+  color: var(--ink); font-size: 52px;
+}
+.headline .accent { color: var(--accent-deep); }
+
+.kicker {
+  font-family: var(--mono); font-size: 13px; font-weight: 500;
+  letter-spacing: 0.34em; text-transform: uppercase; color: var(--ink-mute);
+}
+
+/* Tiny side labels that make the before/after read at thumbnail size */
+.tag-label {
+  font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+  letter-spacing: 0.26em; text-transform: uppercase;
+}
+.tag-label.before { color: var(--ink-mute); }
+.tag-label.after  { color: var(--accent-deep); }
+
+.caption { color: var(--ink-mid); font-size: 17px; line-height: 1.45; font-weight: 420; }
+
+/* ---- The seam hinge: small accent "->" badge sitting on the seam ------- */
+.hinge {
+  position: absolute; width: 46px; height: 46px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--frame);
+  border: 1.5px solid var(--accent-deep);
+  box-shadow: 0 6px 20px -8px rgba(63, 84, 65, 0.45);
+  z-index: 6;
+}
+.hinge svg { width: 22px; height: 22px; display: block; }
+.hinge svg path { stroke: var(--accent-deep); stroke-width: 2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- "Before" raw-source rendering (deliberately ugly, muddy) --------- */
+.raw {
+  margin: 0; font-family: var(--mono); color: var(--before-ink);
+  white-space: pre-wrap; word-break: break-word;
+}
+.raw .tag  { color: var(--before-tag); }
+.raw .att  { color: var(--before-tag); opacity: 0.85; }
+.raw .ent,
+.raw .junk { color: var(--before-junk); }                 /* &nbsp;, utm, ads */
+.raw .junk-bg { background: var(--before-tint); border-radius: 2px; }
+
+/* ---- "After" clean Markdown rendering (calm, sage-forward tokens) ------ */
+.md {
+  margin: 0; font-family: var(--mono); color: var(--ink);
+  white-space: pre;
+}
+.md .h    { color: var(--accent-deep); font-weight: 600; }   /* # heading */
+.md .mk   { color: var(--accent-soft); }                     /* - > | ``` markers */
+.md .b    { color: var(--ink); font-weight: 600; }           /* **bold** */
+.md .lnk  { color: var(--accent); }                          /* [text] */
+.md .url  { color: var(--ink-mute); }                        /* (url) */
+.md .lang { color: var(--ink-mute); }                        /* language label */
+.md .cmt  { color: var(--accent-soft); font-style: italic; } /* // comment */
+.md .hl   { background: var(--marker); border-radius: 2px; padding: 0 2px; }
+
+/* ---- Verdict stamp (Panel 2): "Survives." ----------------------------- */
+.verdict {
+  font-family: var(--mono); font-weight: 600; font-size: 16px;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent-deep);
+  display: inline-flex; align-items: center; gap: 9px;
+}
+.verdict svg { width: 17px; height: 17px; }
+.verdict svg path { stroke: var(--accent-deep); stroke-width: 2.2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round; }

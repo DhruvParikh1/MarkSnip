@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MarkSnip — Panel 2 — Survives</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet">
+<link href="seam.css" rel="stylesheet">
+<style>
+  .panel { width: 1280px; height: 800px; }
+
+  .headline {
+    position: absolute; top: 80px; left: 0; right: 0; text-align: center;
+    font-size: 50px;
+  }
+  .subhead {
+    position: absolute; top: 150px; left: 0; right: 0; text-align: center;
+    color: var(--ink-mid); font-size: 18px; font-weight: 420;
+  }
+
+  .rows {
+    position: absolute; left: 80px; right: 80px; top: 212px; bottom: 110px;
+    display: flex; flex-direction: column;
+  }
+  .row {
+    flex: 1 1 0; display: flex; align-items: center;
+    border-top: 1px solid var(--frame-edge);
+  }
+  .row:first-child { border-top: 0; }
+
+  .rlabel {
+    flex: 0 0 104px;
+    font-family: var(--mono); font-size: 13px; font-weight: 600;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink);
+  }
+  .rlabel small {
+    display: block; margin-top: 5px; font-size: 11px; font-weight: 400;
+    letter-spacing: 0.04em; text-transform: none; color: var(--ink-mute);
+  }
+
+  .before { flex: 1 1 0; padding-right: 22px; }
+  .after  { flex: 1.04 1 0; padding-left: 30px; }
+  .raw { font-size: 12px; line-height: 1.5; }
+  .md  { font-size: 12.5px; line-height: 1.62; }
+
+  .seam {
+    flex: 0 0 48px; align-self: stretch; position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .seam::before {
+    content: ""; position: absolute; top: 20%; bottom: 20%; left: 50%;
+    width: 2px; transform: translateX(-50%);
+    background: var(--accent-deep);
+  }
+  .seam .arrow {
+    position: relative; width: 27px; height: 27px; border-radius: 50%;
+    background: var(--frame); border: 1.5px solid var(--accent-deep);
+    display: grid; place-items: center;
+  }
+  .seam .arrow svg { width: 13px; height: 13px; }
+  .seam .arrow path {
+    stroke: var(--accent-deep); stroke-width: 2.2; fill: none;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+
+  .verdict-cell { flex: 0 0 150px; text-align: right; }
+
+  .brandmark { position: absolute; left: 80px; bottom: 50px; }
+  .footnote {
+    position: absolute; right: 80px; bottom: 54px;
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-mute);
+  }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <h1 class="headline">The stuff other clippers mess up.</h1>
+    <p class="subhead">Code, tables, math &mdash; the three things that always break, kept intact.</p>
+
+    <section class="rows">
+      <!-- CODE -->
+      <div class="row">
+        <div class="rlabel">Code<small>line breaks</small></div>
+        <div class="before">
+<pre class="raw"><span class="tag">&lt;code&gt;</span>function calc(a,b){<span class="junk">&amp;lt;br&amp;gt;</span>return<span class="junk">&amp;nbsp;</span>Math.sqrt(a*a+b*b)}<span class="tag">&lt;/code&gt;</span></pre>
+        </div>
+        <div class="seam"><span class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12 h13 M12 7 l5 5 -5 5"/></svg></span></div>
+        <div class="after">
+<pre class="md"><span class="mk">```</span><span class="lang">js</span>
+function calc(a, b) {
+  return Math.sqrt(a * a + b * b);
+}
+<span class="mk">```</span></pre>
+        </div>
+        <div class="verdict-cell"><span class="verdict"><svg viewBox="0 0 24 24"><path d="M5 13 l4 4 L19 6"/></svg>Survives.</span></div>
+      </div>
+
+      <!-- TABLES -->
+      <div class="row">
+        <div class="rlabel">Tables<small>structure</small></div>
+        <div class="before">
+<pre class="raw"><span class="tag">&lt;table&gt;&lt;tr&gt;&lt;td&gt;</span>Name<span class="tag">&lt;td&gt;</span>Role<span class="tag">&lt;tr&gt;
+&lt;td&gt;</span>Ada Lovelace<span class="tag">&lt;td&gt;</span>Analyst<span class="tag">&lt;tr&gt;
+&lt;td&gt;</span>Alan Turing<span class="tag">&lt;td&gt;</span>Logician<span class="tag">&lt;/table&gt;</span></pre>
+        </div>
+        <div class="seam"><span class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12 h13 M12 7 l5 5 -5 5"/></svg></span></div>
+        <div class="after">
+<pre class="md"><span class="mk">|</span> Name         <span class="mk">|</span> Role     <span class="mk">|</span>
+<span class="mk">| ------------ | -------- |</span>
+<span class="mk">|</span> Ada Lovelace <span class="mk">|</span> Analyst  <span class="mk">|</span>
+<span class="mk">|</span> Alan Turing  <span class="mk">|</span> Logician <span class="mk">|</span></pre>
+        </div>
+        <div class="verdict-cell"><span class="verdict"><svg viewBox="0 0 24 24"><path d="M5 13 l4 4 L19 6"/></svg>Survives.</span></div>
+      </div>
+
+      <!-- MATH -->
+      <div class="row">
+        <div class="rlabel">Math<small>equations</small></div>
+        <div class="before">
+<pre class="raw"><span class="junk">&amp;#x222B;</span><span class="tag">&lt;sub&gt;</span>0<span class="tag">&lt;sup&gt;</span><span class="junk">&amp;infin;</span> e<span class="tag">&lt;sup&gt;</span><span class="junk">&amp;minus;</span>x<span class="tag">&lt;/sup&gt;</span> dx</pre>
+        </div>
+        <div class="seam"><span class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12 h13 M12 7 l5 5 -5 5"/></svg></span></div>
+        <div class="after">
+<pre class="md"><span class="mk">$</span>\int_0^\infty e^{-x}\,dx = 1<span class="mk">$</span></pre>
+        </div>
+        <div class="verdict-cell"><span class="verdict"><svg viewBox="0 0 24 24"><path d="M5 13 l4 4 L19 6"/></svg>Survives.</span></div>
+      </div>
+    </section>
+
+    <div class="brandmark">
+      <img class="badge" src="assets/marksnip-icon-512.png" alt="MarkSnip">
+      <span class="wordmark">MarkSnip</span>
+    </div>
+    <div class="footnote">Three known failure modes</div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MarkSnip — Panel 4 — Read it clean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=JetBrains+Mono:wght@400..700&family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap" rel="stylesheet">
+<link href="seam.css" rel="stylesheet">
+<style>
+  .panel { width: 1280px; height: 800px; }
+
+  .headline {
+    position: absolute; top: 82px; left: 0; right: 0; text-align: center; font-size: 52px;
+  }
+  /* hand-drawn marker swipe behind one word — the analog warmth moment */
+  .swipe { position: relative; display: inline-block; }
+  .swipe .ink { position: relative; z-index: 1; }
+  .swipe::before {
+    content: ""; position: absolute; z-index: 0; left: -8px; right: -8px; top: 10%; bottom: 8%;
+    background: linear-gradient(100deg, rgba(107,142,111,0.42), rgba(107,142,111,0.30));
+    transform: rotate(-1.6deg);
+    border-radius: 46% 54% 58% 42% / 62% 48% 52% 38%;
+  }
+
+  /* ---- Reader View window ---- */
+  .reader {
+    position: absolute; left: 80px; top: 196px; width: 700px; height: 506px;
+    background: #fff; border: 1px solid var(--frame-edge); border-radius: 16px;
+    box-shadow: 0 28px 64px -34px rgba(28, 25, 23, 0.34); overflow: hidden;
+  }
+  .r-bar {
+    height: 50px; display: flex; align-items: center; padding: 0 20px; gap: 10px;
+    border-bottom: 1px solid var(--frame-edge); background: #FDFDFC;
+  }
+  .r-bar .badge { height: 18px; border-radius: 4px; }
+  .r-bar .title { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; color: var(--ink-soft); }
+  .r-bar .tools { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .r-bar .pill {
+    height: 26px; padding: 0 11px; border-radius: 7px; border: 1px solid var(--frame-edge);
+    display: grid; place-items: center; color: var(--ink-mid);
+    font-size: 13px; font-weight: 600;
+  }
+  .r-bar .pill.aa { font-family: var(--sans); }
+  .r-bar .sq { width: 26px; height: 26px; padding: 0; }
+  .r-bar .sq svg { width: 15px; height: 15px; }
+  .r-bar .sq svg [stroke] { stroke: var(--ink-mid); stroke-width: 1.6; fill: none; stroke-linecap: round; }
+
+  .r-body { padding: 30px 50px 0; }
+  .r-title {
+    font-family: "Newsreader", Georgia, serif; font-weight: 500; font-size: 33px;
+    line-height: 1.16; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 12px;
+  }
+  .r-byline {
+    font-family: var(--sans); font-size: 13px; color: var(--ink-mute);
+    letter-spacing: 0.02em; margin-bottom: 24px;
+  }
+  .r-p {
+    font-family: "Newsreader", Georgia, serif; font-size: 18px; line-height: 1.74;
+    color: #3B3835; margin: 0 0 18px; max-width: 60ch;
+  }
+  mark.hl {
+    background: rgba(107, 142, 111, 0.30); color: var(--ink);
+    border-radius: 4px; padding: 1px 3px;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  }
+  /* keep the clip's ==highlights== the same sage as the Reader View (one accent) */
+  .inset .md .hl {
+    background: rgba(107, 142, 111, 0.28); color: var(--ink);
+    border-radius: 3px; padding: 0 2px;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  }
+
+  /* ---- inset: highlights landing as ==markdown== ---- */
+  .inset-label {
+    position: absolute; left: 840px; top: 252px;
+    font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent-deep);
+  }
+  .inset {
+    position: absolute; left: 840px; top: 286px; width: 360px; height: 322px;
+    background: #fff; border: 1px solid var(--frame-edge); border-radius: 14px;
+    box-shadow: 0 24px 54px -30px rgba(28, 25, 23, 0.30); overflow: hidden;
+  }
+  .inset .i-bar {
+    height: 34px; display: flex; align-items: center; gap: 8px; padding: 0 14px;
+    background: var(--accent);
+  }
+  .inset .i-bar .badge { height: 15px; border-radius: 3px; }
+  .inset .i-bar .name { color: #fff; font-weight: 640; font-size: 12.5px; letter-spacing: -0.01em; }
+  .inset .i-body { padding: 16px 18px; }
+  .inset .md { font-size: 12.5px; line-height: 1.74; white-space: pre-wrap; }
+
+  /* subtle connector from reader to inset (no hard seam on this panel) */
+  .connector { position: absolute; left: 786px; top: 430px; width: 50px; height: 20px; }
+  .connector svg { width: 100%; height: 100%; }
+  .connector path { stroke: var(--ink-mute); stroke-width: 1.5; fill: none;
+    stroke-linecap: round; stroke-dasharray: 1 4; }
+  .connector .head { stroke-dasharray: none; }
+
+  .brandmark { position: absolute; left: 80px; bottom: 44px; }
+  .footnote {
+    position: absolute; right: 80px; bottom: 48px;
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-mute);
+  }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <h1 class="headline">Read it clean. Keep what <span class="swipe"><span class="ink">matters.</span></span></h1>
+
+    <!-- Reader View -->
+    <section class="reader">
+      <div class="r-bar">
+        <img class="badge" src="assets/marksnip-icon-512.png" alt="">
+        <span class="title">Reader View</span>
+        <span class="tools">
+          <span class="pill aa">Aa</span>
+          <span class="pill sq"><svg viewBox="0 0 24 24"><path stroke="" d="M4 7h16M4 12h16M4 17h10"/></svg></span>
+          <span class="pill sq"><svg viewBox="0 0 24 24"><path stroke="" d="M12 3a9 9 0 100 18 9 9 0 000-18zM12 3v18"/></svg></span>
+        </span>
+      </div>
+      <div class="r-body">
+        <h2 class="r-title">The quiet case for plain text</h2>
+        <div class="r-byline">Notes that outlive the app &middot; 6 min read</div>
+        <p class="r-p">For years I trusted my notes to whatever app was fashionable. Then the app shut down, and the &ldquo;export&rdquo; was a tangle of HTML.</p>
+        <p class="r-p"><mark class="hl">Plain text is the only format that has never let me down.</mark> It opens everywhere, it diffs cleanly, and it will still open in thirty years.</p>
+        <p class="r-p">The trick was never a better app. It is keeping what you write in a form <mark class="hl">you can read without anyone&rsquo;s permission.</mark></p>
+      </div>
+    </section>
+
+    <!-- connector -->
+    <div class="connector">
+      <svg viewBox="0 0 50 20"><path d="M2 10 H40"/><path class="head" d="M34 5 l6 5 -6 5"/></svg>
+    </div>
+
+    <!-- inset: highlights as markdown -->
+    <span class="inset-label">Saved as Markdown</span>
+    <section class="inset">
+      <div class="i-bar">
+        <img class="badge" src="assets/marksnip-icon-512.png" alt="">
+        <span class="name">MarkSnip</span>
+      </div>
+      <div class="i-body">
+<pre class="md"><span class="h">## Highlights</span>
+
+<span class="mk">-</span> <span class="hl">==Plain text is the only
+  format that has never
+  let me down.==</span>
+<span class="mk">-</span> <span class="hl">==you can read without
+  anyone's permission.==</span></pre>
+      </div>
+    </section>
+
+    <div class="brandmark">
+      <img class="badge" src="assets/marksnip-icon-512.png" alt="MarkSnip">
+      <span class="wordmark">MarkSnip</span>
+    </div>
+    <div class="footnote">Highlights &rarr; <span style="text-transform:none">==markdown==</span></div>
+  </main>
+</body>
+</html>

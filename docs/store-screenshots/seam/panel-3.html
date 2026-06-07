@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MarkSnip — Panel 3 — Send it anywhere</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet">
+<link href="seam.css" rel="stylesheet">
+<style>
+  .panel { width: 1280px; height: 800px; }
+
+  .kicker-top { position: absolute; top: 150px; left: 84px; }
+
+  /* ---- left: the faded, messy web ---- */
+  .web {
+    position: absolute; left: 84px; top: 178px; width: 286px; height: 332px;
+    border-radius: 12px; overflow: hidden; border: 1px solid #E3E0DB;
+    background: #fff; filter: grayscale(0.6); opacity: 0.6;
+  }
+  .web .wbar { height: 30px; background: #ECEAE6; display: flex; align-items: center; gap: 6px; padding: 0 12px; }
+  .web .wbar i { width: 8px; height: 8px; border-radius: 50%; background: #CFCAC3; }
+  .web .wbar .url { flex: 1; height: 11px; margin-left: 8px; border-radius: 6px; background: #DEDCD6; }
+  .web .ad {
+    margin: 14px 14px 0; height: 52px; border: 1px dashed #C9B3B0; border-radius: 6px;
+    background: #F4ECEB; display: grid; place-items: center;
+    color: #B06A62; font-family: var(--mono); font-size: 11px; letter-spacing: 0.28em;
+  }
+  .web .ln { height: 9px; border-radius: 6px; background: #DCD9D3; margin: 11px 14px; }
+  .web .ln.s { width: 58%; } .web .ln.m { width: 86%; }
+  .web .cookie {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 42px;
+    background: #E7E3DE; border-top: 1px solid #D8D3CC;
+    display: flex; align-items: center; padding: 0 12px; gap: 8px;
+  }
+  .web .cookie .c { height: 8px; width: 56%; border-radius: 6px; background: #CFCAC3; }
+  .web .cookie .b { margin-left: auto; height: 18px; width: 44px; border-radius: 5px; background: #B9B3AA; }
+
+  /* ---- seam between web and clip card ---- */
+  .hinge { left: 412px; top: 344px; transform: translate(-50%, -50%); }
+  .seam-rule {
+    position: absolute; left: 412px; top: 214px; height: 260px; width: 2px;
+    transform: translateX(-50%); background: var(--accent-deep); opacity: 0.85;
+  }
+
+  /* ---- center: the clean clip card (the one saturated artifact) ---- */
+  .clip-card {
+    position: absolute; left: 452px; top: 246px; width: 240px; height: 196px;
+    background: #fff; border: 1px solid var(--frame-edge); border-radius: 14px;
+    box-shadow: 0 34px 64px -26px rgba(28, 25, 23, 0.42); overflow: hidden;
+  }
+  .clip-card .cc-bar {
+    height: 38px; background: var(--accent); display: flex; align-items: center;
+    gap: 9px; padding: 0 14px;
+  }
+  .cc-bar .badge { height: 17px; width: auto; border-radius: 4px; }
+  .cc-bar .name { color: #fff; font-weight: 640; font-size: 14px; letter-spacing: -0.02em; }
+  .cc-bar .dots { margin-left: auto; display: flex; gap: 5px; }
+  .cc-bar .dots i { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.55); }
+  .cc-body { padding: 14px 16px; }
+  .cc-body .md { font-size: 11.5px; line-height: 1.66; white-space: pre-wrap; }
+
+  /* ---- right: rails + destinations ---- */
+  .rails { position: absolute; inset: 0; pointer-events: none; }
+  .rails path { fill: none; stroke: var(--accent); stroke-width: 1.5; opacity: 0.8; }
+  .rails circle { fill: var(--accent); }
+
+  .dest {
+    position: absolute; left: 812px; height: 40px;
+    display: flex; align-items: center; gap: 16px;
+  }
+  .dest .ic {
+    width: 34px; height: 34px; border-radius: 9px; flex: 0 0 34px;
+    border: 1px solid var(--accent-light); background: #fff;
+    display: grid; place-items: center;
+  }
+  .dest .ic svg { width: 18px; height: 18px; }
+  .dest .ic svg [stroke] { stroke: var(--accent-deep); stroke-width: 1.6; fill: none;
+    stroke-linecap: round; stroke-linejoin: round; }
+  .dest .ic svg [fill] { fill: var(--accent-deep); }
+  .dest .lbl { font-family: var(--mono); font-size: 15px; color: var(--ink); font-weight: 500; }
+  .dest .lbl small { color: var(--ink-mute); }
+
+  /* ---- headline (bottom) ---- */
+  .headline { position: absolute; bottom: 152px; left: 0; right: 0; text-align: center; font-size: 46px; }
+  .subhead {
+    position: absolute; bottom: 102px; left: 0; right: 0; text-align: center;
+    color: var(--ink-mid); font-size: 17px; font-weight: 420;
+  }
+
+  .brandmark { position: absolute; left: 84px; bottom: 36px; }
+  .footnote {
+    position: absolute; right: 80px; bottom: 40px;
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--ink-mute);
+  }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <span class="kicker-top kicker">The web</span>
+
+    <!-- faded messy web -->
+    <div class="web">
+      <div class="wbar"><i></i><i></i><i></i><div class="url"></div></div>
+      <div class="ad">AD</div>
+      <div class="ln m"></div><div class="ln"></div><div class="ln s"></div>
+      <div class="ln m"></div><div class="ln"></div>
+      <div class="cookie"><div class="c"></div><div class="b"></div></div>
+    </div>
+
+    <!-- seam -->
+    <div class="seam-rule"></div>
+    <div class="hinge"><svg viewBox="0 0 24 24"><path d="M4 12 h15 M13 6 l6 6 -6 6"/></svg></div>
+
+    <!-- clean clip card -->
+    <div class="clip-card">
+      <div class="cc-bar">
+        <img class="badge" src="assets/marksnip-icon-512.png" alt="">
+        <span class="name">MarkSnip</span>
+        <span class="dots"><i></i><i></i><i></i></span>
+      </div>
+      <div class="cc-body">
+<pre class="md"><span class="h"># Pythagorean Theorem</span>
+
+relates the sides of a
+<span class="lnk">[right triangle]</span><span class="url">(/r)</span>
+
+<span class="mk">-</span> a&sup2; + b&sup2; = c&sup2;</pre>
+      </div>
+    </div>
+
+    <!-- rails -->
+    <svg class="rails" viewBox="0 0 1280 800" preserveAspectRatio="none">
+      <path d="M692 344 C 752 344 748 154 800 154"/>
+      <path d="M692 344 C 752 344 752 234 800 234"/>
+      <path d="M692 344 C 752 344 754 314 800 314"/>
+      <path d="M692 344 C 752 344 754 394 800 394"/>
+      <path d="M692 344 C 752 344 752 474 800 474"/>
+      <path d="M692 344 C 752 344 748 554 800 554"/>
+      <circle cx="800" cy="154" r="3"/>
+      <circle cx="800" cy="234" r="3"/>
+      <circle cx="800" cy="314" r="3"/>
+      <circle cx="800" cy="394" r="3"/>
+      <circle cx="800" cy="474" r="3"/>
+      <circle cx="800" cy="554" r="3"/>
+    </svg>
+
+    <!-- destinations -->
+    <div class="dest" style="top:134px">
+      <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M12 3 v11 M8 11 l4 4 4-4 M5 20 h14"/></svg></span>
+      <span class="lbl">Download <small>.md / .pdf</small></span>
+    </div>
+    <div class="dest" style="top:214px">
+      <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M9 4 h6 v3 H9z M7 5 H6 a1 1 0 0 0-1 1 v13 a1 1 0 0 0 1 1 h12 a1 1 0 0 0 1-1 V6 a1 1 0 0 0-1-1 h-1"/></svg></span>
+      <span class="lbl">Clipboard</span>
+    </div>
+    <div class="dest" style="top:294px">
+      <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M12 3 L19 8 17 19 7 19 5 8z"/></svg></span>
+      <span class="lbl">Obsidian</span>
+    </div>
+    <div class="dest" style="top:374px">
+      <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M9 17 a4 4 0 1 1 4-4 M9 17 h7 a3 3 0 0 0 0-6 M15 20 a4 4 0 1 0-3.5-6"/></svg></span>
+      <span class="lbl">Webhook</span>
+    </div>
+    <div class="dest" style="top:454px">
+      <span class="ic"><svg viewBox="0 0 24 24"><path fill="" d="M12 3 l1.7 4.6 4.6 1.7 -4.6 1.7 -1.7 4.6 -1.7-4.6 -4.6-1.7 4.6-1.7z"/><circle cx="18.5" cy="18" r="1.6" fill="currentColor"/></svg></span>
+      <span class="lbl">AI assistant</span>
+    </div>
+    <div class="dest" style="top:534px">
+      <span class="ic"><svg viewBox="0 0 24 24"><path stroke="" d="M5 5 h4 v14 H5z M10 5 h4 v14 h-4z M15 6 l4 1 -3 13 -4-1"/></svg></span>
+      <span class="lbl">Local Library</span>
+    </div>
+
+    <h1 class="headline">Clip once. Send it <span class="accent">anywhere</span>.</h1>
+    <p class="subhead">One clean Markdown clip &mdash; portable to every place you actually work.</p>
+
+    <div class="brandmark">
+      <img class="badge" src="assets/marksnip-icon-512.png" alt="MarkSnip">
+      <span class="wordmark">MarkSnip</span>
+    </div>
+    <div class="footnote">No app lock-in</div>
+  </main>
+</body>
+</html>

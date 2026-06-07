@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MarkSnip — Marquee promo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet">
+<link href="seam.css" rel="stylesheet">
+<style>
+  .panel { width: 1400px; height: 560px; }
+
+  /* left: brand + promise */
+  .lead { position: absolute; left: 96px; top: 0; bottom: 0; width: 430px;
+    display: flex; flex-direction: column; justify-content: center; }
+  .lead .brandmark { margin-bottom: 30px; }
+  .lead .brandmark .badge { height: 30px; }
+  .lead .brandmark .wordmark { font-size: 24px; }
+  .lead h1 { margin: 0; font-size: 56px; font-weight: 600; letter-spacing: -0.034em;
+    line-height: 1.04; color: var(--ink); }
+  .lead h1 .accent { color: var(--accent-deep); }
+  .lead .tag { margin-top: 26px; font-family: var(--mono); font-size: 15px;
+    letter-spacing: 0.04em; color: var(--ink-mute); }
+
+  /* right two-thirds: the before/after seam, with air */
+  .stage {
+    position: absolute; left: 556px; right: 64px; top: 64px; bottom: 64px;
+    border-radius: 18px; overflow: hidden; border: 1px solid var(--frame-edge);
+    box-shadow: 0 30px 70px -38px rgba(28, 25, 23, 0.34);
+    background:
+      linear-gradient(91.3deg,
+        var(--before-wash) 0 45.4%,
+        var(--accent-glow) 45.4% 46.0%,
+        var(--accent-deep) 46.0% 46.22%,
+        var(--accent-glow) 46.22% 46.9%,
+        var(--after-wash) 46.9% 100%);
+  }
+  .stage::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 46%;
+    background: linear-gradient(105deg, var(--before-tint), transparent 72%);
+    pointer-events: none;
+  }
+  .col { position: absolute; top: 0; bottom: 0; display: flex; flex-direction: column;
+    padding: 34px 40px; }
+  .col.before { left: 0; width: 46%; }
+  .col.after  { right: 0; width: 54%; padding-left: 62px; }
+  .col-label { flex: 0 0 auto; }
+  .pre-wrap  { flex: 1 1 auto; display: flex; align-items: center; }
+  .raw { font-size: 13px; line-height: 1.7; }
+  .md  { font-size: 15px; line-height: 1.95; }
+
+  .hinge { left: 46.1%; top: 50%; transform: translate(-50%, -50%); }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <div class="lead">
+      <div class="brandmark">
+        <img class="badge" src="assets/marksnip-icon-512.png" alt="MarkSnip">
+        <span class="wordmark">MarkSnip</span>
+      </div>
+      <h1>One click.<br><span class="accent">Clean Markdown.</span></h1>
+      <div class="tag">Webpage &rarr; Markdown &nbsp;&middot;&nbsp; Chrome &amp; Firefox</div>
+    </div>
+
+    <section class="stage">
+      <div class="col before">
+        <span class="col-label tag-label before">Raw page source</span>
+        <div class="pre-wrap">
+<pre class="raw"><span class="tag">&lt;div class="cookie-consent"&gt;</span>
+  <span class="junk junk-bg">&amp;nbsp;&amp;nbsp;</span>We value your privacy&hellip;
+<span class="tag">&lt;div class="</span><span class="junk">adsbygoogle</span><span class="tag">"&gt;</span>
+<span class="tag">&lt;article&gt;&lt;h1&gt;</span>The<span class="junk">&amp;nbsp;</span>Theorem<span class="tag">&lt;/h1&gt;</span>
+<span class="tag">&lt;p&gt;</span>relates a <span class="tag">&lt;a href="/r</span><span class="junk">?utm=share</span><span class="tag">"&gt;</span>triangle<span class="tag">&lt;/a&gt;</span>
+<span class="tag">&lt;pre&gt;&lt;code&gt;</span>calc(a,b){<span class="junk">&amp;lt;br&amp;gt;</span>sqrt(a*a+b*b)}</pre>
+        </div>
+      </div>
+      <div class="col after">
+        <span class="col-label tag-label after">MarkSnip&nbsp;&middot;&nbsp;.md</span>
+        <div class="pre-wrap">
+<pre class="md"><span class="h"># The Theorem</span>
+
+relates a <span class="lnk">[triangle]</span><span class="url">(/r)</span>:
+
+<span class="mk">```</span><span class="lang">js</span>
+calc(a, b) {
+  return Math.sqrt(a*a + b*b);
+}
+<span class="mk">```</span></pre>
+        </div>
+      </div>
+      <div class="hinge"><svg viewBox="0 0 24 24"><path d="M4 12 h15 M13 6 l6 6 -6 6"/></svg></div>
+    </section>
+  </main>
+</body>
+</html>

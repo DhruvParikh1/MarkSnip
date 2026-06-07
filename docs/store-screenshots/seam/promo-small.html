@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MarkSnip — Small promo tile</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..800&family=JetBrains+Mono:wght@400..700&display=swap" rel="stylesheet">
+<link href="seam.css" rel="stylesheet">
+<style>
+  .panel { width: 440px; height: 280px; }
+  .tile {
+    position: absolute; inset: 0; overflow: hidden;
+    background: radial-gradient(120% 140% at 30% 0%, #74987A 0%, #5E7E62 48%, #4C6850 100%);
+  }
+  /* micro-seam: junk lines dissolving into clean markdown across a center seam */
+  .split { position: absolute; left: 0; right: 0; top: 40px; height: 118px; }
+  .split .seamline {
+    position: absolute; left: 50%; top: 6px; bottom: 6px; width: 2px;
+    transform: translateX(-50%); background: rgba(255,255,255,0.9);
+  }
+  .split .mj, .split .mc {
+    position: absolute; top: 0; bottom: 0; width: 50%;
+    display: flex; flex-direction: column; justify-content: center;
+    font-family: var(--mono); font-size: 13px; line-height: 1.85;
+  }
+  .split .mj { left: 0; text-align: right; padding-right: 56px; color: rgba(255,255,255,0.42); }
+  .split .mc { right: 0; text-align: left; padding-left: 56px; color: rgba(255,255,255,0.96); }
+  .split .mc .m { color: rgba(255,255,255,0.62); }
+
+  /* the real icon as the hinge, sitting on the seam with a soft halo */
+  .hinge-mark {
+    position: absolute; left: 50%; top: 99px; transform: translate(-50%, -50%);
+    display: grid; place-items: center;
+  }
+  .hinge-mark::before {
+    content: ""; position: absolute; width: 92px; height: 92px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255,255,255,0.28), rgba(255,255,255,0) 72%);
+  }
+  .hinge-mark img {
+    position: relative; width: 52px; border-radius: 11px;
+    box-shadow: 0 8px 22px -6px rgba(20, 32, 20, 0.55);
+  }
+
+  .wm {
+    position: absolute; left: 0; right: 0; bottom: 44px; text-align: center;
+    color: #fff; font-size: 34px; font-weight: 680; letter-spacing: -0.035em;
+  }
+</style>
+</head>
+<body>
+  <main class="panel">
+    <div class="tile">
+      <div class="split">
+        <div class="mj">&lt;/div&gt;<br>&amp;nbsp;<br>&lt;span&gt;</div>
+        <div class="seamline"></div>
+        <div class="mc"><span class="m">#</span> Title<br><span class="m">-</span> point<br><span class="m">**</span>bold<span class="m">**</span></div>
+      </div>
+      <div class="hinge-mark"><img src="assets/marksnip-icon-512.png" alt=""></div>
+      <div class="wm">MarkSnip</div>
+    </div>
+  </main>
+</body>
+</html>
