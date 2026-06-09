@@ -1284,6 +1284,14 @@
     "message": "En el modo API de Descargas, los archivos de imagen también se guardan y los enlaces de imagen del markdown se reescriben a esos archivos locales.",
     "description": "Toggle hint"
   },
+  "optionsImageBundleZipToggle": {
+    "message": "Agrupar Markdown e imágenes en un solo .zip",
+    "description": "Toggle label"
+  },
+  "optionsImageBundleZipHint": {
+    "message": "Descarga un archivo que contiene el archivo Markdown y las carpetas de imágenes. Si la API de Descargas no está disponible, MarkSnip vuelve a los archivos de imagen individuales.",
+    "description": "Toggle hint"
+  },
   "optionsImagePrefixLabel": {
     "message": "Plantilla para prefijo de archivo de imagen",
     "description": "Input label"

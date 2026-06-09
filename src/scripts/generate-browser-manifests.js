@@ -64,6 +64,7 @@ function createFirefoxManifest(sourceManifest) {
       "shared/default-options.js",
       "shared/template-utils.js",
       "shared/url-utils.js",
+      "shared/zip-utils.js",
       "shared/highlight-state.js",
       "shared/interpreter-utils.js",
       "shared/agent-bridge-state.js",

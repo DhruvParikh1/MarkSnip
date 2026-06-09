@@ -2607,6 +2607,7 @@ const defaultOptions = {
     includeTemplate: false,
     clipSelection: true,
     downloadImages: false,
+    imageBundleZip: false,
     imagePlacement: '',
     imagePrefix: '{pageTitle}/',
     skipHiddenContent: false,

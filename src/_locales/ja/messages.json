@@ -1284,6 +1284,14 @@
     "message": "ダウンロードAPIモードでは、画像ファイルも保存され、Markdownの画像リンクがそれらのローカルファイルに書き換えられます。",
     "description": "Toggle hint"
   },
+  "optionsImageBundleZipToggle": {
+    "message": "Markdownと画像を1つの.zipにまとめる",
+    "description": "Toggle label"
+  },
+  "optionsImageBundleZipHint": {
+    "message": "Markdownファイルと画像フォルダーを含むアーカイブを1つダウンロードします。ダウンロードAPIが利用できない場合、MarkSnipは個別の画像ファイルに戻します。",
+    "description": "Toggle hint"
+  },
   "optionsImagePrefixLabel": {
     "message": "画像ファイル名のプレフィックス（接頭辞）テンプレート",
     "description": "Input label"

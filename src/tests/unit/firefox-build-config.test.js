@@ -23,6 +23,7 @@ describe('Firefox build configuration', () => {
         'shared/notifications.js',
         'shared/template-utils.js',
         'shared/url-utils.js',
+        'shared/zip-utils.js',
         'service-worker.js'
       ])
     });
@@ -30,6 +31,7 @@ describe('Firefox build configuration', () => {
     const scripts = firefoxManifest.background.scripts;
     expect(scripts.indexOf('shared/template-utils.js')).toBeLessThan(scripts.indexOf('service-worker.js'));
     expect(scripts.indexOf('shared/url-utils.js')).toBeLessThan(scripts.indexOf('service-worker.js'));
+    expect(scripts.indexOf('shared/zip-utils.js')).toBeLessThan(scripts.indexOf('service-worker.js'));
     expect(firefoxManifest.background.service_worker).toBeUndefined();
     expect(firefoxManifest.permissions).not.toContain('offscreen');
     expect(firefoxManifest.permissions).toEqual(expect.arrayContaining([
@@ -65,11 +67,15 @@ describe('Firefox build configuration', () => {
   test('loads MathML conversion before the offscreen runtime', () => {
     const offscreenHtml = fs.readFileSync(path.join(srcRoot, 'offscreen/offscreen.html'), 'utf8');
     const mathMLScriptIndex = offscreenHtml.indexOf('../shared/mathml-to-tex.js');
+    const zipUtilsScriptIndex = offscreenHtml.indexOf('../shared/zip-utils.js');
     const offscreenRuntimeIndex = offscreenHtml.indexOf('offscreen.js');
 
     expect(mathMLScriptIndex).toBeGreaterThan(-1);
+    expect(zipUtilsScriptIndex).toBeGreaterThan(-1);
     expect(offscreenRuntimeIndex).toBeGreaterThan(-1);
     expect(mathMLScriptIndex).toBeLessThan(offscreenRuntimeIndex);
+    expect(zipUtilsScriptIndex).toBeLessThan(offscreenRuntimeIndex);
     expect(fs.existsSync(path.join(srcRoot, 'shared/mathml-to-tex.js'))).toBe(true);
+    expect(fs.existsSync(path.join(srcRoot, 'shared/zip-utils.js'))).toBe(true);
   });
 });

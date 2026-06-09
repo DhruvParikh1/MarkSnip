@@ -1284,6 +1284,14 @@
     "message": "在 Downloads API 模式下，图片文件也会被保存，并且 Markdown 中的图片链接将被重写为这些本地文件。",
     "description": "Toggle hint"
   },
+  "optionsImageBundleZipToggle": {
+    "message": "将 Markdown 和图片打包为单个 .zip",
+    "description": "Toggle label"
+  },
+  "optionsImageBundleZipHint": {
+    "message": "下载一个包含 Markdown 文件和图片文件夹的压缩包。如果下载 API 不可用，MarkSnip 会回退为单独的图片文件。",
+    "description": "Toggle hint"
+  },
   "optionsImagePrefixLabel": {
     "message": "图片文件名前缀模板",
     "description": "Input label"

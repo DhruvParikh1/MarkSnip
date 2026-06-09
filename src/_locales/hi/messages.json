@@ -1284,6 +1284,14 @@
     "message": "डाउनलोड्स API मोड में, इमेज फ़ाइलें भी सेव की जाती हैं और मार्कडाउन इमेज लिंक्स को उन स्थानीय फ़ाइलों के लिए फिर से लिखा जाता है।",
     "description": "Toggle hint"
   },
+  "optionsImageBundleZipToggle": {
+    "message": "Markdown और इमेज को एक .zip में बंडल करें",
+    "description": "Toggle label"
+  },
+  "optionsImageBundleZipHint": {
+    "message": "Markdown फ़ाइल और इमेज फ़ोल्डर वाला एक आर्काइव डाउनलोड करता है। अगर Downloads API उपलब्ध नहीं है, तो MarkSnip अलग-अलग इमेज फ़ाइलों पर वापस आ जाता है।",
+    "description": "Toggle hint"
+  },
   "optionsImagePrefixLabel": {
     "message": "इमेज फ़ाइलनेम प्रीफ़िक्स टेम्पलेट",
     "description": "Input label"

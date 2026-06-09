@@ -242,6 +242,12 @@ Forces the browser's Save As dialog to appear for every download, regardless of 
 
 When enabled, images are downloaded alongside the Markdown file. The Markdown output is adjusted to reference the local images rather than the remote URLs (depending on your [Image Style](#image-style) setting).
 
+### Image ZIP Bundle
+
+**Only available when Download Images is on in Downloads API mode.**
+
+When enabled, MarkSnip downloads a single `.zip` archive containing the Markdown file and its image folders. If the Downloads API is unavailable, MarkSnip falls back to downloading image files individually.
+
 ### Image Folder Location
 
 **Only available when Download Images is on.**

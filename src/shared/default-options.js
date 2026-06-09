@@ -49,6 +49,7 @@ const defaultOptions = {
   includeTemplate: false,
   saveAs: false,
   downloadImages: false,
+  imageBundleZip: false,
   imagePlacement: '',
   imagePrefix: '{pageTitle}/',
   mdClipsFolder: null,

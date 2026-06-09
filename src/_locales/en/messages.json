@@ -1284,6 +1284,14 @@
     "message": "In Downloads API mode, image files are saved too and markdown image links are rewritten to those local files.",
     "description": "Toggle hint"
   },
+  "optionsImageBundleZipToggle": {
+    "message": "Bundle Markdown and images as a single .zip",
+    "description": "Toggle label"
+  },
+  "optionsImageBundleZipHint": {
+    "message": "Downloads one archive containing the Markdown file and image folders. If Downloads API is unavailable, MarkSnip falls back to individual image files.",
+    "description": "Toggle hint"
+  },
   "optionsImagePrefixLabel": {
     "message": "Image filename prefix template",
     "description": "Input label"

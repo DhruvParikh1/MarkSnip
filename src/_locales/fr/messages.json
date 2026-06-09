@@ -1284,6 +1284,14 @@
     "message": "En mode API Téléchargements, les fichiers images sont également enregistrés et les liens d'images markdown sont réécrits vers ces fichiers locaux.",
     "description": "Toggle hint"
   },
+  "optionsImageBundleZipToggle": {
+    "message": "Regrouper le Markdown et les images dans un seul .zip",
+    "description": "Toggle label"
+  },
+  "optionsImageBundleZipHint": {
+    "message": "Télécharge une archive contenant le fichier Markdown et les dossiers d'images. Si l'API Téléchargements n'est pas disponible, MarkSnip revient aux fichiers image individuels.",
+    "description": "Toggle hint"
+  },
   "optionsImagePrefixLabel": {
     "message": "Modèle de préfixe de nom de fichier d'image",
     "description": "Input label"

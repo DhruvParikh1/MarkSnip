@@ -3020,6 +3020,7 @@ const setCurrentChoice = result => {
     options.preserveCodeFormatting = options.preserveCodeFormatting === true;
     options.autoDetectCodeLanguage = options.autoDetectCodeLanguage !== false;
     options.skipHiddenContent = options.skipHiddenContent === true;
+    options.imageBundleZip = options.imageBundleZip === true;
 
     document.querySelector("[name='frontmatter']").value = options.frontmatter;
     document.querySelector("[name='backmatter']").value = options.backmatter;
@@ -3029,6 +3030,7 @@ const setCurrentChoice = result => {
     document.querySelector("[name='includeTemplate']").checked = options.includeTemplate;
     document.querySelector("[name='saveAs']").checked = options.saveAs;
     document.querySelector("[name='downloadImages']").checked = options.downloadImages;
+    document.querySelector("[name='imageBundleZip']").checked = options.imageBundleZip;
     setCheckedValue(document.querySelectorAll("[name='imagePlacement']"), options.imagePlacement || 'sidecar');
     document.querySelector("[name='imagePrefix']").value = options.imagePrefix;
     document.querySelector("[name='mdClipsFolder']").value = result.mdClipsFolder;
@@ -3259,6 +3261,7 @@ const refreshElements = () => {
 
     const downloadImages = options.downloadImages && options.downloadMode == 'downloadsApi';
 
+    show(document.getElementById("imageBundleZip-container"), downloadImages);
     show(document.getElementById("imagePlacement"), downloadImages);
     show(document.getElementById("imagePrefix"), downloadImages && options.imagePlacement === 'customPrefix');
 

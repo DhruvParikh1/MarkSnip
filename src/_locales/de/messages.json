@@ -1284,6 +1284,14 @@
     "message": "Im Modus 'Downloads API' werden auch Bilddateien gespeichert, und Markdown-Bildlinks werden auf diese lokalen Dateien umgeschrieben.",
     "description": "Toggle hint"
   },
+  "optionsImageBundleZipToggle": {
+    "message": "Markdown und Bilder als eine .zip-Datei bündeln",
+    "description": "Toggle label"
+  },
+  "optionsImageBundleZipHint": {
+    "message": "Lädt ein Archiv mit der Markdown-Datei und den Bildordnern herunter. Wenn die Downloads API nicht verfügbar ist, verwendet MarkSnip wieder einzelne Bilddateien.",
+    "description": "Toggle hint"
+  },
   "optionsImagePrefixLabel": {
     "message": "Präfix-Template für Bilddateinamen",
     "description": "Input label"

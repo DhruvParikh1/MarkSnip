@@ -1284,6 +1284,14 @@
     "message": "Downloads API 모드에서는 이미지 파일도 함께 저장되며 마크다운 이미지 링크는 해당 로컬 파일로 다시 작성됩니다.",
     "description": "Toggle hint"
   },
+  "optionsImageBundleZipToggle": {
+    "message": "Markdown과 이미지를 하나의 .zip으로 묶기",
+    "description": "Toggle label"
+  },
+  "optionsImageBundleZipHint": {
+    "message": "Markdown 파일과 이미지 폴더가 들어 있는 압축 파일 하나를 다운로드합니다. 다운로드 API를 사용할 수 없으면 MarkSnip은 개별 이미지 파일로 되돌아갑니다.",
+    "description": "Toggle hint"
+  },
   "optionsImagePrefixLabel": {
     "message": "이미지 파일명 접두사 템플릿",
     "description": "Input label"

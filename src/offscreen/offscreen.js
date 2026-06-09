@@ -37,6 +37,10 @@ function getMarkdownOptionsApi() {
   return globalThis.markSnipMarkdownOptions || null;
 }
 
+function getZipUtilsApi() {
+  return globalThis.markSnipZipUtils || null;
+}
+
 function getSiteRulesApi() {
   return globalThis.markSnipSiteRules || null;
 }
@@ -2529,6 +2533,75 @@ async function preDownloadImages(imageList, markdown, providedOptions = null) {
  return { imageList: newImageList, markdown: markdown, sourceImageMap: sourceImageMap };
 }
 
+function revokeImageBundleSourceUrls(imageList = {}) {
+  for (const src of Object.keys(imageList || {})) {
+    if (!String(src).startsWith('blob:')) continue;
+    try {
+      URL.revokeObjectURL(src);
+    } catch (err) {
+      console.warn('[Offscreen] Failed to revoke bundled image URL:', err);
+    }
+  }
+}
+
+async function downloadMarkdownImageBundleZip({
+  markdown,
+  title,
+  tabId,
+  imageList,
+  mdClipsFolder,
+  options,
+  notificationDelta,
+  downloadsAPI
+}) {
+  const zipUtils = getZipUtilsApi();
+  if (!zipUtils?.createStoredZipBlob || !zipUtils?.createMarkdownImageBundleFiles) {
+    throw new Error('ZIP helper is unavailable');
+  }
+
+  const files = await zipUtils.createMarkdownImageBundleFiles(markdown, title, imageList, {
+    fetch,
+    onImageReadError: (error, entry = {}) => {
+      console.warn('[Offscreen] Skipping image in bundle ZIP:', entry.markdownImagePath || entry.src || '', error);
+    }
+  });
+  const zipBlob = zipUtils.createStoredZipBlob(files);
+  const zipUrl = URL.createObjectURL(zipBlob);
+  const zipFilename = zipUtils.buildBundleZipDownloadFilename(title, mdClipsFolder);
+
+  await browser.runtime.sendMessage({
+    type: 'track-download-url',
+    url: zipUrl,
+    filename: zipFilename,
+    isMarkdown: true,
+    notificationDelta: notificationDelta,
+    tabId: tabId
+  });
+
+  const id = await downloadsAPI.download({
+    url: zipUrl,
+    filename: zipFilename,
+    saveAs: options.saveAs
+  });
+
+  browser.runtime.sendMessage({
+    type: 'download-complete',
+    downloadId: id,
+    url: zipUrl,
+    filename: zipFilename
+  });
+
+  revokeImageBundleSourceUrls(imageList);
+
+  setTimeout(() => {
+    try {
+      URL.revokeObjectURL(zipUrl);
+    } catch (err) {
+      console.warn('[Offscreen] Failed to revoke image bundle ZIP URL:', err);
+    }
+  }, 15000);
+}
+
 /**
 * Download Markdown file
 */
@@ -2550,14 +2623,33 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
  if (options.downloadMode === 'downloadsApi' && hasDownloadsAPI) {
    // Downloads API is available in offscreen - use it directly
    const downloadsAPI = browser.downloads || chrome.downloads;
-   
+
    try {
+     if(mdClipsFolder && !mdClipsFolder.endsWith('/')) mdClipsFolder += '/';
+
+     if (options.downloadImages && options.imageBundleZip === true && Object.keys(imageList).length > 0) {
+       try {
+         console.log('[Offscreen] Creating Markdown + image bundle ZIP:', Object.keys(imageList).length, 'images');
+         await downloadMarkdownImageBundleZip({
+           markdown,
+           title,
+           tabId,
+           imageList,
+           mdClipsFolder,
+           options,
+           notificationDelta,
+           downloadsAPI
+         });
+         return;
+       } catch (zipErr) {
+         console.error('[Offscreen] Image bundle ZIP failed; falling back to individual downloads:', zipErr);
+       }
+     }
+
      // Create blob for markdown content
      const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
      const url = URL.createObjectURL(blob);
-     
-     if(mdClipsFolder && !mdClipsFolder.endsWith('/')) mdClipsFolder += '/';
-     
+
      const fullFilename = mdClipsFolder + title + ".md";
      
      console.log(`🚀 [Offscreen] Starting Downloads API download: URL=${url}, filename="${fullFilename}"`);
@@ -2891,114 +2983,12 @@ function repeat(character, count) {
   return Array(count + 1).join(character);
 }
 
-const CRC32_TABLE = (() => {
-  const table = new Uint32Array(256);
-  for (let i = 0; i < 256; i++) {
-    let c = i;
-    for (let j = 0; j < 8; j++) {
-      c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
-    }
-    table[i] = c >>> 0;
-  }
-  return table;
-})();
-
-function crc32(bytes) {
-  let crc = 0xFFFFFFFF;
-  for (let i = 0; i < bytes.length; i++) {
-    crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
-  }
-  return (crc ^ 0xFFFFFFFF) >>> 0;
-}
-
-function getDosDateTime(date = new Date()) {
-  const year = Math.max(1980, Math.min(2107, date.getFullYear()));
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  const seconds = Math.floor(date.getSeconds() / 2);
-
-  const dosTime = (hours << 11) | (minutes << 5) | seconds;
-  const dosDate = ((year - 1980) << 9) | (month << 5) | day;
-  return { dosDate, dosTime };
-}
-
 function createStoredZipBlob(files) {
-  const encoder = new TextEncoder();
-  const localParts = [];
-  const centralParts = [];
-  let offset = 0;
-
-  const { dosDate, dosTime } = getDosDateTime();
-
-  files.forEach(file => {
-    const entryName = (file.filename || 'untitled.md').replace(/\\/g, '/').replace(/^\/+/, '');
-    const nameBytes = encoder.encode(entryName);
-    const dataBytes = encoder.encode(file.content || '');
-    const entryCrc = crc32(dataBytes);
-    const size = dataBytes.length;
-
-    const localHeader = new Uint8Array(30 + nameBytes.length + size);
-    const localView = new DataView(localHeader.buffer);
-    localView.setUint32(0, 0x04034b50, true);
-    localView.setUint16(4, 20, true);
-    localView.setUint16(6, 0, true);
-    localView.setUint16(8, 0, true);
-    localView.setUint16(10, dosTime, true);
-    localView.setUint16(12, dosDate, true);
-    localView.setUint32(14, entryCrc, true);
-    localView.setUint32(18, size, true);
-    localView.setUint32(22, size, true);
-    localView.setUint16(26, nameBytes.length, true);
-    localView.setUint16(28, 0, true);
-    localHeader.set(nameBytes, 30);
-    localHeader.set(dataBytes, 30 + nameBytes.length);
-    localParts.push(localHeader);
-
-    const centralHeader = new Uint8Array(46 + nameBytes.length);
-    const centralView = new DataView(centralHeader.buffer);
-    centralView.setUint32(0, 0x02014b50, true);
-    centralView.setUint16(4, 20, true);
-    centralView.setUint16(6, 20, true);
-    centralView.setUint16(8, 0, true);
-    centralView.setUint16(10, 0, true);
-    centralView.setUint16(12, dosTime, true);
-    centralView.setUint16(14, dosDate, true);
-    centralView.setUint32(16, entryCrc, true);
-    centralView.setUint32(20, size, true);
-    centralView.setUint32(24, size, true);
-    centralView.setUint16(28, nameBytes.length, true);
-    centralView.setUint16(30, 0, true);
-    centralView.setUint16(32, 0, true);
-    centralView.setUint16(34, 0, true);
-    centralView.setUint16(36, 0, true);
-    centralView.setUint32(38, 0, true);
-    centralView.setUint32(42, offset, true);
-    centralHeader.set(nameBytes, 46);
-    centralParts.push(centralHeader);
-
-    offset += localHeader.length;
-  });
-
-  const centralDirectoryOffset = offset;
-  let centralDirectorySize = 0;
-  centralParts.forEach(part => {
-    centralDirectorySize += part.length;
-  });
-
-  const endRecord = new Uint8Array(22);
-  const endView = new DataView(endRecord.buffer);
-  endView.setUint32(0, 0x06054b50, true);
-  endView.setUint16(4, 0, true);
-  endView.setUint16(6, 0, true);
-  endView.setUint16(8, files.length, true);
-  endView.setUint16(10, files.length, true);
-  endView.setUint32(12, centralDirectorySize, true);
-  endView.setUint32(16, centralDirectoryOffset, true);
-  endView.setUint16(20, 0, true);
-
-  return new Blob([...localParts, ...centralParts, endRecord], { type: 'application/zip' });
+  const zipUtils = getZipUtilsApi();
+  if (!zipUtils?.createStoredZipBlob) {
+    throw new Error('ZIP helper is unavailable');
+  }
+  return zipUtils.createStoredZipBlob(files);
 }
 
 async function downloadBatchZip(message) {

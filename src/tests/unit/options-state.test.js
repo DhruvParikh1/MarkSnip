@@ -22,6 +22,7 @@ const defaultOptions = {
   },
   batchProcessingEnabled: true,
   includeTemplate: false,
+  imageBundleZip: false,
   imagePlacement: '',
   imagePrefix: '{pageTitle}/',
   defaultExportType: 'markdown',
@@ -51,6 +52,7 @@ const defaultOptions = {
   test('normalizeImportedOptions merges defaults and nested tableFormatting', () => {
     const importedOptions = {
       includeTemplate: true,
+      imageBundleZip: true,
       specialTheme: 'ben10',
       colorBlindTheme: 'tritanopia',
       tableFormatting: {
@@ -61,6 +63,7 @@ const defaultOptions = {
     const normalized = optionsState.normalizeImportedOptions(importedOptions, defaultOptions);
 
     expect(normalized.includeTemplate).toBe(true);
+    expect(normalized.imageBundleZip).toBe(true);
     expect(normalized.imagePlacement).toBe('sidecar');
     expect(normalized.imagePrefix).toBe('{pageTitle}/');
     expect(normalized.specialTheme).toBe('ben10');
@@ -71,6 +74,13 @@ const defaultOptions = {
       prettyPrint: true,
       centerText: true
     });
+  });
+
+  test('normalizeImportedOptions keeps image bundle ZIP opt-in boolean-only', () => {
+    expect(optionsState.normalizeImportedOptions({ imageBundleZip: 'true' }, defaultOptions).imageBundleZip)
+      .toBe(false);
+    expect(optionsState.normalizeImportedOptions({ imageBundleZip: true }, defaultOptions).imageBundleZip)
+      .toBe(true);
   });
 
   test('normalizeImportedOptions merges and sanitizes context menu item preferences', () => {
@@ -340,6 +350,7 @@ test('normalizeImportedOptions ignores non-plain option inputs', () => {
     siteRules: [],
     defaultExportType: 'markdown',
     defaultSendToTarget: 'chatgpt',
+    imageBundleZip: false,
     imagePlacement: 'sameFolder',
     sendToCustomTargets: [],
     sendToMaxUrlLength: 3600,
@@ -375,6 +386,7 @@ test('resetAllOptions handles non-plain defaults without blowing up', () => {
     siteRules: [],
     defaultExportType: 'markdown',
     defaultSendToTarget: 'chatgpt',
+    imageBundleZip: false,
     imagePlacement: 'sameFolder',
     sendToCustomTargets: [],
     sendToMaxUrlLength: 3600,

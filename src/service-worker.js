@@ -11,6 +11,7 @@ if (typeof importScripts === 'function') {
     'shared/default-options.js',
     'shared/template-utils.js',
     'shared/url-utils.js',
+    'shared/zip-utils.js',
     'shared/webhook-utils.js',
     'shared/interpreter-utils.js',
     'shared/agent-bridge-state.js',
@@ -113,6 +114,10 @@ function ensureI18nReady() {
 
 function getUrlUtilsApi() {
   return globalThis.markSnipUrlUtils || null;
+}
+
+function getZipUtilsApi() {
+  return globalThis.markSnipZipUtils || null;
 }
 
 function buildImageDownloadFilename(markdownImagePath, title = '', mdClipsFolder = '') {
@@ -4851,6 +4856,80 @@ function isRuntimeOptionsPayload(value) {
     Object.prototype.hasOwnProperty.call(value, 'siteRules');
 }
 
+function revokeImageBundleSourceUrls(imageList = {}) {
+  for (const src of Object.keys(imageList || {})) {
+    if (!String(src).startsWith('blob:')) continue;
+    try {
+      URL.revokeObjectURL(src);
+    } catch (err) {
+      console.warn('[Service Worker] Failed to revoke bundled image URL:', err);
+    }
+  }
+}
+
+async function downloadMarkdownImageBundleZipDirect({
+  markdown,
+  title,
+  tabId,
+  imageList,
+  mdClipsFolder,
+  options,
+  notificationDelta,
+  downloadsAPI
+}) {
+  const zipUtils = getZipUtilsApi();
+  if (!zipUtils?.createStoredZipBlob || !zipUtils?.createMarkdownImageBundleFiles) {
+    throw new Error('ZIP helper is unavailable');
+  }
+
+  let zipUrl = null;
+
+  try {
+    const files = await zipUtils.createMarkdownImageBundleFiles(markdown, title, imageList, {
+      fetch,
+      onImageReadError: (error, entry = {}) => {
+        console.warn('[Service Worker] Skipping image in bundle ZIP:', entry.markdownImagePath || entry.src || '', error);
+      }
+    });
+    const zipBlob = zipUtils.createStoredZipBlob(files);
+    zipUrl = URL.createObjectURL(zipBlob);
+    const zipFilename = zipUtils.buildBundleZipDownloadFilename(title, mdClipsFolder);
+
+    downloadTracker.trackUrl(zipUrl, {
+      filename: zipFilename,
+      isMarkdown: true,
+      notificationDelta,
+      tabId
+    });
+
+    const id = await downloadsAPI.download({
+      url: zipUrl,
+      filename: zipFilename,
+      saveAs: options.saveAs
+    });
+
+    downloadTracker.handleDownloadComplete({
+      downloadId: id,
+      url: zipUrl
+    });
+    browser.downloads.onChanged.addListener(downloadListener(id, zipUrl));
+    revokeImageBundleSourceUrls(imageList);
+
+    return id;
+  } catch (error) {
+    if (zipUrl) {
+      markSnipUrls.delete(zipUrl);
+      markSnipBlobUrls.delete(zipUrl);
+      try {
+        URL.revokeObjectURL(zipUrl);
+      } catch (revokeError) {
+        console.warn('[Service Worker] Failed to revoke image bundle ZIP URL:', revokeError);
+      }
+    }
+    throw error;
+  }
+}
+
 async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsFolder = '', providedOptionsOrNotificationDelta = SINGLE_DOWNLOAD_NOTIFICATION_DELTA, notificationDelta = SINGLE_DOWNLOAD_NOTIFICATION_DELTA) {
   const providedOptions = isRuntimeOptionsPayload(providedOptionsOrNotificationDelta) ? providedOptionsOrNotificationDelta : null;
   const resolvedNotificationDelta = providedOptions
@@ -4888,11 +4967,30 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
     const downloadsAPI = browser.downloads || chrome.downloads;
     
     try {
+      if (mdClipsFolder && !mdClipsFolder.endsWith('/')) mdClipsFolder += '/';
+
+      if (options.downloadImages && options.imageBundleZip === true && Object.keys(imageList).length > 0) {
+        try {
+          console.log('[Service Worker] Creating Markdown + image bundle ZIP:', Object.keys(imageList).length, 'images');
+          await downloadMarkdownImageBundleZipDirect({
+            markdown,
+            title,
+            tabId,
+            imageList,
+            mdClipsFolder,
+            options,
+            notificationDelta: resolvedNotificationDelta,
+            downloadsAPI
+          });
+          return;
+        } catch (zipErr) {
+          console.error('[Service Worker] Image bundle ZIP failed; falling back to individual downloads:', zipErr);
+        }
+      }
+
       // Create blob URL
       const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
       const url = URL.createObjectURL(blob);
-      
-      if (mdClipsFolder && !mdClipsFolder.endsWith('/')) mdClipsFolder += '/';
       
       const fullFilename = mdClipsFolder + title + ".md";
       

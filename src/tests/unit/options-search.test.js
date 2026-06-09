@@ -67,6 +67,7 @@ const baseOptions = {
   includeTemplate: false,
   saveAs: false,
   downloadImages: false,
+  imageBundleZip: false,
   imagePlacement: '',
   imagePrefix: '{pageTitle}/',
   mdClipsFolder: '',
@@ -301,6 +302,7 @@ describe('Options search helper', () => {
       'downloadMode',
       'saveAs-container',
       'downloadImages-container',
+      'imageBundleZip-container',
       'imagePrefix',
       'mdClipsFolder'
     ]));
