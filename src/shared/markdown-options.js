@@ -14,6 +14,13 @@
     return String(value || '').replace(/\{\{(?:prompt:)?"[\s\S]*?"(?:\|[^}]*)?\}\}/g, '');
   }
 
+  function fallbackProtectPromptPlaceholders(value) {
+    return {
+      text: String(value == null ? '' : value),
+      restore: (restoredValue) => String(restoredValue == null ? '' : restoredValue)
+    };
+  }
+
   function identity(value) {
     return value;
   }
@@ -30,6 +37,7 @@
       return {
         textReplace: fallbackTextReplace,
         generateValidFileName: identity,
+        protectPromptPlaceholders: fallbackProtectPromptPlaceholders,
         stripPromptPlaceholders: fallbackStripPromptPlaceholders
       };
     }
@@ -53,6 +61,29 @@
       return mode;
     }
     return String(options.imagePrefix || '') ? 'customPrefix' : 'sameFolder';
+  }
+
+  function formatResolvedTitle(article, options, templateUtils, stripPromptPlaceholders) {
+    const textReplace = templateUtils.textReplace;
+    const generateValidFileName = templateUtils.generateValidFileName;
+    const protectPromptPlaceholders = typeof templateUtils.protectPromptPlaceholders === 'function'
+      ? templateUtils.protectPromptPlaceholders
+      : fallbackProtectPromptPlaceholders;
+    const titleTemplate = options.interpreterEnabled
+      ? options.title
+      : stripPromptPlaceholders(options.title);
+    let title = textReplace(
+      titleTemplate,
+      article,
+      String(options.disallowedChars || '') + '/',
+      options.disallowedCharReplacement
+    );
+    const protectedPrompts = protectPromptPlaceholders(title);
+    title = protectedPrompts.text
+      .split('/')
+      .map((segment) => generateValidFileName(segment, options.disallowedChars, options.disallowedCharReplacement))
+      .join('/');
+    return protectedPrompts.restore(title);
   }
 
   function createEffectiveMarkdownOptions(article, providedOptions = null, downloadImages = null) {
@@ -84,6 +115,8 @@
     options.imagePlacement = urlUtils?.normalizeImagePlacementMode
       ? urlUtils.normalizeImagePlacementMode(options)
       : fallbackNormalizeImagePlacementMode(options);
+
+    options.resolvedTitle = formatResolvedTitle(article, options, templateUtils, stripPromptPlaceholders);
 
     if (options.includeTemplate) {
       if (!options.interpreterEnabled) {

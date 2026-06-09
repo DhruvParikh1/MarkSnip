@@ -93,6 +93,13 @@
     return lastSlashIndex >= 0 ? normalizedTitle.substring(lastSlashIndex + 1) : normalizedTitle;
   }
 
+  function getResolvedOptionTitle(options = {}) {
+    if (Object.prototype.hasOwnProperty.call(options, 'resolvedTitle')) {
+      return String(options.resolvedTitle || '');
+    }
+    return String(options.title || '');
+  }
+
   function normalizeImagePlacementMode(options = {}) {
     const mode = String(options.imagePlacement || '').trim();
     if (VALID_IMAGE_PLACEMENT_MODES.has(mode)) {
@@ -145,7 +152,7 @@
     const effectiveOptions = options || {};
     const filename = getImageBaseFilename(src, effectiveOptions);
     const placement = normalizeImagePlacementMode(effectiveOptions);
-    const title = String(effectiveOptions.title || '');
+    const title = getResolvedOptionTitle(effectiveOptions);
     let relativePath = filename;
 
     if (placement === IMAGE_PLACEMENT_MODES.SIDECAR) {
@@ -177,11 +184,12 @@
 
   function resolveImageDownloadPath(src, options = {}, mdClipsFolder = '') {
     const resolved = resolveImagePath(src, options);
+    const title = getResolvedOptionTitle(options || {});
     return {
       ...resolved,
       downloadFilename: buildImageDownloadFilename(
         resolved.markdownPath,
-        options?.title || '',
+        title,
         mdClipsFolder
       )
     };
@@ -192,7 +200,7 @@
     if (!prependFilePath) {
       return resolved.markdownPath;
     }
-    return buildImageDownloadFilename(resolved.markdownPath, options?.title || '', '');
+    return buildImageDownloadFilename(resolved.markdownPath, getResolvedOptionTitle(options || {}), '');
   }
 
   return {

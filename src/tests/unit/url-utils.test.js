@@ -108,6 +108,22 @@ describe('URL utils', () => {
         .toBe('Clips/Page/photo.png');
     });
 
+    test('prefers resolvedTitle over the raw title template for sidecar placement', () => {
+      const options = {
+        title: '{pageTitle}',
+        resolvedTitle: 'Wiki - Wikipedia',
+        imagePlacement: 'sidecar',
+        imagePrefix: 'Wiki - Wikipedia/',
+        disallowedChars: '#[]'
+      };
+      const resolved = resolveImagePath('https://example.com/path/photo.png', options);
+      const filename = getImageFilename('https://example.com/path/photo.png', options);
+
+      expect(resolved.markdownPath).toBe('Wiki---Wikipedia/photo.png');
+      expect(filename).toBe('Wiki---Wikipedia/photo.png');
+      expect(resolved.markdownPath).not.toContain('{pageTitle}');
+    });
+
     test('keeps image paths relative to nested markdown title folders', () => {
       const options = {
         title: 'Research/Page',

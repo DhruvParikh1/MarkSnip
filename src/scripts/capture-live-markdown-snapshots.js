@@ -479,6 +479,7 @@ function buildCaseRecord(versionLabel, liveCase, result, options) {
     caseId: liveCase.id,
     caseName: liveCase.name,
     url: liveCase.url,
+    storageOptions: liveCase.storageOptions || null,
     status,
     ok: status === 'passed',
     blocked,
@@ -519,11 +520,13 @@ async function captureVersion(versionLabel, extensionPath, cases, runDir, option
   try {
     const serviceWorker = await waitForExtensionServiceWorker(context);
     const extensionId = new URL(serviceWorker.url()).host;
-    await resetExtensionStorage(serviceWorker, options.storageOptions);
-
     const records = [];
     for (const liveCase of cases) {
       console.log(`[${versionLabel}] Capturing ${liveCase.id}: ${liveCase.url}`);
+      await resetExtensionStorage(serviceWorker, {
+        ...options.storageOptions,
+        ...(liveCase.storageOptions || {})
+      });
       const result = await captureCase(context, extensionId, serviceWorker, liveCase, options);
       const record = buildCaseRecord(versionLabel, liveCase, result, options);
       records.push(record);
@@ -668,7 +671,8 @@ async function main() {
     platform: `${os.platform()} ${os.release()}`,
     cases: cases.map(liveCase => ({
       id: liveCase.id,
-      url: liveCase.url
+      url: liveCase.url,
+      storageOptions: liveCase.storageOptions || null
     }))
   };
   writeJson(path.join(runDir, 'metadata.json'), metadata);

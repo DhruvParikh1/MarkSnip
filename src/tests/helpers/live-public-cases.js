@@ -22,6 +22,30 @@ const liveClipCases = [
     ]
   },
   {
+    id: 'wikipedia-wiki-sidecar-images',
+    name: 'clips the live Wikipedia Wiki article with sidecar image paths',
+    url: 'https://en.wikipedia.org/wiki/Wiki',
+    selector: '#firstHeading',
+    titleContains: 'Wiki',
+    storageOptions: {
+      downloadImages: true,
+      downloadMode: 'downloadsApi',
+      imagePlacement: 'sidecar',
+      imagePrefix: '{pageTitle}/',
+      imageStyle: 'markdown',
+      title: '{pageTitle}'
+    },
+    snippets: [
+      'Wiki'
+    ],
+    baseSnippets: [
+      '%7BpageTitle%7D/'
+    ],
+    currentSnippets: [
+      'Wiki%20-%20Wikipedia/'
+    ]
+  },
+  {
     id: 'wikipedia-firefox',
     name: 'clips the live Wikipedia Firefox article via popup flow',
     url: 'https://en.wikipedia.org/wiki/Firefox',

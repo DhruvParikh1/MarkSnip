@@ -3,6 +3,7 @@
  */
 
 const { createEffectiveMarkdownOptions } = require('../../shared/markdown-options');
+const { getImageFilename, buildImageDownloadFilename } = require('../../shared/url-utils');
 const templateUtils = require('../../shared/template-utils');
 
 describe('Offscreen markdown option handling', () => {
@@ -121,6 +122,7 @@ describe('Offscreen markdown option handling', () => {
     const derived = createEffectiveMarkdownOptions(article, {
       includeTemplate: false,
       downloadImages: true,
+      title: '{pageTitle}',
       imagePrefix: '{pageTitle}/',
       disallowedChars: '[]#^',
       tableFormatting: {}
@@ -128,6 +130,46 @@ describe('Offscreen markdown option handling', () => {
 
     expect(derived.imagePlacement).toBe('sidecar');
     expect(derived.imagePrefix).toBe('DocPage Title/');
+    expect(derived.resolvedTitle).toBe('DocPage Title');
+  });
+
+  test('uses the resolved markdown title for sidecar image paths', () => {
+    const derived = createEffectiveMarkdownOptions(article, {
+      includeTemplate: false,
+      downloadImages: true,
+      title: '{pageTitle}',
+      imagePlacement: 'sidecar',
+      imagePrefix: '{pageTitle}/',
+      disallowedChars: '[]#^',
+      tableFormatting: {}
+    }, null);
+
+    const markdownPath = getImageFilename('https://example.com/path/photo.png', derived, false);
+    const downloadPath = buildImageDownloadFilename(markdownPath, derived.resolvedTitle, 'Clips/');
+
+    expect(derived.title).toBe('{pageTitle}');
+    expect(markdownPath).toBe('DocPage Title/photo.png');
+    expect(downloadPath).toBe('Clips/DocPage Title/photo.png');
+    expect(markdownPath).not.toContain('{pageTitle}');
+  });
+
+  test('keeps sidecar images under a resolved nested markdown title folder', () => {
+    const derived = createEffectiveMarkdownOptions(article, {
+      includeTemplate: false,
+      downloadImages: true,
+      title: 'Research/{pageTitle}',
+      imagePlacement: 'sidecar',
+      imagePrefix: '{pageTitle}/',
+      disallowedChars: '[]#^',
+      tableFormatting: {}
+    }, null);
+
+    const markdownPath = getImageFilename('https://example.com/path/photo.png', derived, false);
+    const downloadPath = buildImageDownloadFilename(markdownPath, derived.resolvedTitle, 'Clips/');
+
+    expect(derived.resolvedTitle).toBe('Research/DocPage Title');
+    expect(markdownPath).toBe('DocPage Title/photo.png');
+    expect(downloadPath).toBe('Clips/Research/DocPage Title/photo.png');
   });
 
   test('infers legacy same-folder placement for blank imagePrefix', () => {
