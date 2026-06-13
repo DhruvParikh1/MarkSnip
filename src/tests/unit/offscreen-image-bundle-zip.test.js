@@ -170,6 +170,60 @@ describe('offscreen image bundle ZIP downloads', () => {
     expect(sandbox.URL.revokeObjectURL).toHaveBeenCalledWith(imageUrl);
   });
 
+  test('untracks and revokes ZIP URL when bundled ZIP download start fails', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const { sandbox, messages, downloads, blobStore } = createOffscreenSandbox();
+    const imageBytes = Uint8Array.from([137, 80, 78, 71]);
+    const imageUrl = sandbox.URL.createObjectURL(new NodeBlob([imageBytes], { type: 'image/png' }));
+
+    sandbox.browser.downloads.download = jest.fn(async (request) => {
+      downloads.push(request);
+      if (request.filename.endsWith('.zip')) {
+        throw new Error('ZIP download failed');
+      }
+      return downloads.length;
+    });
+
+    try {
+      await sandbox.downloadMarkdown(
+        '# Page\n\n![](Page/photo.png)',
+        'Research/Page',
+        42,
+        { [imageUrl]: 'Page/photo.png' },
+        'Clips',
+        {
+          downloadMode: 'downloadsApi',
+          downloadImages: true,
+          imageBundleZip: true,
+          saveAs: false
+        },
+        { notification: 'delta' }
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+
+    const zipTrackMessage = messages.find((message) => (
+      message.type === 'track-download-url' &&
+      message.filename === 'Clips/Research/Page.zip'
+    ));
+    expect(zipTrackMessage).toBeTruthy();
+    expect(messages).toContainEqual({
+      type: 'untrack-download-url',
+      url: zipTrackMessage.url
+    });
+    expect(sandbox.URL.revokeObjectURL).toHaveBeenCalledWith(zipTrackMessage.url);
+    expect(sandbox.URL.revokeObjectURL).not.toHaveBeenCalledWith(imageUrl);
+    expect(messages.some((message) => (
+      message.type === 'download-complete' &&
+      message.url === zipTrackMessage.url
+    ))).toBe(false);
+    expect(downloads.map((request) => request.filename)).toEqual([
+      'Clips/Research/Page.zip',
+      'Clips/Research/Page.md'
+    ]);
+  });
+
   test('skips failed image reads without falling back to individual downloads', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const { sandbox, messages, downloads, blobStore } = createOffscreenSandbox();

@@ -2,6 +2,7 @@
 // scripts, these files are listed in manifest.json background.scripts instead.
 if (typeof importScripts === 'function') {
   importScripts(
+    'shared/debug-logging.js',
     'browser-polyfill.min.js',
     'shared/i18n.js',
     'background/moment.min.js',
@@ -22,6 +23,9 @@ if (typeof importScripts === 'function') {
     'shared/download-tracker.js'
   );
 }
+
+globalThis.markSnipDebugLogging?.configureFromStorage?.();
+globalThis.markSnipDebugLogging?.watchStorage?.();
 
 const { textReplace, generateValidFileName, protectPromptPlaceholders, stripPromptPlaceholders } = globalThis.markSnipTemplateUtils;
 
@@ -1101,6 +1105,12 @@ async function handleMessages(message, sender, _sendResponse) {
       if (message.url && message.url.startsWith('blob:')) {
         markSnipBlobUrls.add(message.url);
         console.log(`📝 Added blob URL to tracking set: ${message.url}`);
+      }
+      break;
+    case "untrack-download-url":
+      if (message.url) {
+        markSnipUrls.delete(message.url);
+        markSnipBlobUrls.delete(message.url);
       }
       break;
     case "offscreen-ready":
@@ -2976,15 +2986,15 @@ async function handleContextMenuClick(info, tab) {
     await openReaderTabForTab(tab);
   }
   // Copy all tabs as markdown links
-  else if (info.menuItemId === "copy-tab-as-markdown-link-all") {
+  else if (info.menuItemId === "copy-tab-as-markdown-link-all" || info.menuItemId === "copy-tab-as-markdown-link-all-tab") {
     await copyTabAsMarkdownLinkAll(tab);
   }
   // Copy only selected tabs as markdown links
-  else if (info.menuItemId === "copy-tab-as-markdown-link-selected") {
+  else if (info.menuItemId === "copy-tab-as-markdown-link-selected" || info.menuItemId === "copy-tab-as-markdown-link-selected-tab") {
     await copySelectedTabAsMarkdownLink(tab);
   }
   // Copy single tab as markdown link
-  else if (info.menuItemId === "copy-tab-as-markdown-link") {
+  else if (info.menuItemId === "copy-tab-as-markdown-link" || info.menuItemId === "copy-tab-as-markdown-link-tab") {
     await copyTabAsMarkdownLink(tab);
   }
   // A settings toggle command
@@ -5050,8 +5060,7 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
         target: { tabId: tabId },
         func: (filename, content) => {
           // Implementation of downloadMarkdown in content script
-          const decoded = atob(content);
-          const dataUri = `data:text/markdown;base64,${btoa(decoded)}`;
+          const dataUri = `data:text/markdown;base64,${content}`;
           const link = document.createElement('a');
           link.download = filename;
           link.href = dataUri;
@@ -5097,16 +5106,6 @@ async function handleImageDownloadsDirectly(imageList, mdClipsFolder, title, _op
       console.error('❌ Failed to download image:', src, imgErr);
     }
   }
-}
-
-// Add polyfill for String.prototype.replaceAll if needed
-if (!String.prototype.replaceAll) {
-  String.prototype.replaceAll = function(str, newStr) {
-    if (Object.prototype.toString.call(str).toLowerCase() === '[object regexp]') {
-      return this.replace(str, newStr);
-    }
-    return this.replace(new RegExp(str, 'g'), newStr);
-  };
 }
 
 /**

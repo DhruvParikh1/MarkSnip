@@ -3621,7 +3621,6 @@ async function maybeAutoSaveCurrentClip() {
 // ===== Interpreter =====
 // Detects {{prompt:"..."}} placeholders in a clip, sends content to the user's
 // LLM provider, and substitutes the responses back into the editor and title.
-let interpreterPromptVariables = [];
 let interpreterTimerId = null;
 let interpreterHasRun = false;
 let selectedInterpreterModelId = '';
@@ -3740,7 +3739,6 @@ function setInterpreterError(messageText) {
 async function maybeInitInterpreter(markdown, title) {
     clearInterpreterTimer();
     interpreterHasRun = false;
-    interpreterPromptVariables = [];
 
     const utils = getInterpreterUtils();
     if (!utils || !currentOptions?.interpreterEnabled) {
@@ -3753,7 +3751,6 @@ async function maybeInitInterpreter(markdown, title) {
         setInterpreterSectionVisible(false);
         return;
     }
-    interpreterPromptVariables = variables;
 
     let config;
     try {
@@ -3794,13 +3791,11 @@ async function runInterpreter() {
     const titleSnapshot = String(dom.titleInput?.value || currentClipState.title || '');
     const promptVariables = utils.collectPromptVariables(markdownSnapshot, titleSnapshot);
     if (promptVariables.length === 0) {
-        interpreterPromptVariables = [];
         resetInterpreterButton();
         setInterpreterSectionVisible(false);
         return;
     }
 
-    interpreterPromptVariables = promptVariables;
     currentClipState.markdown = markdownSnapshot;
     currentClipState.title = titleSnapshot;
 

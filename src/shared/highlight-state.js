@@ -323,10 +323,6 @@
       .replace(/'/g, '&#39;');
   }
 
-  function escapeJsonForHtml(value = '') {
-    return String(value).replace(/</g, '\\u003c').replace(/>/g, '\\u003e');
-  }
-
   function getHighlightPlainText(highlight = {}) {
     return String(highlight.text || '').trim() || stripHtml(highlight.contentHtml || highlight.content || '');
   }

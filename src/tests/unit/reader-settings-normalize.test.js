@@ -1,5 +1,6 @@
 const {
   defaultOptions,
+  getOptions,
   normalizeReaderSettings,
   sanitizeReaderCustomCss
 } = require('../../shared/default-options.js');
@@ -40,5 +41,27 @@ describe('normalizeReaderSettings', () => {
     expect(sanitized).not.toMatch(/@import/i);
     expect(sanitized).not.toMatch(/javascript:/i);
     expect(sanitized).not.toMatch(/expression\s*\(/i);
+  });
+
+  test('getOptions does not mutate shared defaults when storage lookup fails', async () => {
+    const originalBrowser = global.browser;
+    const defaultsSnapshot = JSON.parse(JSON.stringify(defaultOptions));
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    global.browser = {
+      storage: {
+        sync: {
+          get: jest.fn().mockRejectedValue(new Error('storage unavailable'))
+        }
+      }
+    };
+
+    try {
+      const options = await getOptions();
+      expect(options.downloadMode).toBe('contentLink');
+      expect(defaultOptions).toEqual(defaultsSnapshot);
+    } finally {
+      errorSpy.mockRestore();
+      global.browser = originalBrowser;
+    }
   });
 });

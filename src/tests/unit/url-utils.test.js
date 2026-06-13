@@ -52,6 +52,16 @@ describe('URL utils', () => {
       const result = validateUri('images/photo.png', base);
       expect(result).toBe('https://example.com/folder/images/photo.png');
     });
+
+    test('resolves relative paths against a document URL', () => {
+      const result = validateUri('img/x.png', 'https://site.com/a/page.html');
+      expect(result).toBe('https://site.com/a/img/x.png');
+    });
+
+    test('resolves protocol-relative paths from the base protocol', () => {
+      const result = validateUri('//cdn.example.com/x.png', base);
+      expect(result).toBe('https://cdn.example.com/x.png');
+    });
   });
 
   describe('getImageFilename', () => {

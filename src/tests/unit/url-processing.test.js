@@ -94,12 +94,12 @@ describe('URL Processing and Normalization', () => {
       expect(result).toBe('https://example.com/docs/page.html');
     });
 
-    test('should resolve path-relative URLs without trailing slash', () => {
+    test('should resolve path-relative URLs beside a document URL without trailing slash', () => {
       const href = 'page.html';
       const baseURI = 'https://example.com/docs';
       const result = validateUri(href, baseURI);
 
-      expect(result).toBe('https://example.com/docs/page.html');
+      expect(result).toBe('https://example.com/page.html');
     });
 
     test('should resolve subdirectory relative URLs', () => {
@@ -108,6 +108,22 @@ describe('URL Processing and Normalization', () => {
       const result = validateUri(href, baseURI);
 
       expect(result).toBe('https://example.com/blog/images/photo.jpg');
+    });
+
+    test('should resolve paths relative to a file-like page URL', () => {
+      const href = 'img/x.png';
+      const baseURI = 'https://site.com/a/page.html';
+      const result = validateUri(href, baseURI);
+
+      expect(result).toBe('https://site.com/a/img/x.png');
+    });
+
+    test('should resolve parent directory segments', () => {
+      const href = '../images/photo.jpg';
+      const baseURI = 'https://example.com/docs/guides/page.html';
+      const result = validateUri(href, baseURI);
+
+      expect(result).toBe('https://example.com/docs/images/photo.jpg');
     });
   });
 
@@ -144,6 +160,22 @@ describe('URL Processing and Normalization', () => {
       expect(result).toBe('https://example.com/page#section');
     });
 
+    test('should handle query-only relative URLs', () => {
+      const href = '?id=123';
+      const baseURI = 'https://example.com/blog/post.html?old=1#intro';
+      const result = validateUri(href, baseURI);
+
+      expect(result).toBe('https://example.com/blog/post.html?id=123');
+    });
+
+    test('should handle hash-only relative URLs', () => {
+      const href = '#section';
+      const baseURI = 'https://example.com/blog/post.html?old=1';
+      const result = validateUri(href, baseURI);
+
+      expect(result).toBe('https://example.com/blog/post.html?old=1#section');
+    });
+
     test('should handle empty path', () => {
       const href = '/';
       const baseURI = 'https://example.com/blog';
@@ -176,6 +208,14 @@ describe('URL Processing and Normalization', () => {
       const result = validateUri(href, baseURI);
 
       expect(result).toBe('tel:+1234567890');
+    });
+
+    test('should resolve protocol-relative URLs with the base protocol', () => {
+      const href = '//cdn.example.com/photo.jpg';
+      const baseURI = 'https://example.com/blog/post.html';
+      const result = validateUri(href, baseURI);
+
+      expect(result).toBe('https://cdn.example.com/photo.jpg');
     });
   });
 
@@ -243,7 +283,7 @@ describe('URL Processing and Normalization', () => {
       const baseURI = 'https://example.com/blog/2024/01/post.html';
 
       expect(validateUri('/images/photo.jpg', baseURI)).toBe('https://example.com/images/photo.jpg');
-      expect(validateUri('photo.jpg', baseURI)).toBe('https://example.com/blog/2024/01/post.html/photo.jpg');
+      expect(validateUri('photo.jpg', baseURI)).toBe('https://example.com/blog/2024/01/photo.jpg');
       expect(validateUri('https://cdn.example.com/photo.jpg', baseURI)).toBe('https://cdn.example.com/photo.jpg');
     });
 
@@ -259,7 +299,7 @@ describe('URL Processing and Normalization', () => {
       const baseURI = 'https://publish.obsidian.md/advanced-uri-doc/Actions/Writing';
 
       expect(validateUri('/advanced-uri-doc/Home', baseURI)).toBe('https://publish.obsidian.md/advanced-uri-doc/Home');
-      expect(validateUri('Navigation', baseURI)).toBe('https://publish.obsidian.md/advanced-uri-doc/Actions/Writing/Navigation');
+      expect(validateUri('Navigation', baseURI)).toBe('https://publish.obsidian.md/advanced-uri-doc/Actions/Navigation');
       expect(validateUri('https://obsidian.md', baseURI)).toBe('https://obsidian.md');
     });
   });

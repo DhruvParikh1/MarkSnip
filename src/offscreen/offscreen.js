@@ -793,8 +793,6 @@ async function handleContextMenuDownload(info, tabId, providedOptions = null, cu
  * Handle context menu copy action
  */
 async function handleContextMenuCopy(info, tabId, providedOptions = null) {
-  const platformOS = navigator.platform;
-  const folderSeparator = platformOS.indexOf("Win") === 0 ? "\\" : "/";
   const options = providedOptions || defaultOptions;
 
   if (info.menuItemId === "copy-markdown-link") {
@@ -2417,17 +2415,7 @@ function validateUri(href, baseURI) {
    new URL(href);
  }
  catch {
-   // If it's not a valid url, that likely means we have to prepend the base uri
-   const baseUri = new URL(baseURI);
-
-   // If the href starts with '/', we need to go from the origin
-   if (href.startsWith('/')) {
-     href = baseUri.origin + href;
-   }
-   // Otherwise we need to go from the local folder
-   else {
-     href = baseUri.href + (baseUri.href.endsWith('/') ? '' : '/') + href;
-   }
+   return new URL(href, baseURI).href;
  }
  return href;
 }
@@ -2569,20 +2557,38 @@ async function downloadMarkdownImageBundleZip({
   const zipUrl = URL.createObjectURL(zipBlob);
   const zipFilename = zipUtils.buildBundleZipDownloadFilename(title, mdClipsFolder);
 
-  await browser.runtime.sendMessage({
-    type: 'track-download-url',
-    url: zipUrl,
-    filename: zipFilename,
-    isMarkdown: true,
-    notificationDelta: notificationDelta,
-    tabId: tabId
-  });
+  let id;
+  try {
+    await browser.runtime.sendMessage({
+      type: 'track-download-url',
+      url: zipUrl,
+      filename: zipFilename,
+      isMarkdown: true,
+      notificationDelta: notificationDelta,
+      tabId: tabId
+    });
 
-  const id = await downloadsAPI.download({
-    url: zipUrl,
-    filename: zipFilename,
-    saveAs: options.saveAs
-  });
+    id = await downloadsAPI.download({
+      url: zipUrl,
+      filename: zipFilename,
+      saveAs: options.saveAs
+    });
+  } catch (error) {
+    await browser.runtime.sendMessage({
+      type: 'untrack-download-url',
+      url: zipUrl
+    }).catch((cleanupError) => {
+      console.warn('[Offscreen] Failed to untrack failed image bundle ZIP URL:', cleanupError);
+    });
+
+    try {
+      URL.revokeObjectURL(zipUrl);
+    } catch (revokeError) {
+      console.warn('[Offscreen] Failed to revoke image bundle ZIP URL:', revokeError);
+    }
+
+    throw error;
+  }
 
   browser.runtime.sendMessage({
     type: 'download-complete',
@@ -2859,128 +2865,6 @@ function base64EncodeUnicode(str) {
  });
 
  return btoa(utf8Bytes);
-}
-
-/**
-* Convert to fenced code block
-*/
-function convertToFencedCodeBlock(node, options) {
- const sharedApi = getCodeBlockUtilsApi();
- if (sharedApi?.convertToFencedCodeBlock) {
-   return sharedApi.convertToFencedCodeBlock(node, options);
- }
-
- function normalizeCodeBlockSpacing(text, maxBlankLines = 2) {
-   const lines = text.split('\n');
-   const normalizedLines = [];
-   let blankLineCount = 0;
-
-   lines.forEach(line => {
-     if (/^[ \t]*$/.test(line)) {
-       blankLineCount += 1;
-       if (blankLineCount <= maxBlankLines) {
-         normalizedLines.push('');
-       }
-     } else {
-       blankLineCount = 0;
-       normalizedLines.push(line);
-     }
-   });
-
-   return normalizedLines.join('\n');
- }
-
- function detectPreLanguage(node, code) {
-   const shouldAutoDetectLanguage = options.autoDetectCodeLanguage !== false;
-   const idMatch = node.id?.match(/code-lang-(.+)/);
-   if (idMatch?.length > 1) {
-     return idMatch[1];
-   }
-
-   const classTokens = (node.className || '')
-     .toLowerCase()
-     .split(/\s+/)
-     .filter(Boolean);
-   const candidates = new Set();
-
-   classTokens.forEach(token => {
-     candidates.add(token);
-     if (token.startsWith('language-')) candidates.add(token.substring(9));
-     if (token.startsWith('lang-')) candidates.add(token.substring(5));
-     if (token.startsWith('source-')) candidates.add(token.substring(7));
-     if (token.startsWith('highlight-')) candidates.add(token.substring(10));
-   });
-
-   if (typeof hljs !== 'undefined' && typeof hljs.getLanguage === 'function') {
-     for (const candidate of candidates) {
-       if (candidate && hljs.getLanguage(candidate)) {
-         return candidate;
-       }
-     }
-   }
-
-   if (
-     shouldAutoDetectLanguage &&
-     typeof hljs !== 'undefined' &&
-     typeof hljs.highlightAuto === 'function' &&
-     code.trim()
-   ) {
-     try {
-       const detected = hljs.highlightAuto(code);
-       if (
-         detected?.language &&
-         typeof detected.relevance === 'number' &&
-         detected.relevance >= 2
-       ) {
-         return detected.language;
-       }
-     } catch (e) {
-       console.warn('Language detection failed for <pre> block:', e);
-     }
-   }
-
-   return '';
- }
-
- let code;
-
- if (options.preserveCodeFormatting) {
-   code = node.innerHTML.replaceAll('<br-keep></br-keep>', '<br>');
- } else {
-   const clonedNode = node.cloneNode(true);
-   clonedNode.querySelectorAll('br-keep, br').forEach(br => {
-     br.replaceWith('\n');
-   });
-   code = clonedNode.textContent || '';
-   code = normalizeCodeBlockSpacing(code, 2);
- }
- const language = detectPreLanguage(node, code);
-
- var fenceChar = options.fence.charAt(0);
- var fenceSize = 3;
- var fenceInCodeRegex = new RegExp('^' + fenceChar + '{3,}', 'gm');
-
- var match;
- while ((match = fenceInCodeRegex.exec(code))) {
-   if (match[0].length >= fenceSize) {
-     fenceSize = match[0].length + 1;
-   }
- }
-
- var fence = repeat(fenceChar, fenceSize);
-
- return (
-   '\n\n' + fence + language + '\n' +
-   code.replace(/\n$/, '') +
-   '\n' + fence + '\n\n'
- );
-}
-
-/**
-* Repeat string
-*/
-function repeat(character, count) {
-  return Array(count + 1).join(character);
 }
 
 function createStoredZipBlob(files) {

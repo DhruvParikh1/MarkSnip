@@ -73,6 +73,23 @@ describe('Download Filename Conflict Handling', () => {
       });
     });
 
+    test('should suggest filename for blob URL after URL tracking moves to download ID', () => {
+      const blobUrl = 'blob:chrome-extension://test/moved';
+      tracker.trackUrl(blobUrl, { filename: 'moved-clip.md' });
+      tracker.moveTrackedUrlToDownloadId(222, blobUrl);
+
+      const suggest = jest.fn();
+      const downloadItem = { id: 999, url: blobUrl };
+
+      const result = tracker.handleFilenameConflict(downloadItem, suggest);
+
+      expect(result).toBe(true);
+      expect(suggest).toHaveBeenCalledWith({
+        filename: 'moved-clip.md',
+        conflictAction: 'uniquify'
+      });
+    });
+
     test('should NOT call suggest for untracked downloads', () => {
       const suggest = jest.fn();
       const downloadItem = { id: 999, url: 'https://example.com/file.pdf' };

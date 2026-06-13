@@ -38,7 +38,7 @@
     return now.toISOString();
   }
 
-  const ILLEGAL_FILENAME_RE = /[\/\?<>\\:\*\|":]/g;
+  const ILLEGAL_FILENAME_RE = /[\/?<>\\:*|"]/g;
   const NON_BREAKING_SPACE_RE = new RegExp('\u00A0', 'g');
 
   function escapeRegExp(value) {

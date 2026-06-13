@@ -9,7 +9,6 @@ things.md
 test-artifacts/
 src/test-artifacts/
 src/test-results/*
-!src/test-results/.last-run.json
 src/test-results/live-public/
 video/
 .gocache/

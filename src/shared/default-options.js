@@ -194,7 +194,7 @@ function normalizeReaderSettings(rawSettings) {
 
 // function to get the options from storage and substitute default options if it fails
 async function getOptions() {
-  let options = defaultOptions;
+  let options = { ...defaultOptions };
   try {
     options = await browser.storage.sync.get(defaultOptions);
   } catch (err) {

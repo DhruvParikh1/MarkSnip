@@ -322,7 +322,7 @@ async function createMenus() {
   const options = await getOptions();
   const contextMenuItems = getContextMenuItems(options);
 
-  browser.contextMenus.removeAll();
+  await browser.contextMenus.removeAll();
 
   if (options.contextMenus) {
     // tab menu (chrome does not support this)

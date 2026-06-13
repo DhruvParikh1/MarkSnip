@@ -4,7 +4,6 @@
   const SURFACE_ID = 'reader-tab';
   let currentTeardown = null;
   let currentSession = null;
-  let currentSessionId = '';
 
   function getSessionIdFromLocation() {
     return new URLSearchParams(root.location.search).get('id') || '';
@@ -51,7 +50,6 @@
     currentTeardown?.teardown?.();
     currentTeardown = null;
     currentSession = null;
-    currentSessionId = sessionId;
 
     const mount = getMount();
     mount.textContent = '';

@@ -181,8 +181,11 @@ test.describe('Command And Download Regression E2E', () => {
         await handleContextMenuClick({ menuItemId: 'download-markdown-all' }, tab);
         await handleContextMenuClick({ menuItemId: 'download-markdown-alltabs' }, tab);
         await handleContextMenuClick({ menuItemId: 'copy-tab-as-markdown-link-all' }, tab);
+        await handleContextMenuClick({ menuItemId: 'copy-tab-as-markdown-link-all-tab' }, tab);
         await handleContextMenuClick({ menuItemId: 'copy-tab-as-markdown-link-selected' }, tab);
+        await handleContextMenuClick({ menuItemId: 'copy-tab-as-markdown-link-selected-tab' }, tab);
         await handleContextMenuClick({ menuItemId: 'copy-tab-as-markdown-link' }, tab);
+        await handleContextMenuClick({ menuItemId: 'copy-tab-as-markdown-link-tab' }, tab);
         await handleContextMenuClick({ menuItemId: 'pick-element-markdown' }, tab);
         await handleContextMenuClick({ menuItemId: 'toggle-includeTemplate' }, tab);
       } finally {
@@ -194,13 +197,16 @@ test.describe('Command And Download Regression E2E', () => {
       return calls;
     }, { fixtureUrl: `${fixtureHost}${fixturePath}` });
 
-    expect(calls).toHaveLength(8);
+    expect(calls).toHaveLength(11);
     expect(calls).toEqual([
       expect.objectContaining({ fn: 'copyMarkdownFromContext', menuItemId: 'copy-markdown-all' }),
       expect.objectContaining({ fn: 'downloadMarkdownFromContext', menuItemId: 'download-markdown-all' }),
       expect.objectContaining({ fn: 'downloadMarkdownForAllTabs', menuItemId: 'download-markdown-alltabs' }),
       expect.objectContaining({ fn: 'copyTabAsMarkdownLinkAll' }),
+      expect.objectContaining({ fn: 'copyTabAsMarkdownLinkAll' }),
       expect.objectContaining({ fn: 'copySelectedTabAsMarkdownLink' }),
+      expect.objectContaining({ fn: 'copySelectedTabAsMarkdownLink' }),
+      expect.objectContaining({ fn: 'copyTabAsMarkdownLink' }),
       expect.objectContaining({ fn: 'copyTabAsMarkdownLink' }),
       expect.objectContaining({ fn: 'activateElementPickerFromContext', menuItemId: 'pick-element-markdown' }),
       expect.objectContaining({ fn: 'toggleSetting', setting: 'includeTemplate' }),

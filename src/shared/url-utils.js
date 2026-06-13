@@ -47,13 +47,7 @@
     try {
       new URL(href);
     } catch {
-      const baseUri = new URL(baseURI);
-
-      if (href.startsWith('/')) {
-        href = baseUri.origin + href;
-      } else {
-        href = baseUri.href + (baseUri.href.endsWith('/') ? '' : '/') + href;
-      }
+      return new URL(href, baseURI).href;
     }
     return href;
   }

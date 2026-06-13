@@ -1,8 +1,3 @@
-function notifyExtension() {
-    // send a message that the content should be clipped
-    browser.runtime.sendMessage({ type: "clip", dom: content});
-}
-
 function shouldSkipHiddenContent(captureOptions = {}) {
     return captureOptions?.skipHiddenContent === true;
 }
@@ -458,78 +453,6 @@ function captureElementForMarkdown(element, captureOptions = {}) {
         documentTitle: document.title || '',
         capturedAt: new Date().toISOString()
     };
-}
-
-// This function must be called in a visible page, such as a browserAction popup
-// or a content script. Calling it in a background page has no effect!
-function copyToClipboard(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text);
-    } else {
-        // Fallback
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.left = '-999999px';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-    }
-}
-
-function downloadMarkdown(filename, text) {
-    let datauri = `data:text/markdown;base64,${text}`;
-    var link = document.createElement('a');
-    link.download = filename;
-    link.href = datauri;
-    link.click();
-}
-
-function downloadImage(filename, url) {
-
-    /* Link with a download attribute? CORS says no.
-    var link = document.createElement('a');
-    link.download = filename.substring(0, filename.lastIndexOf('.'));
-    link.href = url;
-    console.log(link);
-    link.click();
-    */
-
-    /* Try via xhr? Blocked by CORS.
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'blob';
-    xhr.onload = () => {
-        console.log('onload!')
-        var file = new Blob([xhr.response], {type: 'application/octet-stream'});
-        var link = document.createElement('a');
-        link.download = filename;//.substring(0, filename.lastIndexOf('.'));
-        link.href = window.URL.createObjectURL(file);
-        console.log(link);
-        link.click();
-    }
-    xhr.send();
-    */
-
-    /* draw on canvas? Inscure operation
-    let img = new Image();
-    img.src = url;
-    img.onload = () => {
-        let canvas = document.createElement("canvas");
-        let ctx = canvas.getContext("2d");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-
-        var link = document.createElement('a');
-        const ext = filename.substring(filename.lastIndexOf('.'));
-        link.download = filename;
-        link.href = canvas.toDataURL(`image/png`);
-        console.log(link);
-        link.click();
-    }
-    */
 }
 
 loadPageContextScript();

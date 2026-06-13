@@ -77,7 +77,6 @@
     }
 
     buildStyles() {
-      const isVersionUpdate = this.notification.type === 'version-update';
       const style = document.createElement('style');
       style.textContent = `
         :host {

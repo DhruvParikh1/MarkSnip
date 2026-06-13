@@ -57,6 +57,7 @@ function createFirefoxManifest(sourceManifest) {
   const firefoxManifest = JSON.parse(JSON.stringify(sourceManifest));
   firefoxManifest.background = {
     scripts: [
+      "shared/debug-logging.js",
       "browser-polyfill.min.js",
       "shared/i18n.js",
       "background/moment.min.js",

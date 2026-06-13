@@ -12,7 +12,6 @@
   const INTERPRETER_KEYS_STORAGE_KEY = 'interpreterApiKeys';
   const MAX_PROVIDER_MODEL_ID_LENGTH = 160;
   const MAX_PROVIDER_MODEL_NAME_LENGTH = 160;
-  const VALID_PROVIDER_FAMILIES = ['anthropic', 'openai', 'ollama', 'azure', 'huggingface'];
 
   // Prompt placeholder syntax: {{prompt:"..."}} or {{"..."}}, optionally with a
   // trailing |filter chain. Kept identical to the protector regex in

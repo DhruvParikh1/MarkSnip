@@ -116,7 +116,8 @@
         } else if (trackedByUrl) {
           filename = markSnipUrls.get(downloadItem.url)?.filename;
         } else if (isOurBlobUrl) {
-          filename = markSnipUrls.get(downloadItem.url)?.filename;
+          filename = Array.from(markSnipDownloads.values())
+            .find((downloadInfo) => downloadInfo?.url === downloadItem.url)?.filename;
         }
 
         if (filename) {
