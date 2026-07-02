@@ -52,6 +52,149 @@
     return href;
   }
 
+  const LAZY_IMAGE_SOURCE_ATTRIBUTES = Object.freeze([
+    'data-src',
+    'data-original',
+    'data-original-src',
+    'data-lazy-src',
+    'data-actualsrc',
+    'data-full-src',
+    'data-large-src',
+    'data-hi-res-src',
+    'data-image-src'
+  ]);
+
+  function normalizeImageSourceValue(value) {
+    return String(value || '').trim();
+  }
+
+  function isPlaceholderImageSrc(src) {
+    const normalizedSrc = normalizeImageSourceValue(src).toLowerCase();
+    if (!normalizedSrc) {
+      return true;
+    }
+
+    if (normalizedSrc === '#' || normalizedSrc === 'about:blank') {
+      return true;
+    }
+
+    if (normalizedSrc.startsWith('data:image/svg+xml')) {
+      return true;
+    }
+
+    if (normalizedSrc.startsWith('data:image/gif')) {
+      return normalizedSrc.length < 160;
+    }
+
+    return false;
+  }
+
+  function isUsableImageSrc(src) {
+    return !isPlaceholderImageSrc(src);
+  }
+
+  function getLazyImageSource(node) {
+    if (!node?.getAttribute) {
+      return '';
+    }
+
+    for (const attributeName of LAZY_IMAGE_SOURCE_ATTRIBUTES) {
+      const candidate = normalizeImageSourceValue(node.getAttribute(attributeName));
+      if (isUsableImageSrc(candidate)) {
+        return candidate;
+      }
+    }
+
+    return '';
+  }
+
+  function isSameImageResourcePath(firstSrc, secondSrc) {
+    const firstUrl = safeParseUrl(firstSrc);
+    const secondUrl = safeParseUrl(secondSrc);
+    if (!firstUrl || !secondUrl) {
+      return false;
+    }
+
+    if (firstUrl.origin !== secondUrl.origin) {
+      return false;
+    }
+
+    if (firstUrl.pathname === secondUrl.pathname) {
+      return true;
+    }
+
+    const firstName = firstUrl.pathname.split('/').filter(Boolean).pop();
+    const secondName = secondUrl.pathname.split('/').filter(Boolean).pop();
+    if (!firstName || !secondName || firstName !== secondName) {
+      return false;
+    }
+
+    return Boolean(getImageExtensionFromQuery(firstSrc) && getImageExtensionFromQuery(secondSrc));
+  }
+
+  function shouldPreferLazyImageSource(src, lazySource) {
+    if (!lazySource) {
+      return false;
+    }
+
+    if (!isUsableImageSrc(src)) {
+      return true;
+    }
+
+    return isSameImageResourcePath(src, lazySource) && src !== lazySource;
+  }
+
+  function resolveImageSource(node) {
+    if (!node?.getAttribute) {
+      return '';
+    }
+
+    const src = normalizeImageSourceValue(node.getAttribute('src'));
+    const lazySource = getLazyImageSource(node);
+
+    if (shouldPreferLazyImageSource(src, lazySource)) {
+      return lazySource;
+    }
+
+    return src;
+  }
+
+  const IMAGE_EXTENSION_QUERY_PARAMETERS = Object.freeze([
+    'format',
+    'fmt',
+    'ext',
+    'extension',
+    'type',
+    'wx_fmt'
+  ]);
+
+  const IMAGE_EXTENSION_QUERY_VALUES = new Set([
+    'avif',
+    'bmp',
+    'gif',
+    'heic',
+    'heif',
+    'ico',
+    'jpeg',
+    'jpg',
+    'png',
+    'svg',
+    'tif',
+    'tiff',
+    'webp'
+  ]);
+
+  function getImageExtensionFromQuery(src) {
+    const parsedUrl = safeParseUrl(src);
+    for (const parameterName of IMAGE_EXTENSION_QUERY_PARAMETERS) {
+      const extension = String(parsedUrl?.searchParams?.get(parameterName) || '').trim().toLowerCase();
+      if (IMAGE_EXTENSION_QUERY_VALUES.has(extension)) {
+        return extension;
+      }
+    }
+    return '';
+  }
+
   const IMAGE_PLACEMENT_MODES = Object.freeze({
     SAME_FOLDER: 'sameFolder',
     SIDECAR: 'sidecar',
@@ -128,7 +271,8 @@
 
     const extension = filename.substring(filename.lastIndexOf('.'));
     if (extension === filename) {
-      filename = filename + '.idunno';
+      const queryExtension = getImageExtensionFromQuery(src);
+      filename = filename + '.' + (queryExtension || 'idunno');
     }
 
     filename = generateValidFileName(
@@ -205,6 +349,9 @@
     normalizeImagePlacementMode,
     getMarkdownTitleFolder,
     getMarkdownTitleBaseName,
+    isPlaceholderImageSrc,
+    isUsableImageSrc,
+    resolveImageSource,
     getImageBaseFilename,
     resolveImagePath,
     buildImageDownloadFilename,

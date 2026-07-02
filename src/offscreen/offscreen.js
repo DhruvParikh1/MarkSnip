@@ -1385,11 +1385,12 @@ function turndown(content, options, article) {
   // add an image rule
   turndownService.addRule('images', {
     filter: function (node, tdopts) {
-      // if we're looking at an img node with a src
-      if (node.nodeName == 'IMG' && node.getAttribute('src')) {
+      // if we're looking at an img node with a usable source
+      if (node.nodeName == 'IMG') {
         
         // get the original src
-        let src = node.getAttribute('src')
+        let src = resolveImageSource(node);
+        if (!src) return false;
         const resolvedSrc = validateUri(src, uriBase);
         // set the new src
         node.setAttribute('src', resolvedSrc);
@@ -1495,7 +1496,9 @@ function turndown(content, options, article) {
       // Otherwise, convert to proper markdown link format
       const title = cleanAttribute(node.getAttribute('title'));
       const titlePart = title ? ` "${title}"` : '';
-      return `[${content}](${href}${titlePart})`
+      const isSingleImageLink = node.textContent.trim() === '' && node.querySelectorAll('img').length === 1;
+      const linkContent = isSingleImageLink ? content.trim() : content;
+      return `[${linkContent}](${href}${titlePart})`
     }
   });
 
@@ -2420,6 +2423,15 @@ function validateUri(href, baseURI) {
  return href;
 }
 
+function resolveImageSource(node) {
+ const sharedApi = getUrlUtilsApi();
+ if (sharedApi?.resolveImageSource) {
+   return sharedApi.resolveImageSource(node);
+ }
+
+ return node?.getAttribute?.('src') || '';
+}
+
 /**
 * Get image filename
 */
@@ -2458,6 +2470,122 @@ function getImageFilename(src, options, prependFilePath = true) {
  return imagePrefix + filename;
 }
 
+function getImageExtensionForBlob(blob) {
+ const mimeType = String(blob?.type || '').split(';')[0].trim().toLowerCase();
+ if (!mimeType || !mimeType.startsWith('image/')) {
+   return '';
+ }
+ return mimedb[mimeType] || '';
+}
+
+function replaceImageFilenameExtension(filename, extension) {
+ const normalizedExtension = String(extension || '').trim().replace(/^\.+/, '');
+ if (!normalizedExtension) {
+   return filename;
+ }
+
+ const path = String(filename || '');
+ const slashIndex = path.lastIndexOf('/');
+ const dotIndex = path.lastIndexOf('.');
+ if (dotIndex <= slashIndex) {
+   return `${path}.${normalizedExtension}`;
+ }
+ return `${path.substring(0, dotIndex)}.${normalizedExtension}`;
+}
+
+function getFilenameExtension(filename) {
+ const path = String(filename || '');
+ const slashIndex = path.lastIndexOf('/');
+ const dotIndex = path.lastIndexOf('.');
+ if (dotIndex <= slashIndex) {
+   return '';
+ }
+ return path.substring(dotIndex + 1).toLowerCase();
+}
+
+function shouldAlignImageFilenameExtension(filename, blobExtension) {
+ const currentExtension = getFilenameExtension(filename);
+ if (!currentExtension || currentExtension === 'idunno') {
+   return true;
+ }
+
+ const normalizedBlobExtension = String(blobExtension || '').trim().replace(/^\.+/, '').toLowerCase();
+ if (!normalizedBlobExtension) {
+   return false;
+ }
+
+ const equivalentExtensions = {
+   jpeg: ['jpg', 'jpeg'],
+   jpg: ['jpg', 'jpeg']
+ };
+ const equivalents = equivalentExtensions[normalizedBlobExtension] || [normalizedBlobExtension];
+ return !equivalents.includes(currentExtension);
+}
+
+function alignImageFilenameExtension(filename, blobExtension) {
+ if (!shouldAlignImageFilenameExtension(filename, blobExtension)) {
+   return filename;
+ }
+ return replaceImageFilenameExtension(filename, blobExtension);
+}
+
+function makeUniqueImageFilename(filename, usedFilenames = new Set()) {
+ let uniqueFilename = filename;
+ let index = 1;
+
+ while (usedFilenames.has(uniqueFilename)) {
+   const path = String(filename || '');
+   const slashIndex = path.lastIndexOf('/');
+   const dotIndex = path.lastIndexOf('.');
+   if (dotIndex <= slashIndex) {
+     uniqueFilename = `${path}.${index}`;
+   } else {
+     uniqueFilename = `${path.substring(0, dotIndex)}.${index}${path.substring(dotIndex)}`;
+   }
+   index += 1;
+ }
+
+ return uniqueFilename;
+}
+
+function getMarkdownImageFilenameTokens(filename, newFilename, options = {}) {
+ if (!options.imageStyle?.startsWith("obsidian")) {
+   return {
+     search: filename.split('/').map(s => encodeURI(s)).join('/'),
+     replacement: newFilename.split('/').map(s => encodeURI(s)).join('/')
+   };
+ }
+
+ return {
+   search: filename,
+   replacement: newFilename
+ };
+}
+
+function rewriteNextMarkdownImageFilename(markdown, filename, newFilename, options = {}, searchFromIndex = 0) {
+ const { search, replacement } = getMarkdownImageFilenameTokens(filename, newFilename, options);
+ if (!search) {
+   return { markdown, searchFromIndex };
+ }
+
+ const foundIndex = markdown.indexOf(search, searchFromIndex);
+ if (foundIndex < 0) {
+   return { markdown, searchFromIndex };
+ }
+
+ if (filename === newFilename) {
+   return {
+     markdown,
+     searchFromIndex: foundIndex + search.length
+   };
+ }
+
+ return {
+   markdown: `${markdown.substring(0, foundIndex)}${replacement}${markdown.substring(foundIndex + search.length)}`,
+   searchFromIndex: foundIndex + replacement.length
+ };
+}
+
 /**
 * Pre-download images
 */
@@ -2465,58 +2593,91 @@ async function preDownloadImages(imageList, markdown, providedOptions = null) {
   const options = providedOptions || defaultOptions;
   let newImageList = {};
   let sourceImageMap = {};
+  const usedFilenames = new Set();
+  const markdownSearchIndexes = new Map();
+  const entries = Object.entries(imageList);
 
- // Process all images in parallel
- await Promise.all(Object.entries(imageList).map(([src, filename]) => new Promise(async (resolve) => {
-   try {
-     // Fetch the image using fetch instead of XMLHttpRequest
-     const response = await fetch(src);
-     if (!response.ok) {
-       throw new Error(`HTTP ${response.status}`);
-     }
-     const blob = await response.blob();
+  const fetchedImages = await Promise.all(entries.map(async ([src, filename]) => {
+    try {
+      const response = await fetch(src);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return {
+        src,
+        filename,
+        blob: await response.blob(),
+        error: null
+      };
+    } catch (error) {
+      console.error('Error pre-downloading image:', error);
+      return {
+        src,
+        filename,
+        blob: null,
+        error
+      };
+    }
+  }));
 
-     if (options.imageStyle == 'base64') {
-       // Convert to base64
-       const reader = new FileReader();
-       reader.onloadend = () => {
-         markdown = markdown.replaceAll(src, reader.result);
-         resolve();
-       };
-       reader.readAsDataURL(blob);
-     } else {
-       let newFilename = filename;
-       
-       // Handle unknown extensions
-       if (newFilename.endsWith('.idunno')) {
-         const mimeType = blob.type || 'application/octet-stream';
-         const extension = mimedb[mimeType] || 'bin';
-         newFilename = filename.replace('.idunno', `.${extension}`);
+  for (const { src, filename, blob, error } of fetchedImages) {
+    if (!error && options.imageStyle == 'base64') {
+      await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          markdown = markdown.replaceAll(src, reader.result);
+          resolve();
+        };
+        reader.readAsDataURL(blob);
+      });
+      continue;
+    }
 
-         // Update filename in markdown
-         if (!options.imageStyle.startsWith("obsidian")) {
-           markdown = markdown.replaceAll(
-             filename.split('/').map(s => encodeURI(s)).join('/'),
-             newFilename.split('/').map(s => encodeURI(s)).join('/')
-           );
-         } else {
-           markdown = markdown.replaceAll(filename, newFilename);
-         }
-       }
+    if (!error) {
+      let newFilename = filename;
+      const blobExtension = getImageExtensionForBlob(blob);
 
-       // Create object URL for the blob
-       const blobUrl = URL.createObjectURL(blob);
-       newImageList[blobUrl] = newFilename;
-       Object.assign(sourceImageMap, markSnipObsidian.createObsidianSourceImageMap({
-         [src]: newFilename
-       }));
-       resolve();
-     }
-   } catch (error) {
-     console.error('Error pre-downloading image:', error);
-     resolve();
-   }
- })));
+      if (blobExtension) {
+        newFilename = alignImageFilenameExtension(filename, blobExtension);
+      }
+      newFilename = makeUniqueImageFilename(newFilename, usedFilenames);
+      usedFilenames.add(newFilename);
+      const rewriteResult = rewriteNextMarkdownImageFilename(
+        markdown,
+        filename,
+        newFilename,
+        options,
+        markdownSearchIndexes.get(filename) || 0
+      );
+      markdown = rewriteResult.markdown;
+      markdownSearchIndexes.set(filename, rewriteResult.searchFromIndex);
+
+      const blobUrl = URL.createObjectURL(blob);
+      newImageList[blobUrl] = newFilename;
+      Object.assign(sourceImageMap, markSnipObsidian.createObsidianSourceImageMap({
+        [src]: newFilename
+      }));
+      continue;
+    }
+
+    if (options.imageStyle != 'base64') {
+      const newFilename = makeUniqueImageFilename(filename, usedFilenames);
+      usedFilenames.add(newFilename);
+      newImageList[src] = newFilename;
+      const rewriteResult = rewriteNextMarkdownImageFilename(
+        markdown,
+        filename,
+        newFilename,
+        options,
+        markdownSearchIndexes.get(filename) || 0
+      );
+      markdown = rewriteResult.markdown;
+      markdownSearchIndexes.set(filename, rewriteResult.searchFromIndex);
+      Object.assign(sourceImageMap, markSnipObsidian.createObsidianSourceImageMap({
+        [src]: newFilename
+      }));
+    }
+  }
 
  return { imageList: newImageList, markdown: markdown, sourceImageMap: sourceImageMap };
 }
