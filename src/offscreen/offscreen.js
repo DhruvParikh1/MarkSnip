@@ -1511,6 +1511,23 @@ function turndown(content, options, article) {
 
       let tex = math.tex.trim().replaceAll('\xa0', '');
 
+      // If tex looks like HTML/XML, try to convert it by parsing as MathML
+      if (tex.includes('<') && (tex.includes('math') || tex.includes('mrow') || tex.includes('mfrac'))) {
+        const mathMLApi = getMathMLApi();
+        if (mathMLApi?.mathmlToTex) {
+          // Parse the HTML as a DOM fragment and try to convert
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(tex, 'text/html');
+          const mathNode = doc.querySelector('math') || doc.body.querySelector('math');
+          if (mathNode) {
+            const convertedTex = mathMLApi.mathmlToTex(mathNode);
+            if (convertedTex) {
+              tex = convertedTex;
+            }
+          }
+        }
+      }
+
       if (math.inline) {
         tex = tex.replaceAll('\n', ' ');
         return `$${tex}$`;
@@ -2023,6 +2040,19 @@ function prepareDomForReadability(dom, options, recoveryApi, context = {}) {
       tex: tex,
       inline: true
     });
+  });
+
+  // Pre-process MathML with semantics to extract presentation math
+  // OpenStax and similar sites use <semantics> with <annotation-xml> which confuses the converter
+  dom.body.querySelectorAll('math semantics')?.forEach(semanticsNode => {
+    const presentationChild = Array.from(semanticsNode.children).find(child => 
+      child.nodeName !== 'annotation' && child.nodeName !== 'annotation-xml'
+    );
+    if (presentationChild) {
+      // Replace semantics with its presentation child to simplify parsing
+      semanticsNode.parentNode.insertBefore(presentationChild, semanticsNode);
+      semanticsNode.parentNode.removeChild(semanticsNode);
+    }
   });
 
   // Process native MathML, including MathJax assistive MathML and pages that
