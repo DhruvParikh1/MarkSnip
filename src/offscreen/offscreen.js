@@ -1387,7 +1387,6 @@ function turndown(content, options, article) {
     filter: function (node, tdopts) {
       // if we're looking at an img node with a src
       if (node.nodeName == 'IMG' && node.getAttribute('src')) {
-        
         // get the original src
         let src = node.getAttribute('src')
         const resolvedSrc = validateUri(src, uriBase);
@@ -1845,6 +1844,94 @@ function isMathMLSourceType(type) {
 function prepareDomForReadability(dom, options, recoveryApi, context = {}) {
   if (context?.readerView) {
     getReaderSemanticsApi().prepareReaderDomForReadability(dom);
+  }
+
+  // Handle OpenStax lazy-loaded images in media spans
+  // OpenStax uses <span data-type="media"> containers that need to be converted to <img> tags
+  dom.querySelectorAll('span[data-type="media"]').forEach((mediaSpan) => {
+    const dataAlt = mediaSpan.getAttribute('data-alt');
+    const dataMediaType = mediaSpan.getAttribute('data-media-type');
+    const id = mediaSpan.getAttribute('id');
+    
+    // Look for nested img tag
+    const existingImg = mediaSpan.querySelector('img');
+    if (existingImg) {
+      // Use existing img if present, but check if src is just a fragment (like #id)
+      let imgToUse = existingImg;
+      const imgSrc = existingImg.getAttribute('src') || '';
+      
+      // If src is just a fragment or placeholder, try to find better src in data attributes
+      if (imgSrc.startsWith('#') || !imgSrc || imgSrc.includes('blank') || imgSrc.includes('placeholder')) {
+        // Clone the img but replace src with better data if available
+        imgToUse = existingImg.cloneNode(false);
+        const betterSrc = findBestImageSrc(mediaSpan);
+        if (betterSrc) {
+          imgToUse.setAttribute('src', betterSrc);
+        }
+        if (dataAlt && !imgToUse.getAttribute('alt')) {
+          imgToUse.setAttribute('alt', dataAlt);
+        }
+      }
+      
+      mediaSpan.parentNode.insertBefore(imgToUse, mediaSpan);
+      mediaSpan.parentNode.removeChild(mediaSpan);
+    } else {
+      // No nested img, create one from data attributes
+      const src = findBestImageSrc(mediaSpan);
+      
+      if (src) {
+        const img = dom.createElement('img');
+        img.setAttribute('src', src);
+        img.setAttribute('alt', dataAlt || '');
+        if (dataMediaType) {
+          img.setAttribute('data-media-type', dataMediaType);
+        }
+        if (id) {
+          img.setAttribute('id', id);
+        }
+        mediaSpan.parentNode.insertBefore(img, mediaSpan);
+        mediaSpan.parentNode.removeChild(mediaSpan);
+      }
+    }
+  });
+
+  // Helper function to find the best image source from OpenStax media span
+  function findBestImageSrc(element) {
+    // Prefer data-original-src as it typically has the full-resolution image
+    const srcCandidates = [
+      'data-original-src',
+      'data-src',
+      'data-full-src',
+      'data-image-src',
+      'data-actualsrc',
+      'data-hires',
+      'data-high-res-src'
+    ];
+    
+    for (const attr of srcCandidates) {
+      const value = element.getAttribute(attr);
+      if (value && !value.startsWith('#') && !value.includes('blank') && !value.includes('placeholder')) {
+        return value;
+      }
+    }
+    
+    // Check child elements
+    const imgChild = element.querySelector('[data-original-src], [data-src], img');
+    if (imgChild) {
+      for (const attr of srcCandidates) {
+        const value = imgChild.getAttribute(attr);
+        if (value && !value.startsWith('#') && !value.includes('blank') && !value.includes('placeholder')) {
+          return value;
+        }
+      }
+      // Also check img src if it's valid
+      const imgSrc = imgChild.getAttribute('src');
+      if (imgSrc && !imgSrc.startsWith('#') && !imgSrc.includes('blank') && !imgSrc.includes('placeholder')) {
+        return imgSrc;
+      }
+    }
+    
+    return '';
   }
 
   // Now options is defined
@@ -2413,8 +2500,7 @@ function validateUri(href, baseURI) {
  // Check if the href is a valid url
  try {
    new URL(href);
- }
- catch {
+ } catch {
    return new URL(href, baseURI).href;
  }
  return href;
