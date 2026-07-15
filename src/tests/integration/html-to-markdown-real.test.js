@@ -301,6 +301,34 @@ describe('Real HTML to Markdown Conversion', () => {
     });
   });
 
+  describe('data-math attribute', () => {
+    test('should convert a block-level data-math element to GFM block math', () => {
+      const { service } = createTurndownService();
+      const html = '<div data-math="3440\\text{ Hz}">3440 Hz</div>';
+      const result = normalizeMarkdown(service.turndown(html));
+
+      expect(result).toBe('$$\n3440\\text{ Hz}\n$$');
+    });
+
+    test('should convert an inline data-math element to GFM inline math', () => {
+      const { service } = createTurndownService();
+      const html = '<p>Tuned to <span data-math="3440\\text{ Hz}">3440 Hz</span> exactly.</p>';
+      const result = service.turndown(html);
+
+      expect(result).toContain('$`3440\\text{ Hz}`$');
+      expect(result).toContain('Tuned to');
+      expect(result).toContain('exactly.');
+    });
+
+    test('should work for any block-level element carrying data-math, not just div', () => {
+      const { service } = createTurndownService();
+      const html = '<figure data-math="E = mc^2">E = mc^2</figure>';
+      const result = normalizeMarkdown(service.turndown(html));
+
+      expect(result).toBe('$$\nE = mc^2\n$$');
+    });
+  });
+
   describe('Complex Real-World HTML', () => {
     test('should convert article with mixed formatting', () => {
       const { service } = createTurndownService();

@@ -1514,7 +1514,7 @@ function turndown(content, options, article) {
 
       if (math.inline) {
         tex = tex.replaceAll('\n', ' ');
-        return `$${tex}$`;
+        return math.syntax === 'gfm' ? `$\`${tex}\`$` : `$${tex}$`;
       }
       else
         return `$$\n${tex}\n$$`;
@@ -1964,6 +1964,30 @@ function prepareDomForReadability(dom, options, recoveryApi, context = {}) {
     }
 
     storeMathInfo(mathMLContainer, mathInfo);
+  });
+
+  // Process elements carrying a raw TeX payload directly, e.g.
+  // <div data-math="..."> (block) or <span data-math="..."> (inline).
+  // Replaced with a p/i placeholder before Readability runs so density-based
+  // cleaning (which can drop a bare-text div/span outright) never sees it.
+  const inlineMathHostTags = new Set([
+    'SPAN', 'A', 'ABBR', 'B', 'BDI', 'BDO', 'CITE', 'CODE', 'DATA', 'DFN', 'EM',
+    'I', 'KBD', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR'
+  ]);
+
+  dom.body.querySelectorAll('[data-math]')?.forEach(dataMathNode => {
+    const tex = dataMathNode.getAttribute('data-math');
+    if (!tex?.trim()) {
+      return;
+    }
+
+    const inline = inlineMathHostTags.has(dataMathNode.nodeName);
+    const mathNode = dom.createElement(inline ? 'i' : 'p');
+    mathNode.textContent = tex;
+    dataMathNode.parentNode.insertBefore(mathNode, dataMathNode.nextSibling);
+    dataMathNode.parentNode.removeChild(dataMathNode);
+
+    storeMathInfo(mathNode, { tex, inline, syntax: 'gfm' });
   });
 
   // Process code highlight elements

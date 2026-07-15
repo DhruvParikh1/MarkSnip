@@ -90,6 +90,18 @@
       }
     });
 
+    service.addRule('dataMath', {
+      filter: function (node) {
+        return !!node.getAttribute?.('data-math');
+      },
+      replacement: function (content, node) {
+        const tex = node.getAttribute('data-math').trim();
+        if (!tex) return content;
+
+        return node.isBlock ? `$$\n${tex}\n$$` : `$\`${tex}\`$`;
+      }
+    });
+
     service.addRule('customTables', {
       filter: 'table',
       replacement: function (content, node) {
