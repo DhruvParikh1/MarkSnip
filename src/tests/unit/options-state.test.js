@@ -337,7 +337,9 @@ const defaultOptions = {
     const result = optionsState.resetAllOptions(currentOptions, defaultsWithoutMenus);
     expect(result.options).toEqual({
       ...defaultsWithoutMenus,
-      imagePlacement: 'sidecar'
+      imagePlacement: 'sidecar',
+      mathAttributesEnabled: true,
+      mathAttributeRules: []
     });
   expect(result.contextMenuAction).toBe('remove');
 });
@@ -354,7 +356,9 @@ test('normalizeImportedOptions ignores non-plain option inputs', () => {
     imagePlacement: 'sameFolder',
     sendToCustomTargets: [],
     sendToMaxUrlLength: 3600,
-    webhookTargets: []
+    webhookTargets: [],
+    mathAttributesEnabled: true,
+    mathAttributeRules: []
   });
 });
 
@@ -390,7 +394,9 @@ test('resetAllOptions handles non-plain defaults without blowing up', () => {
     imagePlacement: 'sameFolder',
     sendToCustomTargets: [],
     sendToMaxUrlLength: 3600,
-    webhookTargets: []
+    webhookTargets: [],
+    mathAttributesEnabled: true,
+    mathAttributeRules: []
   });
   expect(result.contextMenuAction).toBe('remove');
 });

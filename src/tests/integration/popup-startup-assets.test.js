@@ -58,4 +58,19 @@ describe('Popup startup assets', () => {
     expect(document.getElementById('ddPdf')).not.toBeNull();
     expect(document.getElementById('splitDropdown').hasAttribute('hidden')).toBe(true);
   });
+
+  test('popup local defaultOptions forwards clip-relevant option keys to the service worker', () => {
+    // The popup maintains its own defaultOptions literal that gates which keys it
+    // reads from storage and forwards with a clip request. Keys missing here are
+    // sent as normalized empties and clobber the stored values in
+    // getClipRequestOptions(), silently disabling features (e.g. math-attribute
+    // conversion) in the popup path only. Guard the math keys against regression.
+    const popupSource = fs.readFileSync(path.join(__dirname, '../../popup/popup.js'), 'utf8');
+    const literalStart = popupSource.indexOf('const defaultOptions = {');
+    expect(literalStart).toBeGreaterThan(-1);
+    const literal = popupSource.slice(literalStart, popupSource.indexOf('\n}', literalStart));
+
+    expect(literal).toContain('mathAttributesEnabled');
+    expect(literal).toContain('mathAttributeRules');
+  });
 });

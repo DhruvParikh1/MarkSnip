@@ -525,7 +525,7 @@ function buildArticleFromSelectedElement(data = {}, options = defaultOptions) {
     'Selected Element'
   ).trim() || 'Selected Element';
   const recoveryApi = getReadabilityRecoveryApi();
-  const prepared = prepareDomForReadability(dom, options, recoveryApi);
+  const prepared = prepareDomForReadability(dom, options, recoveryApi, {}, data.pageUrl);
   prepared.dom.title = selectedTitle;
   const content = prepared.dom.body?.innerHTML || '';
   if (!content.trim()) {
@@ -1842,7 +1842,7 @@ function isMathMLSourceType(type) {
   return /(?:^|[/+])mml\b|mathml/i.test(String(type || ''));
 }
 
-function prepareDomForReadability(dom, options, recoveryApi, context = {}) {
+function prepareDomForReadability(dom, options, recoveryApi, context = {}, pageUrl = null) {
   if (context?.readerView) {
     getReaderSemanticsApi().prepareReaderDomForReadability(dom);
   }
@@ -1966,29 +1966,37 @@ function prepareDomForReadability(dom, options, recoveryApi, context = {}) {
     storeMathInfo(mathMLContainer, mathInfo);
   });
 
-  // Process elements carrying a raw TeX payload directly, e.g.
-  // <div data-math="..."> (block) or <span data-math="..."> (inline).
-  // Replaced with a p/i placeholder before Readability runs so density-based
-  // cleaning (which can drop a bare-text div/span outright) never sees it.
-  const inlineMathHostTags = new Set([
-    'SPAN', 'A', 'ABBR', 'B', 'BDI', 'BDO', 'CITE', 'CODE', 'DATA', 'DFN', 'EM',
-    'I', 'KBD', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR'
-  ]);
+  // Process elements carrying a raw TeX payload directly in an attribute, e.g.
+  // <div data-math="..."> (block) or <span data-math="..."> (inline). Which
+  // attributes are honored, and on which domains, is configurable (Markdown >
+  // Math Attributes); by default only data-math on gemini.google.com. Each host
+  // element is replaced with a p/i placeholder before Readability runs so
+  // density-based cleaning (which can drop a bare-text div/span outright) never
+  // sees it.
+  const activeMathAttributes = resolveMathAttributeNames(options, pageUrl || dom.baseURI);
+  if (activeMathAttributes.length > 0) {
+    const inlineMathHostTags = new Set([
+      'SPAN', 'A', 'ABBR', 'B', 'BDI', 'BDO', 'CITE', 'CODE', 'DATA', 'DFN', 'EM',
+      'I', 'KBD', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR'
+    ]);
+    const mathAttributeSelector = activeMathAttributes.map(name => `[${name}]`).join(',');
 
-  dom.body.querySelectorAll('[data-math]')?.forEach(dataMathNode => {
-    const tex = dataMathNode.getAttribute('data-math');
-    if (!tex?.trim()) {
-      return;
-    }
+    dom.body.querySelectorAll(mathAttributeSelector)?.forEach(mathHostNode => {
+      const attributeName = activeMathAttributes.find(name => mathHostNode.hasAttribute(name));
+      const tex = attributeName ? mathHostNode.getAttribute(attributeName) : '';
+      if (!tex?.trim()) {
+        return;
+      }
 
-    const inline = inlineMathHostTags.has(dataMathNode.nodeName);
-    const mathNode = dom.createElement(inline ? 'i' : 'p');
-    mathNode.textContent = tex;
-    dataMathNode.parentNode.insertBefore(mathNode, dataMathNode.nextSibling);
-    dataMathNode.parentNode.removeChild(dataMathNode);
+      const inline = inlineMathHostTags.has(mathHostNode.nodeName);
+      const mathNode = dom.createElement(inline ? 'i' : 'p');
+      mathNode.textContent = tex;
+      mathHostNode.parentNode.insertBefore(mathNode, mathHostNode.nextSibling);
+      mathHostNode.parentNode.removeChild(mathHostNode);
 
-    storeMathInfo(mathNode, { tex, inline, syntax: 'gfm' });
-  });
+      storeMathInfo(mathNode, { tex, inline, syntax: 'gfm' });
+    });
+  }
 
   // Process code highlight elements
   dom.body.querySelectorAll('[class*=highlight-text],[class*=highlight-source]')?.forEach(codeSource => {
@@ -2137,7 +2145,7 @@ function finalizeArticleMetadata(article, dom, pageUrl, math, recoveryApi, optio
   return article;
 }
 
-function extractArticleWithRecovery(domString, options, context = {}) {
+function extractArticleWithRecovery(domString, options, context = {}, pageUrl = null) {
   const recoveryApi = getReadabilityRecoveryApi();
   const shouldIncludeHiddenContent = options?.skipHiddenContent !== true;
   const readabilityOptions = {
@@ -2146,7 +2154,7 @@ function extractArticleWithRecovery(domString, options, context = {}) {
 
   const firstPassParser = new DOMParser();
   const firstPassDom = firstPassParser.parseFromString(domString, "text/html");
-  const firstPassPrepared = prepareDomForReadability(firstPassDom, options, recoveryApi, context);
+  const firstPassPrepared = prepareDomForReadability(firstPassDom, options, recoveryApi, context, pageUrl);
   // Keep Readability scoring anchored to the visible page. Hidden content is restored
   // into the selected article later so collapsible bodies do not become the article.
   const firstPassRecoveryDom = shouldIncludeHiddenContent && typeof recoveryApi.cloneDocumentWithoutHiddenContent === 'function'
@@ -2179,7 +2187,7 @@ function extractArticleWithRecovery(domString, options, context = {}) {
 
   const secondPassParser = new DOMParser();
   const secondPassDom = secondPassParser.parseFromString(domString, "text/html");
-  const secondPassPrepared = prepareDomForReadability(secondPassDom, options, recoveryApi, context);
+  const secondPassPrepared = prepareDomForReadability(secondPassDom, options, recoveryApi, context, pageUrl);
   const secondPassRecoveryDom = shouldIncludeHiddenContent && typeof recoveryApi.cloneDocumentWithoutHiddenContent === 'function'
     ? recoveryApi.cloneDocumentWithoutHiddenContent(secondPassPrepared.dom)
     : secondPassPrepared.dom;
@@ -2246,7 +2254,7 @@ async function getArticleFromDom(domString, options, pageUrl = null, context = {
     throw new Error('Invalid DOM string provided');
   }
 
-  const extracted = extractArticleWithRecovery(domString, options, context);
+  const extracted = extractArticleWithRecovery(domString, options, context, pageUrl);
   if (!extracted) {
     throw new Error('Readability failed to extract article');
   }

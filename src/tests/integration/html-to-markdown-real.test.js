@@ -302,8 +302,12 @@ describe('Real HTML to Markdown Conversion', () => {
   });
 
   describe('data-math attribute', () => {
+    // The factory converts the attribute names it is handed via mathAttributes
+    // (the caller resolves which are active for the current domain).
+    const mathOptions = { mathAttributes: ['data-math'] };
+
     test('should convert a block-level data-math element to GFM block math', () => {
-      const { service } = createTurndownService();
+      const { service } = createTurndownService(mathOptions);
       const html = '<div data-math="3440\\text{ Hz}">3440 Hz</div>';
       const result = normalizeMarkdown(service.turndown(html));
 
@@ -311,7 +315,7 @@ describe('Real HTML to Markdown Conversion', () => {
     });
 
     test('should convert an inline data-math element to GFM inline math', () => {
-      const { service } = createTurndownService();
+      const { service } = createTurndownService(mathOptions);
       const html = '<p>Tuned to <span data-math="3440\\text{ Hz}">3440 Hz</span> exactly.</p>';
       const result = service.turndown(html);
 
@@ -321,11 +325,36 @@ describe('Real HTML to Markdown Conversion', () => {
     });
 
     test('should work for any block-level element carrying data-math, not just div', () => {
-      const { service } = createTurndownService();
+      const { service } = createTurndownService(mathOptions);
       const html = '<figure data-math="E = mc^2">E = mc^2</figure>';
       const result = normalizeMarkdown(service.turndown(html));
 
       expect(result).toBe('$$\nE = mc^2\n$$');
+    });
+
+    test('should convert a custom configured attribute name', () => {
+      const { service } = createTurndownService({ mathAttributes: ['data-tex'] });
+      const html = '<div data-tex="a^2 + b^2">pythag</div>';
+      const result = normalizeMarkdown(service.turndown(html));
+
+      expect(result).toBe('$$\na^2 + b^2\n$$');
+    });
+
+    test('should not convert data-math when no attributes are configured', () => {
+      const { service } = createTurndownService();
+      const html = '<div data-math="3440\\text{ Hz}">3440 Hz</div>';
+      const result = normalizeMarkdown(service.turndown(html));
+
+      expect(result).not.toContain('$$');
+      expect(result).toContain('3440 Hz');
+    });
+
+    test('should not convert when the feature is disabled', () => {
+      const { service } = createTurndownService({ mathAttributes: ['data-math'], mathAttributesEnabled: false });
+      const html = '<div data-math="3440\\text{ Hz}">3440 Hz</div>';
+      const result = normalizeMarkdown(service.turndown(html));
+
+      expect(result).not.toContain('$$');
     });
   });
 

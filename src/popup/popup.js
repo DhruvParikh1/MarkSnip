@@ -2642,6 +2642,14 @@ const defaultOptions = {
     interpreterExportWarning: true,
     disallowedChars: '[]#^',
     disallowedCharReplacement: '',
+    // Kept in sync with shared/default-options.js. These must be listed here so
+    // the popup reads them from storage and forwards them with the clip request;
+    // otherwise getClipRequestOptions() in the service worker overrides the
+    // stored rules with an empty array and math-attribute conversion is skipped.
+    mathAttributesEnabled: true,
+    mathAttributeRules: [
+        { domain: 'gemini.google.com', attributes: ['data-math'] }
+    ],
 }
 currentOptions = normalizePopupOptions({ ...defaultOptions });
 
