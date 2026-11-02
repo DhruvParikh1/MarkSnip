@@ -2161,6 +2161,118 @@ function initInterpreterControls() {
 	    renderSiteRules();
 	}
 
+// ===== Math attribute rules =====
+
+function getMathAttributeRulesList() {
+    return Array.isArray(options.mathAttributeRules) ? options.mathAttributeRules : [];
+}
+
+function parseMathAttributeInput(value) {
+    return String(value || '')
+        .split(',')
+        .map((name) => name.trim())
+        .filter(Boolean);
+}
+
+function renderMathAttributeRules() {
+    const list = document.getElementById('mathAttributeRulesList');
+    const empty = document.getElementById('mathAttributeRulesEmpty');
+    if (!list || !empty) {
+        return;
+    }
+
+    const rules = getMathAttributeRulesList();
+    empty.hidden = rules.length > 0;
+
+    list.innerHTML = rules.map((rule, index) => {
+        const domain = escapeHtml(String(rule.domain || ''));
+        const attributes = escapeHtml((Array.isArray(rule.attributes) ? rule.attributes : []).join(', '));
+        return `
+            <div class="math-rule-row" data-index="${index}">
+                <input type="text" class="math-rule-input math-rule-domain" data-index="${index}" data-field="domain" placeholder="example.com" value="${domain}" aria-label="Domain" />
+                <input type="text" class="math-rule-input math-rule-attrs" data-index="${index}" data-field="attributes" placeholder="data-math" value="${attributes}" aria-label="Attribute names (comma-separated)" />
+                <button type="button" class="btn btn-danger btn-sm math-rule-delete" data-index="${index}" aria-label="Delete entry">Delete</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function addMathAttributeRule() {
+    options.mathAttributeRules = [...getMathAttributeRulesList(), { domain: '', attributes: [] }];
+    renderMathAttributeRules();
+    // A blank row persists only once the user types into it and blurs; focus it
+    // so they can start immediately.
+    const domainInputs = document.querySelectorAll('#mathAttributeRulesList .math-rule-domain');
+    domainInputs[domainInputs.length - 1]?.focus();
+}
+
+function deleteMathAttributeRule(index) {
+    const rules = getMathAttributeRulesList().slice();
+    if (index < 0 || index >= rules.length) {
+        return;
+    }
+    rules.splice(index, 1);
+    options.mathAttributeRules = rules;
+    renderMathAttributeRules();
+    save();
+}
+
+function updateMathAttributeRuleField(index, field, value) {
+    const rules = getMathAttributeRulesList();
+    if (index < 0 || index >= rules.length) {
+        return;
+    }
+    if (field === 'domain') {
+        rules[index].domain = value;
+    } else if (field === 'attributes') {
+        rules[index].attributes = parseMathAttributeInput(value);
+    }
+}
+
+function refreshMathAttributesEnabledState() {
+    const enabled = document.getElementById('mathAttributesEnabled')?.checked !== false;
+    document.getElementById('mathAttributeRules-container')?.classList.toggle('is-disabled', !enabled);
+}
+
+function initMathAttributeControls() {
+    document.getElementById('addMathAttributeRule')?.addEventListener('click', addMathAttributeRule);
+    document.getElementById('mathAttributesEnabled')?.addEventListener('change', refreshMathAttributesEnabledState);
+
+    const list = document.getElementById('mathAttributeRulesList');
+
+    list?.addEventListener('input', (event) => {
+        const target = event.target;
+        const field = target?.dataset?.field;
+        const index = Number(target?.dataset?.index);
+        if (!field || !Number.isInteger(index)) {
+            return;
+        }
+        // Update the in-memory model live without re-rendering (which would
+        // steal focus mid-edit); persistence happens on 'change' (blur).
+        updateMathAttributeRuleField(index, field, target.value);
+    });
+
+    list?.addEventListener('change', (event) => {
+        if (event.target?.dataset?.field) {
+            save();
+        }
+    });
+
+    list?.addEventListener('click', (event) => {
+        const button = event.target.closest('.math-rule-delete');
+        if (!button) {
+            return;
+        }
+        const index = Number(button.dataset.index);
+        if (Number.isInteger(index)) {
+            deleteMathAttributeRule(index);
+        }
+    });
+
+    renderMathAttributeRules();
+    refreshMathAttributesEnabledState();
+}
+
 function usesOptionalNativeMessagingPermission() {
     const optionalPermissions = browser.runtime?.getManifest?.().optional_permissions || [];
     return Array.isArray(optionalPermissions) && optionalPermissions.includes('nativeMessaging');
@@ -3036,6 +3148,10 @@ const setCurrentChoice = result => {
     document.querySelector("[name='mdClipsFolder']").value = result.mdClipsFolder;
 	    document.querySelector("[name='turndownEscape']").checked = options.turndownEscape;
 	    document.querySelector("[name='skipHiddenContent']").checked = options.skipHiddenContent;
+	    const mathAttributesEnabledEl = document.querySelector("[name='mathAttributesEnabled']");
+	    if (mathAttributesEnabledEl) mathAttributesEnabledEl.checked = options.mathAttributesEnabled !== false;
+	    renderMathAttributeRules();
+	    refreshMathAttributesEnabledState();
 	    document.querySelector("[name='contextMenus']").checked = options.contextMenus;
 	    setContextMenuItemControls(options.contextMenuItems);
 	    document.querySelector("[name='batchProcessingEnabled']").checked = options.batchProcessingEnabled !== false;
@@ -3763,6 +3879,7 @@ const loaded = async () => {
 	    // Restore saved options
 	    restoreOptions();
 	    initSiteRuleControls();
+	    initMathAttributeControls();
 
     browser.storage.onChanged?.addListener?.((changes, areaName) => {
         if (areaName !== 'local') {
@@ -3799,6 +3916,9 @@ const loaded = async () => {
 		        if (input.closest('#siteRulesCard')) return;
                 if (input.closest('#defaultSendToTargetCard') || input.closest('#assistantTargetsCard')) return;
                 if (input.closest('#webhookTargetsCard')) return;
+                // The enabled toggle stays on generic autosave; the rule list and
+                // its Add button have their own handlers in initMathAttributeControls.
+                if (input.closest('#mathAttributeRules-container')) return;
                 if (input.closest('#interpreterProvidersCard') || input.closest('#interpreterModelsCard')) return;
                 if (input.closest('#interpreterProviderDialog') || input.closest('#interpreterModelDialog')) return;
 		        // Skip permission panel buttons (they have their own handlers)

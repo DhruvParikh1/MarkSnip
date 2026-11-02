@@ -1726,6 +1726,44 @@ const helloWorld = () => {
                 </div>
 
                 <div class="setting-subgroup">
+                <h3 class="setting-subgroup__label">Math</h3>
+
+                <div class="setting-card" id="mathAttributesCard"
+                    data-setting-key="mathAttributesEnabled,mathAttributeRules"
+                    data-search-keywords="math,latex,tex,katex,mathjax,equation,formula,data-math,math attribute,gemini,gfm math">
+                    <div class="toggle-row">
+                        <div class="toggle-info">
+                            <label class="toggle-label-text" for="mathAttributesEnabled">Convert math attributes</label>
+                            <p class="toggle-hint">
+                                Some sites store rendered equations as raw LaTeX in an element attribute
+                                (for example <code>&lt;div data-math="…"&gt;</code>). When enabled, MarkSnip
+                                converts those into GitHub-flavored math &mdash; <code>$$…$$</code> for block
+                                elements and <code>$`…`$</code> for inline elements &mdash; on the domains you
+                                list below.
+                            </p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input name="mathAttributesEnabled" id="mathAttributesEnabled" type="checkbox" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div id="mathAttributeRules-container">
+                        <div class="math-rules-toolbar">
+                            <label class="input-label" style="margin:0">Domains &amp; attributes</label>
+                            <button type="button" class="btn btn-primary btn-sm" id="addMathAttributeRule">Add Entry</button>
+                        </div>
+                        <p class="toggle-hint" style="margin-top: var(--space-2);">
+                            For each domain, list one or more attribute names (comma-separated) that carry the LaTeX payload.
+                            A domain also matches its subdomains.
+                        </p>
+                        <div id="mathAttributeRulesList" class="math-rules-list"></div>
+                        <p id="mathAttributeRulesEmpty" class="math-rules-empty" hidden>No domains configured. Add an entry to enable math-attribute conversion.</p>
+                    </div>
+                </div>
+                </div>
+
+                <div class="setting-subgroup">
                 <h3 class="setting-subgroup__label">Tables</h3>
 
                 <div class="setting-card" id="table-options" data-setting-key="tableFormatting">

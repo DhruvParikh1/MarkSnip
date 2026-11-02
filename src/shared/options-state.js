@@ -31,6 +31,24 @@
     return null;
   }
 
+  function normalizeMathAttributeRules(rules) {
+    // Delegate to the shared implementation in default-options.js (a global in
+    // the browser, a CommonJS module under Node) so there is one source of truth.
+    if (typeof root.normalizeMathAttributeRules === 'function') {
+      return root.normalizeMathAttributeRules(rules);
+    }
+
+    if (typeof require === 'function') {
+      try {
+        return require('./default-options').normalizeMathAttributeRules(rules);
+      } catch {
+        // Fall through to the inert default below.
+      }
+    }
+
+    return Array.isArray(rules) ? rules : [];
+  }
+
   function isPlainObject(value) {
     return Object.prototype.toString.call(value) === '[object Object]';
   }
@@ -347,6 +365,8 @@
     normalized.keepSamePageAnchors = normalized.keepSamePageAnchors === true;
     normalized.imagePlacement = normalizeImagePlacementMode(normalized);
     normalized.webhookTargets = normalizeWebhookTargets(normalized.webhookTargets);
+    normalized.mathAttributesEnabled = normalized.mathAttributesEnabled !== false;
+    normalized.mathAttributeRules = normalizeMathAttributeRules(normalized.mathAttributeRules);
 
     const exportType = String(normalized.defaultExportType || '').trim();
     if (exportType.startsWith(WEBHOOK_EXPORT_PREFIX)) {
@@ -437,7 +457,8 @@
     normalizeSendToMaxUrlLength,
     normalizeImagePlacementMode,
     normalizeContextMenuItems,
-    normalizeWebhookTargets
+    normalizeWebhookTargets,
+    normalizeMathAttributeRules
   };
 
   root.markSnipOptionsState = api;

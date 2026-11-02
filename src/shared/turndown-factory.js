@@ -90,6 +90,32 @@
       }
     });
 
+    // Convert elements carrying a raw TeX payload in a configured attribute
+    // (e.g. <div data-math="..."> or <span data-math="...">) to GFM math. The
+    // attribute names come from mergedOptions.mathAttributes; domain scoping is
+    // the caller's responsibility (it passes only the attributes active for the
+    // current page). Disabled when the feature is off or no attributes apply.
+    const mathAttributeNames = mergedOptions.mathAttributesEnabled === false
+      ? []
+      : (Array.isArray(mergedOptions.mathAttributes) ? mergedOptions.mathAttributes : [])
+        .map(name => String(name || '').trim())
+        .filter(Boolean);
+
+    if (mathAttributeNames.length > 0) {
+      service.addRule('dataMath', {
+        filter: function (node) {
+          return mathAttributeNames.some(name => node.getAttribute?.(name));
+        },
+        replacement: function (content, node) {
+          const attributeName = mathAttributeNames.find(name => node.getAttribute?.(name));
+          const tex = (node.getAttribute(attributeName) || '').trim();
+          if (!tex) return content;
+
+          return node.isBlock ? `$$\n${tex}\n$$` : `$\`${tex}\`$`;
+        }
+      });
+    }
+
     service.addRule('customTables', {
       filter: 'table',
       replacement: function (content, node) {

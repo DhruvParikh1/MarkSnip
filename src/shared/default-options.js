@@ -68,6 +68,10 @@ const defaultOptions = {
   }, null, 2),
   webhookTargets: [],
   turndownEscape: true,
+  mathAttributesEnabled: true,
+  mathAttributeRules: [
+    { domain: 'gemini.google.com', attributes: ['data-math'] }
+  ],
   hashtagHandling: 'keep',
   contextMenus: true,
   contextMenuItems: DEFAULT_CONTEXT_MENU_ITEMS,
@@ -163,6 +167,96 @@ function clampNumber(value, min, max, fallback) {
   return Math.min(max, Math.max(min, numeric));
 }
 
+// Attribute names that are safe to use verbatim inside a CSS attribute selector
+// (e.g. `[data-math]`). Anything outside this shape is rejected at resolve time
+// so a stored rule can never break selector parsing or inject a selector.
+const MATH_ATTRIBUTE_NAME_PATTERN = /^[A-Za-z_:][-A-Za-z0-9_:.]*$/;
+
+// Lenient shape coercion used for storage/import: keeps every object row (even
+// incomplete ones being edited in the options UI) so the rendered list and the
+// stored array never drift apart. Strictness (domain + valid attribute names)
+// is applied later by resolveMathAttributeNames at conversion time.
+function normalizeMathAttributeRules(rules) {
+  if (!Array.isArray(rules)) {
+    return [];
+  }
+
+  return rules.reduce((normalized, rule) => {
+    if (Object.prototype.toString.call(rule) !== '[object Object]') {
+      return normalized;
+    }
+
+    const domain = String(rule.domain || '').trim().toLowerCase();
+
+    let attributeSource = rule.attributes;
+    if (typeof attributeSource === 'string') {
+      attributeSource = attributeSource.split(',');
+    }
+    if (!Array.isArray(attributeSource)) {
+      attributeSource = [];
+    }
+
+    const seen = new Set();
+    const attributes = [];
+    attributeSource.forEach((rawName) => {
+      const name = String(rawName || '').trim();
+      if (!name || seen.has(name)) {
+        return;
+      }
+      seen.add(name);
+      attributes.push(name);
+    });
+
+    normalized.push({ domain, attributes });
+    return normalized;
+  }, []);
+}
+
+// Returns the attribute names that should be converted to math for a given page
+// URL, honoring the on/off switch and the per-domain rules. Fails closed: an
+// unparseable/absent URL, a disabled switch, or no matching rule yields [].
+function resolveMathAttributeNames(options, url) {
+  if (!options || options.mathAttributesEnabled === false) {
+    return [];
+  }
+
+  const rules = normalizeMathAttributeRules(options.mathAttributeRules);
+  if (rules.length === 0) {
+    return [];
+  }
+
+  let host = '';
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return [];
+  }
+  if (!host) {
+    return [];
+  }
+
+  const seen = new Set();
+  const names = [];
+  rules.forEach((rule) => {
+    if (!rule.domain) {
+      return;
+    }
+    const matches = host === rule.domain || host.endsWith(`.${rule.domain}`);
+    if (!matches) {
+      return;
+    }
+    rule.attributes.forEach((name) => {
+      if (!MATH_ATTRIBUTE_NAME_PATTERN.test(name) || seen.has(name)) {
+        return;
+      }
+      seen.add(name);
+      names.push(name);
+    });
+  });
+
+  return names;
+}
+
 function sanitizeReaderCustomCss(customCss) {
   return String(customCss || '')
     .replace(/@import\b[^;]*(?:;|$)/gi, '')
@@ -210,6 +304,7 @@ async function getOptions() {
   }
   options.contextMenuItems = normalizeContextMenuItems(options.contextMenuItems);
   options.readerSettings = normalizeReaderSettings(options.readerSettings);
+  options.mathAttributeRules = normalizeMathAttributeRules(options.mathAttributeRules);
   const siteRulesApi = getSiteRulesApi();
   if (siteRulesApi?.normalizeSiteRules) {
     options.siteRules = siteRulesApi.normalizeSiteRules(options.siteRules);
@@ -224,6 +319,8 @@ if (typeof globalThis !== 'undefined') {
   globalThis.defaultOptions = defaultOptions;
   globalThis.normalizeReaderSettings = normalizeReaderSettings;
   globalThis.sanitizeReaderCustomCss = sanitizeReaderCustomCss;
+  globalThis.normalizeMathAttributeRules = normalizeMathAttributeRules;
+  globalThis.resolveMathAttributeNames = resolveMathAttributeNames;
 }
 
 if (typeof module === 'object' && module.exports) {
@@ -234,6 +331,8 @@ if (typeof module === 'object' && module.exports) {
     getOptions,
     normalizeContextMenuItems,
     normalizeReaderSettings,
-    sanitizeReaderCustomCss
+    sanitizeReaderCustomCss,
+    normalizeMathAttributeRules,
+    resolveMathAttributeNames
   };
 }
