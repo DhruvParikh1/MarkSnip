@@ -1804,6 +1804,14 @@
     "message": "Ignora el contenido oculto con CSS, el atributo <code>hidden</code>, o <code>aria-hidden=\"true\"</code>. Deshabilita esto para incluir acordeones colapsados y otro contenido DOM oculto en los recortes.",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "Mantener los enlaces a la misma página como #anclas",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "Escribe los enlaces que apuntan a otra parte de la página recortada, como un índice o notas al pie, como <code>#seccion</code> en lugar de la URL completa de la página. Solo funcionan si el encabezado o ancla de destino está en el recorte y tu app de Markdown usa los mismos ID de encabezado que el sitio web.",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "Manejo de hashtags",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>En línea</strong> (predeterminado): <code>[Google](http://google.com)</code>. <strong>Referenciado</strong>: definiciones de enlace separadas al final. <strong>Eliminar enlaces</strong>: quita los enlaces por completo.",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "Desactivado de forma predeterminada. Si está activado, los enlaces a otra parte de la misma página, como un índice o notas al pie, se escriben como <code>[Intro](#intro)</code> en lugar de la URL completa de la página. Solo funcionan si el destino está en el recorte y tu app de Markdown usa los mismos ID de encabezado que el sitio web.",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "Estilo de imágenes",

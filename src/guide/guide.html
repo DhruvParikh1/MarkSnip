@@ -413,7 +413,7 @@ author: {byline}
                 <div id="markdown-options" class="guide-subsection"
                     data-guide-section="Markdown Options"
                     data-guide-summary="Heading style, code blocks, links, images, and more"
-                    data-search-keywords="heading style,setext,atx,horizontal rule,bullet list,code block,fenced,indented,emphasis,italics,bold,strong,link style,inlined,referenced,strip links,image style,base64,escape markdown,hashtag handling">
+                    data-search-keywords="heading style,setext,atx,horizontal rule,bullet list,code block,fenced,indented,emphasis,italics,bold,strong,link style,inlined,referenced,strip links,same-page links,anchor links,table of contents,image style,base64,escape markdown,hashtag handling">
                     <h3 class="subsection-heading"><a href="#markdown-options" class="anchor-link">#</a>Markdown Options</h3>
 
                     <h4>Heading Style</h4>
@@ -436,6 +436,9 @@ author: {byline}
 
                     <h4>Link Style</h4>
                     <p><strong>Inlined</strong> (default): <code>[Google](http://google.com)</code>. <strong>Referenced</strong>: separate link definitions at the bottom. <strong>Strip Links</strong>: removes links entirely.</p>
+
+                    <h4>Keep Same-Page Links as #Anchors</h4>
+                    <p>Off by default. When on, links to another part of the same page, such as a table of contents or footnotes, are written as <code>[Intro](#intro)</code> instead of the full page URL. They only work if the target is in the clip and your Markdown app uses the same heading IDs as the website.</p>
 
                     <h4>Image Style</h4>
                     <div class="ref-table-wrap">

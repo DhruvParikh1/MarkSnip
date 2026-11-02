@@ -13,7 +13,8 @@ const fixtureHost = 'https://fixtures.marksnip.test';
 const fixtureFiles = {
   '/extension/deterministic-article.html': path.join(__dirname, '../fixtures/e2e-pages/extension/deterministic-article.html'),
   '/extension/mathml-article.html': path.join(__dirname, '../fixtures/e2e-pages/extension/mathml-article.html'),
-  '/extension/wechat-code-block.html': path.join(__dirname, '../fixtures/e2e-pages/extension/wechat-code-block.html')
+  '/extension/wechat-code-block.html': path.join(__dirname, '../fixtures/e2e-pages/extension/wechat-code-block.html'),
+  '/extension/same-page-anchors.html': path.join(__dirname, '../fixtures/e2e-pages/extension/same-page-anchors.html')
 };
 
 async function installFixtureRoutes(context) {
@@ -820,6 +821,142 @@ test.describe('MarkSnip Extension E2E', () => {
     } finally {
       await popupPage.close().catch(() => {});
       await fixturePage.close().catch(() => {});
+    }
+  });
+
+  test('same-page anchor links stay absolute by default and become #anchors when enabled', async () => {
+    const pageUrl = `${fixtureHost}/extension/same-page-anchors.html`;
+    const fixturePage = await context.newPage();
+
+    // Polls for a marker unique to the expected output, so an earlier clip still
+    // shown in a fresh popup cannot satisfy the wait.
+    async function clipFixture(expectedMarker) {
+      // Open the popup tab first, then bring the fixture forward so it stays the active tab.
+      const popupPage = await context.newPage();
+      try {
+        await fixturePage.bringToFront();
+        await popupPage.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+        await expect(popupPage.locator('#container')).toBeVisible();
+        const tabId = await getTabIdForUrl(serviceWorker, pageUrl);
+        await popupPage.evaluate(async (id) => {
+          await clipSite(id);
+        }, tabId);
+        await expect.poll(() => getPopupMarkdown(popupPage), { timeout: 45000 })
+          .toContain(expectedMarker);
+        return await getPopupMarkdown(popupPage);
+      } finally {
+        await popupPage.close().catch(() => {});
+      }
+    }
+
+    try {
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: false, linkStyle: 'inlined' });
+      await fixturePage.goto(pageUrl);
+      await fixturePage.waitForLoadState('networkidle');
+      await fixturePage.bringToFront();
+
+      const defaultMarkdown = await clipFixture(`(${pageUrl}#first-section)`);
+      expect(defaultMarkdown).toContain(`[First section](${pageUrl}#first-section)`);
+      expect(defaultMarkdown).toContain(`[\\[1\\]](${pageUrl}#note-1)`);
+      expect(defaultMarkdown).toContain(`[another page section](${fixtureHost}/extension/other-page.html#elsewhere)`);
+
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: true });
+      const anchoredMarkdown = await clipFixture('(#first-section)');
+      expect(anchoredMarkdown).toContain('[First section](#first-section)');
+      expect(anchoredMarkdown).toContain('[Second section](#second-section)');
+      expect(anchoredMarkdown).toContain('[\\[1\\]](#note-1)');
+      expect(anchoredMarkdown).toContain(`[another page section](${fixtureHost}/extension/other-page.html#elsewhere)`);
+      expect(anchoredMarkdown).not.toContain(`${pageUrl}#`);
+
+      await setSyncStorage(serviceWorker, { linkStyle: 'referenced' });
+      const referencedMarkdown = await clipFixture(']: #first-section');
+      expect(referencedMarkdown).toMatch(/^\[\d+\]: #first-section$/m);
+      expect(referencedMarkdown).toContain(`: ${fixtureHost}/extension/other-page.html#elsewhere`);
+    } finally {
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: false, linkStyle: 'inlined' });
+      await fixturePage.close().catch(() => {});
+    }
+  });
+
+  test('element picker clips of a table of contents honor keepSamePageAnchors and referenced links', async () => {
+    const pageUrl = `${fixtureHost}/extension/same-page-anchors.html`;
+    const fixturePage = await context.newPage();
+
+    // Each pick starts from a freshly loaded page so the injected picker starts clean.
+    async function pickToc() {
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove('elementPickerResult');
+      });
+      await fixturePage.goto(pageUrl);
+      await fixturePage.waitForLoadState('networkidle');
+      await fixturePage.bringToFront();
+      const tabId = await getTabIdForUrl(serviceWorker, pageUrl);
+      await serviceWorker.evaluate(async ({ id }) => {
+        await browser.scripting.executeScript({
+          target: { tabId: id },
+          files: ['/browser-polyfill.min.js', '/shared/i18n.js', '/contentScript/contentScript.js']
+        });
+        await browser.tabs.sendMessage(id, {
+          type: 'ACTIVATE_ELEMENT_PICKER',
+          captureOptions: { skipHiddenContent: false }
+        });
+      }, { id: tabId });
+
+      await expect(fixturePage.locator('#marksnip-element-picker-panel')).toBeVisible();
+      await fixturePage.locator('#toc-fixture p').click();
+      await fixturePage.locator('#marksnip-element-picker-parent').click();
+      await expect(fixturePage.locator('#marksnip-element-picker-status')).toContainText('nav#toc-fixture');
+      await fixturePage.locator('#marksnip-element-picker-done').click();
+
+      await expect.poll(async () => serviceWorker.evaluate(async () => {
+        const state = await browser.storage.local.get('elementPickerResult');
+        return state.elementPickerResult?.markdown || '';
+      }), { timeout: 45000 }).toContain('Second section');
+      return await serviceWorker.evaluate(async () => {
+        const state = await browser.storage.local.get('elementPickerResult');
+        return state.elementPickerResult?.markdown || '';
+      });
+    }
+
+    try {
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: false, linkStyle: 'inlined' });
+      expect(await pickToc()).toContain(`[First section](${pageUrl}#first-section)`);
+
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: true });
+      const anchored = await pickToc();
+      expect(anchored).toContain('[First section](#first-section)');
+      expect(anchored).toContain('[Second section](#second-section)');
+
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: false, linkStyle: 'referenced' });
+      const referenced = await pickToc();
+      expect(referenced).toMatch(new RegExp(`^\\[\\d+\\]: ${pageUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}#first-section$`, 'm'));
+    } finally {
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: false, linkStyle: 'inlined' });
+      await serviceWorker.evaluate(async () => {
+        await browser.storage.local.remove('elementPickerResult');
+      }).catch(() => {});
+      await fixturePage.close().catch(() => {});
+    }
+  });
+
+  test('options page saves the same-page anchor links toggle', async () => {
+    const optionsPage = await context.newPage();
+    try {
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: false });
+      await optionsPage.goto(`chrome-extension://${extensionId}/options/options.html`);
+      await optionsPage.locator('#tab-markdown').click();
+      const toggle = optionsPage.locator('#keepSamePageAnchors');
+      await expect(toggle).not.toBeChecked();
+      await expect(optionsPage.locator('label[for="keepSamePageAnchors"]').first())
+        .toHaveText('Keep Same-Page Links as #Anchors');
+      await optionsPage.locator('#keepSamePageAnchors-container .toggle-switch').click();
+      await expect.poll(async () => serviceWorker.evaluate(async () => {
+        const state = await browser.storage.sync.get('keepSamePageAnchors');
+        return state.keepSamePageAnchors;
+      }), { timeout: 10000 }).toBe(true);
+    } finally {
+      await setSyncStorage(serviceWorker, { keepSamePageAnchors: false });
+      await optionsPage.close().catch(() => {});
     }
   });
 

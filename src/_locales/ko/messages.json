@@ -1804,6 +1804,14 @@
     "message": "CSS, <code>hidden</code> 속성 또는 <code>aria-hidden=\"true\"</code>로 숨겨진 콘텐츠를 무시합니다. 접힌 아코디언 및 기타 숨겨진 DOM 콘텐츠를 클립에 포함하려면 이 옵션을 비활성화하세요.",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "같은 페이지 링크를 #앵커로 유지",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "목차나 각주처럼 클리핑한 페이지의 다른 부분을 가리키는 링크를 전체 페이지 URL 대신 <code>#section</code> 형식으로 작성합니다. 대상 제목이나 앵커가 클립에 포함되어 있고 Markdown 앱이 웹사이트와 같은 제목 ID를 사용할 때만 작동합니다.",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "해시태그 처리",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>인라인(Inlined)</strong>(기본값): <code>[Google](http://google.com)</code>. <strong>참조(Referenced)</strong>: 하단에 별도의 링크 정의를 둡니다. <strong>링크 제거(Strip Links)</strong>: 링크를 완전히 제거합니다.",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "기본적으로 꺼져 있습니다. 켜면 목차나 각주처럼 같은 페이지의 다른 부분으로 가는 링크가 전체 페이지 URL 대신 <code>[Intro](#intro)</code> 형식으로 작성됩니다. 대상이 클립에 포함되어 있고 Markdown 앱이 웹사이트와 같은 제목 ID를 사용할 때만 작동합니다.",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "이미지 스타일",

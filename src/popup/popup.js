@@ -2611,6 +2611,9 @@ const defaultOptions = {
     imagePlacement: '',
     imagePrefix: '{pageTitle}/',
     skipHiddenContent: false,
+    // Listed so the popup loads the stored value; the clip message overrides
+    // stored options with whatever the popup sends.
+    keepSamePageAnchors: false,
     defaultExportType: 'markdown',
     defaultSendToTarget: DEFAULT_SEND_TO_TARGET,
     sendToCustomTargets: [],

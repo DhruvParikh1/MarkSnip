@@ -23,6 +23,7 @@ const defaultOptions = {
   batchProcessingEnabled: true,
   includeTemplate: false,
   imageBundleZip: false,
+  keepSamePageAnchors: false,
   imagePlacement: '',
   imagePrefix: '{pageTitle}/',
   defaultExportType: 'markdown',
@@ -80,6 +81,14 @@ const defaultOptions = {
     expect(optionsState.normalizeImportedOptions({ imageBundleZip: 'true' }, defaultOptions).imageBundleZip)
       .toBe(false);
     expect(optionsState.normalizeImportedOptions({ imageBundleZip: true }, defaultOptions).imageBundleZip)
+      .toBe(true);
+  });
+
+  test('normalizeImportedOptions keeps same-page anchor links opt-in boolean-only', () => {
+    expect(optionsState.normalizeImportedOptions({}, defaultOptions).keepSamePageAnchors).toBe(false);
+    expect(optionsState.normalizeImportedOptions({ keepSamePageAnchors: 'true' }, defaultOptions).keepSamePageAnchors)
+      .toBe(false);
+    expect(optionsState.normalizeImportedOptions({ keepSamePageAnchors: true }, defaultOptions).keepSamePageAnchors)
       .toBe(true);
   });
 
@@ -351,6 +360,7 @@ test('normalizeImportedOptions ignores non-plain option inputs', () => {
     defaultExportType: 'markdown',
     defaultSendToTarget: 'chatgpt',
     imageBundleZip: false,
+    keepSamePageAnchors: false,
     imagePlacement: 'sameFolder',
     sendToCustomTargets: [],
     sendToMaxUrlLength: 3600,
@@ -387,6 +397,7 @@ test('resetAllOptions handles non-plain defaults without blowing up', () => {
     defaultExportType: 'markdown',
     defaultSendToTarget: 'chatgpt',
     imageBundleZip: false,
+    keepSamePageAnchors: false,
     imagePlacement: 'sameFolder',
     sendToCustomTargets: [],
     sendToMaxUrlLength: 3600,

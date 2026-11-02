@@ -326,6 +326,12 @@ When enabled, preserves the original HTML formatting inside code blocks (useful 
 | Referenced          | `[Google]` with `[Google]: http://google.com` at the bottom |
 | Strip Links         | `Google` (link removed)                                     |
 
+### Keep Same-Page Links as #Anchors
+
+Off by default, so every link is written as a full URL. When it's on, a link that points to another part of the clipped page, such as a table of contents entry or a footnote reference, is written as just its fragment: `[Intro](#intro)` instead of `[Intro](https://example.com/post/#intro)`. Links to other pages stay absolute.
+
+These links only work if the target heading or anchor is part of the clip and your Markdown app generates the same heading IDs as the website. GitHub and many static site generators usually do; Obsidian links headings by their text instead.
+
 ### Link Reference Style
 
 **Only when Link Style is "Referenced".**

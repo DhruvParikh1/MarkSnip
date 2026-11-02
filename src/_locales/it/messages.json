@@ -1804,6 +1804,14 @@
     "message": "Ignora i contenuti nascosti con CSS, l'attributo <code>hidden</code>, o <code>aria-hidden=\"true\"</code>. Disabilita per includere riquadri espandibili (accordion) compressi o altri contenuti DOM nascosti nei ritagli.",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "Mantieni i link alla stessa pagina come #ancore",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "Scrive i link che puntano a un’altra parte della pagina ritagliata, come un indice o le note a piè di pagina, come <code>#sezione</code> invece dell’URL completo della pagina. Funzionano solo se il titolo o l’ancora di destinazione è nel ritaglio e la tua app Markdown usa gli stessi ID dei titoli del sito web.",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "Gestione degli hashtag",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>In linea</strong> (predefinito): <code>[Google](http://google.com)</code>. <strong>Referenziato</strong>: definizioni separate dei link a fondo pagina. <strong>Rimuovi link</strong>: elimina completamente i link.",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "Disattivato per impostazione predefinita. Se attivo, i link a un’altra parte della stessa pagina, come un indice o le note a piè di pagina, vengono scritti come <code>[Intro](#intro)</code> invece dell’URL completo della pagina. Funzionano solo se la destinazione è nel ritaglio e la tua app Markdown usa gli stessi ID dei titoli del sito web.",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "Stile immagini",
