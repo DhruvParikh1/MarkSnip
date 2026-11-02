@@ -1804,6 +1804,14 @@
     "message": "Ignoriert Inhalte, die durch CSS, das Attribut <code>hidden</code> oder <code>aria-hidden=\"true\"</code> verborgen sind. Deaktivieren Sie dies, um eingeklappte Akkordeons und andere verborgene DOM-Inhalte in die Clips aufzunehmen.",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "Links auf dieselbe Seite als #Anker behalten",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "Links, die auf eine andere Stelle der geclippten Seite zeigen, etwa ein Inhaltsverzeichnis oder Fußnoten, als <code>#abschnitt</code> statt als vollständige Seiten-URL schreiben. Sie funktionieren nur, wenn die Zielüberschrift oder der Anker im Clip enthalten ist und Ihre Markdown-App dieselben Überschriften-IDs wie die Website verwendet.",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "Hashtag-Verarbeitung",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>Eingebettet</strong> (Standard): <code>[Google](http://google.com)</code>. <strong>Referenziert</strong>: separate Link-Definitionen am Ende. <strong>Links entfernen</strong>: entfernt Links vollständig.",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "Standardmäßig aus. Wenn aktiviert, werden Links zu einer anderen Stelle derselben Seite, etwa ein Inhaltsverzeichnis oder Fußnoten, als <code>[Intro](#intro)</code> statt als vollständige Seiten-URL geschrieben. Sie funktionieren nur, wenn das Ziel im Clip enthalten ist und Ihre Markdown-App dieselben Überschriften-IDs wie die Website verwendet.",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "Bild-Stil",

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Same-Page Anchor Fixture</title>
+</head>
+<body>
+  <main>
+    <article>
+      <h1>Same-Page Anchor Fixture</h1>
+      <nav id="toc-fixture" aria-label="In this post"><p>In this post</p><a href="#first-section">First section</a> <a href="#second-section">Second section</a></nav>
+      <p>This fixture checks how links that point back into the same page are written. It also links to <a href="/extension/other-page.html#elsewhere">another page section</a> on the same site.</p>
+      <h2 id="first-section">First section</h2>
+      <p>The first section has enough prose for Readability to keep it as part of the article body, plus a footnote reference<a href="#note-1">[1]</a> that targets the notes below.</p>
+      <h2 id="second-section">Second section</h2>
+      <p>The second section adds more steady paragraph text so the article extraction stays deterministic across browser runs.</p>
+      <p id="note-1">[1] The footnote text lives on the same page as the reference.</p>
+    </article>
+  </main>
+</body>
+</html>

@@ -35,6 +35,7 @@ const defaultOptions = {
   strongDelimiter: "**",
   linkStyle: "inlined",
   linkReferenceStyle: "full",
+  keepSamePageAnchors: false,
   imageStyle: "markdown",
   imageRefStyle: "inlined",
   tableFormatting: {

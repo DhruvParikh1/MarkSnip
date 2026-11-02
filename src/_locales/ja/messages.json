@@ -1804,6 +1804,14 @@
     "message": "CSS、<code>hidden</code> 属性、または <code>aria-hidden=\"true\"</code> で非表示になっているコンテンツを無視します。折りたたまれたアコーディオンなどの非表示のDOMコンテンツをクリップに含めるには、これを無効にしてください。",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "同じページ内へのリンクを #アンカーとして保持",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "目次や脚注など、クリップしたページ内の別の場所を指すリンクを、ページの完全な URL ではなく <code>#section</code> の形で書き出します。リンク先の見出しやアンカーがクリップに含まれ、Markdown アプリが Web サイトと同じ見出し ID を使う場合にのみ機能します。",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "ハッシュタグの処理",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>インライン</strong> (デフォルト): <code>[Google](http://google.com)</code>。<strong>参照</strong>: リンク定義を別々に下部に配置します。<strong>リンクを削除</strong>: リンクを完全に削除します。",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "デフォルトではオフです。オンにすると、目次や脚注など同じページ内の別の場所へのリンクが、ページの完全な URL ではなく <code>[Intro](#intro)</code> の形で書き出されます。リンク先がクリップに含まれ、Markdown アプリが Web サイトと同じ見出し ID を使う場合にのみ機能します。",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "画像スタイル",

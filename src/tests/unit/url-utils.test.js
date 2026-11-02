@@ -2,6 +2,7 @@ const {
   safeParseUrl,
   resolveArticleUrl,
   validateUri,
+  resolveMarkdownLinkHref,
   normalizeImagePlacementMode,
   getMarkdownTitleFolder,
   getMarkdownTitleBaseName,
@@ -11,6 +12,38 @@ const {
 } = require('../../shared/url-utils');
 
 describe('URL utils', () => {
+  describe('resolveMarkdownLinkHref', () => {
+    const base = 'https://example.com/post/';
+
+    test('resolves relative hrefs and leaves absolute hrefs as written', () => {
+      expect(resolveMarkdownLinkHref('/a', base)).toBe('https://example.com/a');
+      expect(resolveMarkdownLinkHref('#x', base)).toBe('https://example.com/post/#x');
+      expect(resolveMarkdownLinkHref('mailto:a@example.com', base)).toBe('mailto:a@example.com');
+      expect(resolveMarkdownLinkHref('HTTPS://Example.com/A', base)).toBe('HTTPS://Example.com/A');
+    });
+
+    test('returns the href unchanged when it cannot be resolved', () => {
+      expect(resolveMarkdownLinkHref('/a', '')).toBe('/a');
+      expect(resolveMarkdownLinkHref('http://[bad', base)).toBe('http://[bad');
+      expect(resolveMarkdownLinkHref('', base)).toBe('');
+    });
+
+    test('keeps same-page fragments only when asked', () => {
+      const opts = { keepSamePageAnchors: true, pageUrl: 'https://example.com/post/#top' };
+      expect(resolveMarkdownLinkHref('#x', base, opts)).toBe('#x');
+      expect(resolveMarkdownLinkHref('#caf%C3%A9', base, opts)).toBe('#caf%C3%A9');
+      expect(resolveMarkdownLinkHref('https://example.com/post/#y', base, opts)).toBe('#y');
+      expect(resolveMarkdownLinkHref('https://example.com/post/?q=1#y', base, opts)).toBe('https://example.com/post/?q=1#y');
+      expect(resolveMarkdownLinkHref('https://example.com/other#y', base, opts)).toBe('https://example.com/other#y');
+      expect(resolveMarkdownLinkHref('#', base, opts)).toBe('https://example.com/post/#');
+      expect(resolveMarkdownLinkHref('#x', base, { pageUrl: base })).toBe('https://example.com/post/#x');
+    });
+
+    test('falls back to the base URI when no page URL is given', () => {
+      expect(resolveMarkdownLinkHref('#x', base, { keepSamePageAnchors: true })).toBe('#x');
+    });
+  });
+
   describe('safeParseUrl', () => {
     test('returns URL instance for valid URLs', () => {
       const parsed = safeParseUrl('https://example.com/page');

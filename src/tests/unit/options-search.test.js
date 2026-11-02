@@ -310,6 +310,8 @@ describe('Options search helper', () => {
 
   test('exact searches still resolve expected settings', () => {
     expect(getMatchIds(index, 'save as')).toContain('saveAs-container');
+    expect(getMatchIds(index, 'anchor')).toContain('keepSamePageAnchors-container');
+    expect(getMatchIds(index, 'table of contents')).toContain('keepSamePageAnchors-container');
     expect(getMatchIds(index, 'default export')).toContain('defaultExportTypeGroup');
     expect(getMatchIds(index, 'plain text')).toContain('defaultExportTypeGroup');
     expect(getMatchIds(index, 'txt')).toContain('defaultExportTypeGroup');

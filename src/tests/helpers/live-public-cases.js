@@ -140,6 +140,23 @@ const liveClipCases = [
       'POST /system/user/list HTTP/1.1\nHost: xxx\nContent-Length: 153',
       'pageSize=10&pageNum=1&orderByColumn=createTime'
     ]
+  },
+  {
+    id: 'flaviocopes-same-page-anchors',
+    // The popup flow drops this page's table of contents during extraction, so the
+    // option should leave the full-page clip unchanged. The element-picker path the
+    // issue used is covered by the deterministic e2e fixture.
+    name: 'clips a post with an in-page table of contents with keepSamePageAnchors on (issue #68)',
+    url: 'https://flaviocopes.com/tools/tutorials/convert-curl-to-fetch/',
+    selector: 'h1',
+    titleContains: 'fetch',
+    storageOptions: {
+      keepSamePageAnchors: true
+    },
+    snippets: [
+      '## How curl flags map to fetch',
+      '[cURL to code converter](https://flaviocopes.com/tools/curl-to-code/)'
+    ]
   }
 ];
 

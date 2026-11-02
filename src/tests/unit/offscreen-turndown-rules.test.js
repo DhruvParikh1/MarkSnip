@@ -43,14 +43,14 @@ describe('offscreen Turndown rules (real pipeline)', () => {
     win.close();
   });
 
-  async function toMarkdown(bodyHtml, overrides = {}) {
+  async function toMarkdown(bodyHtml, overrides = {}, articleOverrides = {}) {
     const options = Object.assign({}, win.eval('defaultOptions'), { downloadImages: false }, overrides);
-    const article = {
+    const article = Object.assign({
       content: bodyHtml,
       baseURI: 'https://example.com/post/',
       pageURL: 'https://example.com/post/',
       title: 'T'
-    };
+    }, articleOverrides);
     win.__article = article;
     win.__options = options;
     const result = await win.eval('convertArticleToMarkdown(window.__article, false, window.__options)');
@@ -120,6 +120,84 @@ describe('offscreen Turndown rules (real pipeline)', () => {
     test('leaves an ordinary table unchanged', async () => {
       const md = await toMarkdown('<table><thead><tr><th>Name</th><th>Qty</th></tr></thead><tbody><tr><td><b>Bold</b></td><td>2</td></tr></tbody></table>');
       expect(md).toBe('| Name | Qty |\n|------|-----|\n| **Bold** |  2  |');
+    });
+  });
+
+  describe('links', () => {
+    const toc = '<nav><a href="#intro">Intro</a> <a href="https://example.com/post/#usage">Usage</a></nav>'
+      + '<p><a href="/other#x">Other page</a> <a href="https://elsewhere.test/a#b">External</a></p>';
+
+    test('resolves links to absolute URLs by default', async () => {
+      const md = await toMarkdown(toc);
+      expect(win.eval('defaultOptions').keepSamePageAnchors).toBe(false);
+      expect(md).toBe(
+        '[Intro](https://example.com/post/#intro) [Usage](https://example.com/post/#usage)\n\n'
+        + '[Other page](https://example.com/other#x) [External](https://elsewhere.test/a#b)'
+      );
+    });
+
+    test('keepSamePageAnchors writes same-page links as #fragments and leaves other links absolute', async () => {
+      const md = await toMarkdown(toc, { keepSamePageAnchors: true });
+      expect(md).toBe(
+        '[Intro](#intro) [Usage](#usage)\n\n'
+        + '[Other page](https://example.com/other#x) [External](https://elsewhere.test/a#b)'
+      );
+    });
+
+    test('keepSamePageAnchors compares the resolved URL with the page, ignoring the page fragment', async () => {
+      const md = await toMarkdown('<p><a href="https://example.com/post/?page=2#x">Query</a> <a href="#">Top</a></p>',
+        { keepSamePageAnchors: true },
+        { pageURL: 'https://example.com/post/#current' });
+      expect(md).toBe('[Query](https://example.com/post/?page=2#x) [Top](https://example.com/post/#)');
+
+      const sameMd = await toMarkdown('<p><a href="https://example.com/post/#x">Same</a></p>',
+        { keepSamePageAnchors: true },
+        { pageURL: 'https://example.com/post/#current' });
+      expect(sameMd).toBe('[Same](#x)');
+    });
+
+    test('keepSamePageAnchors keeps #x absolute when a <base> points at another document', async () => {
+      const md = await toMarkdown('<p><a href="#x">Elsewhere</a></p>',
+        { keepSamePageAnchors: true },
+        { baseURI: 'https://example.com/', uriBase: 'https://example.com/', pageURL: 'https://example.com/post/' });
+      expect(md).toBe('[Elsewhere](https://example.com/#x)');
+    });
+
+    test('referenced links resolve relative hrefs', async () => {
+      const md = await toMarkdown('<p><a href="/other#x" title="T">Other</a> <a href="#intro">Intro</a></p>',
+        { linkStyle: 'referenced' });
+      expect(md).toBe(
+        '[Other][1] [Intro][2]\n\n'
+        + '[1]: https://example.com/other#x "T"\n'
+        + '[2]: https://example.com/post/#intro'
+      );
+    });
+
+    test('referenced links honour keepSamePageAnchors and every reference style', async () => {
+      const html = '<p><a href="/other">Other</a> <a href="#intro">Intro</a></p>';
+      expect(await toMarkdown(html, { linkStyle: 'referenced', keepSamePageAnchors: true })).toBe(
+        '[Other][1] [Intro][2]\n\n[1]: https://example.com/other\n[2]: #intro'
+      );
+      expect(await toMarkdown(html, { linkStyle: 'referenced', linkReferenceStyle: 'collapsed' })).toBe(
+        '[Other][] [Intro][]\n\n[Other]: https://example.com/other\n[Intro]: https://example.com/post/#intro'
+      );
+      expect(await toMarkdown(html, { linkStyle: 'referenced', linkReferenceStyle: 'shortcut' })).toBe(
+        '[Other] [Intro]\n\n[Other]: https://example.com/other\n[Intro]: https://example.com/post/#intro'
+      );
+    });
+
+    test('table cell links resolve relative hrefs when table links are kept', async () => {
+      const html = '<table><thead><tr><th>Link</th></tr></thead><tbody><tr><td><a href="/doc">Doc</a> <a href="#intro">Intro</a></td></tr></tbody></table>';
+      const tableFormatting = { stripLinks: false, stripFormatting: false, prettyPrint: false, centerText: false };
+      const inlined = await toMarkdown(html, { tableFormatting });
+      expect(inlined).toContain('[Doc](https://example.com/doc) [Intro](https://example.com/post/#intro)');
+      const anchored = await toMarkdown(html, { tableFormatting, keepSamePageAnchors: true });
+      expect(anchored).toContain('[Doc](https://example.com/doc) [Intro](#intro)');
+    });
+
+    test('strip links still writes only the link text', async () => {
+      const md = await toMarkdown(toc, { linkStyle: 'stripLinks', keepSamePageAnchors: true });
+      expect(md).toBe('Intro Usage\n\nOther page External');
     });
   });
 

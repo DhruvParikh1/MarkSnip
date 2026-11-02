@@ -344,6 +344,7 @@
       normalizeSendToMaxUrlLength(safeDefaults.sendToMaxUrlLength)
     );
     normalized.imageBundleZip = normalized.imageBundleZip === true;
+    normalized.keepSamePageAnchors = normalized.keepSamePageAnchors === true;
     normalized.imagePlacement = normalizeImagePlacementMode(normalized);
     normalized.webhookTargets = normalizeWebhookTargets(normalized.webhookTargets);
 

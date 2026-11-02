@@ -1804,6 +1804,14 @@
     "message": "Ignore le contenu masqué avec CSS, l'attribut <code>hidden</code> ou <code>aria-hidden=\"true\"</code>. Désactivez ceci pour inclure les accordéons réduits et d'autres contenus DOM masqués dans les extraits.",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "Conserver les liens vers la même page en #ancres",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "Écrit les liens qui pointent vers une autre partie de la page capturée, comme une table des matières ou des notes de bas de page, sous la forme <code>#section</code> au lieu de l’URL complète de la page. Ils ne fonctionnent que si le titre ou l’ancre cible fait partie de la capture et que votre application Markdown utilise les mêmes identifiants de titres que le site web.",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "Gestion des hashtags",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>En ligne</strong> (par défaut) : <code>[Google](http://google.com)</code>. <strong>Référencé</strong> : définitions de liens séparées à la fin. <strong>Supprimer les liens</strong> : supprime entièrement les liens.",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "Désactivé par défaut. Lorsqu’il est activé, les liens vers une autre partie de la même page, comme une table des matières ou des notes de bas de page, sont écrits sous la forme <code>[Intro](#intro)</code> au lieu de l’URL complète de la page. Ils ne fonctionnent que si la cible fait partie de la capture et que votre application Markdown utilise les mêmes identifiants de titres que le site web.",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "Style d'image",

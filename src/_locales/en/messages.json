@@ -1804,6 +1804,14 @@
     "message": "Ignore content hidden with CSS, the <code>hidden</code> attribute, or <code>aria-hidden=\"true\"</code>. Disable this to include collapsed accordions and other hidden DOM content in clips.",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "Keep Same-Page Links as #Anchors",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "Write links that point to another part of the clipped page, such as a table of contents or footnotes, as <code>#section</code> instead of the full page URL. They only work if the target heading or anchor is in the clip and your Markdown app uses the same heading IDs as the website.",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "Hashtag Handling",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>Inlined</strong> (default): <code>[Google](http://google.com)</code>. <strong>Referenced</strong>: separate link definitions at the bottom. <strong>Strip Links</strong>: removes links entirely.",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "Off by default. When on, links to another part of the same page, such as a table of contents or footnotes, are written as <code>[Intro](#intro)</code> instead of the full page URL. They only work if the target is in the clip and your Markdown app uses the same heading IDs as the website.",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "Image Style",

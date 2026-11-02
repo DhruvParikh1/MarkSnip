@@ -1804,6 +1804,14 @@
     "message": "Ignora o conteúdo escondido com CSS, o atributo <code>hidden</code> ou <code>aria-hidden=\"true\"</code>. Desative isso para incluir listas expansíveis recolhidas e outros conteúdos escondidos da DOM nos recortes.",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "Manter links para a mesma página como #âncoras",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "Escreve links que apontam para outra parte da página recortada, como um sumário ou notas de rodapé, como <code>#secao</code> em vez da URL completa da página. Eles só funcionam se o título ou a âncora de destino estiver no recorte e seu app de Markdown usar os mesmos IDs de título que o site.",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "Lidar com Hashtags",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>Em linha</strong> (padrão): <code>[Google](http://google.com)</code>. <strong>Referenciado</strong>: referências mantidas em pé-de-página. <strong>Remover Links</strong>: sem a adição dos mesmos.",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "Desativado por padrão. Quando ativado, links para outra parte da mesma página, como um sumário ou notas de rodapé, são escritos como <code>[Intro](#intro)</code> em vez da URL completa da página. Eles só funcionam se o destino estiver no recorte e seu app de Markdown usar os mesmos IDs de título que o site.",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "Estilo de Imagem",

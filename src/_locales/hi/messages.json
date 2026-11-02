@@ -1804,6 +1804,14 @@
     "message": "CSS, <code>hidden</code> एट्रिब्यूट, या <code>aria-hidden=\"true\"</code> के साथ छिपे हुए कंटेंट पर ध्यान न दें। क्लिप्स में कोलैप्स किए गए एकॉर्डियन और अन्य छिपे हुए DOM कंटेंट को शामिल करने के लिए इसे अक्षम करें।",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "एक ही पेज के लिंक को #एंकर के रूप में रखें",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "क्लिप किए गए पेज के किसी दूसरे हिस्से की ओर जाने वाले लिंक, जैसे विषय-सूची या फ़ुटनोट, को पूरे पेज URL के बजाय <code>#section</code> के रूप में लिखें। ये तभी काम करते हैं जब लक्ष्य हेडिंग या एंकर क्लिप में हो और आपका Markdown ऐप वेबसाइट जैसी ही हेडिंग ID इस्तेमाल करे।",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "हैशटैग हैंडलिंग",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>इनलाइंड</strong> (डिफ़ॉल्ट): <code>[Google](http://google.com)</code>। <strong>रेफरेंस्ड</strong>: नीचे अलग लिंक परिभाषाएँ। <strong>लिंक्स हटाएँ</strong>: लिंक्स को पूरी तरह से हटा देता है।",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "डिफ़ॉल्ट रूप से बंद। चालू होने पर, उसी पेज के किसी दूसरे हिस्से के लिंक, जैसे विषय-सूची या फ़ुटनोट, पूरे पेज URL के बजाय <code>[Intro](#intro)</code> के रूप में लिखे जाते हैं। ये तभी काम करते हैं जब लक्ष्य क्लिप में हो और आपका Markdown ऐप वेबसाइट जैसी ही हेडिंग ID इस्तेमाल करे।",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "इमेज स्टाइल",

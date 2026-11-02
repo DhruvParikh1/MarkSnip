@@ -52,6 +52,57 @@
     return href;
   }
 
+  function stripUrlFragment(url) {
+    const copy = new URL(url.href);
+    copy.hash = '';
+    return copy.href;
+  }
+
+  /**
+   * Resolve a link href for Markdown output.
+   *
+   * Relative hrefs are resolved against baseURI. Absolute hrefs are returned
+   * unchanged, and hrefs that cannot be resolved are returned as written.
+   *
+   * With keepSamePageAnchors, a link whose target is the clipped page itself
+   * (same URL apart from the fragment) is written as just its "#fragment", so it
+   * stays an in-document link. "Same page" is decided on the resolved URL, so a
+   * "#x" href under a <base> that points at another document stays absolute.
+   */
+  function resolveMarkdownLinkHref(href, baseURI, options = {}) {
+    const rawHref = typeof href === 'string' ? href.trim() : '';
+    if (!rawHref) {
+      return href;
+    }
+
+    let resolved;
+    try {
+      resolved = new URL(rawHref, baseURI || undefined);
+    } catch {
+      return href;
+    }
+
+    let absoluteHref;
+    try {
+      new URL(rawHref);
+      absoluteHref = rawHref;
+    } catch {
+      absoluteHref = resolved.href;
+    }
+
+    if (options.keepSamePageAnchors !== true || !resolved.hash || resolved.hash === '#') {
+      return absoluteHref;
+    }
+
+    const pageUrl = safeParseUrl(options.pageUrl || '') || safeParseUrl(baseURI || '');
+    if (!pageUrl || stripUrlFragment(resolved) !== stripUrlFragment(pageUrl)) {
+      return absoluteHref;
+    }
+
+    // Keep the fragment exactly as the page wrote it when it was already relative.
+    return rawHref.startsWith('#') ? rawHref : resolved.hash;
+  }
+
   const IMAGE_PLACEMENT_MODES = Object.freeze({
     SAME_FOLDER: 'sameFolder',
     SIDECAR: 'sidecar',
@@ -210,6 +261,7 @@
     safeParseUrl,
     resolveArticleUrl,
     validateUri,
+    resolveMarkdownLinkHref,
     normalizeImagePlacementMode,
     getMarkdownTitleFolder,
     getMarkdownTitleBaseName,

@@ -1804,6 +1804,14 @@
     "message": "忽略使用 CSS、<code>hidden</code> 属性或 <code>aria-hidden=\"true\"</code> 隐藏的内容。禁用此选项可将折叠的手风琴菜单和其他隐藏的 DOM 内容包含在剪藏中。",
     "description": "Hint to Skip Hidden Content"
   },
+  "optionsKeepSamePageAnchorsLabel": {
+    "message": "将同页链接保留为 #锚点",
+    "description": "Label for the option that keeps same-page links as #anchors"
+  },
+  "optionsKeepSamePageAnchorsHint": {
+    "message": "将指向所剪辑页面其他位置的链接（例如目录或脚注）写成 <code>#section</code>，而不是完整的页面 URL。只有当目标标题或锚点包含在剪辑中，并且你的 Markdown 应用使用与网站相同的标题 ID 时，这些链接才能生效。",
+    "description": "Hint for the option that keeps same-page links as #anchors"
+  },
   "optionsHashtagHandlingTitle": {
     "message": "话题标签处理 (Hashtag Handling)",
     "description": "Title for Hashtag Handling"
@@ -2571,6 +2579,10 @@
   "guideSettingsMarkdownLinkDesc": {
     "message": "<strong>内联</strong> (默认)：<code>[Google](http://google.com)</code>。<strong>引用</strong>：底部单独的链接定义。<strong>剥离链接</strong>：完全移除链接。",
     "description": "Description for Link Style"
+  },
+  "guideSettingsMarkdownSamePageAnchorsDesc": {
+    "message": "默认关闭。开启后，指向同一页面其他位置的链接（例如目录或脚注）会写成 <code>[Intro](#intro)</code>，而不是完整的页面 URL。只有当目标包含在剪辑中，并且你的 Markdown 应用使用与网站相同的标题 ID 时，这些链接才能生效。",
+    "description": "Description for Keep Same-Page Links as #Anchors"
   },
   "guideSettingsMarkdownImage": {
     "message": "图片样式",

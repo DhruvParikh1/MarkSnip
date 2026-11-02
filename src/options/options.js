@@ -3020,6 +3020,7 @@ const setCurrentChoice = result => {
     options.autoDetectCodeLanguage = options.autoDetectCodeLanguage !== false;
     options.skipHiddenContent = options.skipHiddenContent === true;
     options.imageBundleZip = options.imageBundleZip === true;
+    options.keepSamePageAnchors = options.keepSamePageAnchors === true;
 
     document.querySelector("[name='frontmatter']").value = options.frontmatter;
     document.querySelector("[name='backmatter']").value = options.backmatter;
@@ -3087,6 +3088,7 @@ const setCurrentChoice = result => {
     setCheckedValue(document.querySelectorAll("[name='strongDelimiter']"), options.strongDelimiter);
     setCheckedValue(document.querySelectorAll("[name='linkStyle']"), options.linkStyle);
     setCheckedValue(document.querySelectorAll("[name='linkReferenceStyle']"), options.linkReferenceStyle);
+    document.querySelector("[name='keepSamePageAnchors']").checked = options.keepSamePageAnchors;
     setCheckedValue(document.querySelectorAll("[name='imageStyle']"), options.imageStyle);
     setCheckedValue(document.querySelectorAll("[name='imageRefStyle']"), options.imageRefStyle);
 	    setCheckedValue(document.querySelectorAll("[name='hashtagHandling']"), options.hashtagHandling || 'keep');

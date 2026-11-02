@@ -1111,6 +1111,40 @@ function applyHashtagHandlingToMarkdown(markdown, mode) {
 function turndown(content, options, article) {
   console.log("Starting turndown with options:", options.tableFormatting); // Debug log
   const uriBase = article.uriBase || article.baseURI;
+  const linkPageUrl = article.pageURL || uriBase;
+  const keepSamePageAnchors = options.keepSamePageAnchors === true;
+
+  // Every Markdown link href goes through here, whichever link style writes it.
+  function resolveLinkHref(href) {
+    const sharedApi = getUrlUtilsApi();
+    if (sharedApi?.resolveMarkdownLinkHref) {
+      return sharedApi.resolveMarkdownLinkHref(href, uriBase, {
+        pageUrl: linkPageUrl,
+        keepSamePageAnchors
+      });
+    }
+    return validateUri(href, uriBase);
+  }
+
+  // Turndown's built-in reference rule writes the raw href. Resolve it first, then
+  // delegate so the rule's own reference list and append() keep working.
+  function addResolvedReferenceLinkRule(service) {
+    const referenceRule = service.options?.rules?.referenceLink;
+    if (!referenceRule?.replacement) {
+      return;
+    }
+    service.addRule('resolvedReferenceLink', {
+      filter: (node, tdopts) => (
+        tdopts.linkStyle === 'referenced' &&
+        node.nodeName === 'A' &&
+        node.getAttribute('href')
+      ),
+      replacement: (content, node, tdopts) => {
+        node.setAttribute('href', resolveLinkHref(node.getAttribute('href')));
+        return referenceRule.replacement.call(referenceRule, content, node, tdopts);
+      }
+    });
+  }
 
   if (options.turndownEscape) TurndownService.prototype.escape = TurndownService.prototype.defaultEscape;
   else TurndownService.prototype.escape = s => s;
@@ -1142,6 +1176,9 @@ function turndown(content, options, article) {
       return '`' + content + '`';
     }
   });
+
+  // Added before headingLinks so that rule still wins for links wrapping a heading.
+  addResolvedReferenceLinkRule(turndownService);
 
   // Add rule to prevent wrapping headings in links
   turndownService.addRule('headingLinks', {
@@ -1236,6 +1273,20 @@ function turndown(content, options, article) {
               return content;
             }
           });
+        } else {
+          cellTurndownService.addRule('resolvedInlineLink', {
+            filter: (linkNode, tdopts) => (
+              tdopts.linkStyle === 'inlined' &&
+              linkNode.nodeName === 'A' &&
+              linkNode.getAttribute('href')
+            ),
+            replacement: (content, linkNode) => {
+              const title = cleanAttribute(linkNode.getAttribute('title'));
+              const titlePart = title ? ` "${title}"` : '';
+              return `[${content}](${resolveLinkHref(linkNode.getAttribute('href'))}${titlePart})`;
+            }
+          });
+          addResolvedReferenceLinkRule(cellTurndownService);
         }
         
         // Process table structure. table.rows lists thead rows first, then every
@@ -1500,7 +1551,7 @@ function turndown(content, options, article) {
     },
     replacement: (content, node, tdopts) => {
       // get the href
-      const href = validateUri(node.getAttribute('href'), uriBase);
+      const href = resolveLinkHref(node.getAttribute('href'));
       
       // If we're in a table AND strip links is enabled, OR if linkStyle is set to stripLinks
       // just return the text content without the link
