@@ -4339,7 +4339,7 @@ async function clipTabWithRetry(tab, maxAttempts = 2) {
             }, 45000);
 
             function messageListener(message) {
-                if (message.type === "display.md") {
+                if (message.type === "display.md" && !isSupersededClipResult(message)) {
                     clearTimeout(timeout);
                     browser.runtime.onMessage.removeListener(messageListener);
 
@@ -4697,6 +4697,20 @@ function ensurePopupOffscreenBridge() {
     return popupOffscreenBridgePromise;
 }
 
+// Each clip gets an id; results carry it back so a slower, superseded clip (for
+// example after a quick Selected -> Document switch) cannot replace a newer one.
+let latestClipRequestId = null;
+
+function createClipRequestId() {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isSupersededClipResult(message) {
+    return Boolean(message?.clipRequestId) &&
+        Boolean(latestClipRequestId) &&
+        message.clipRequestId !== latestClipRequestId;
+}
+
 // Updated clipSite function to use scripting API
 const clipSite = id => {
     return resolveClipTargetTab(id).then(async (tab) => {
@@ -4731,8 +4745,10 @@ const clipSite = id => {
         .then((result) => {
             if (result && result[0]?.result) {
                 showOrHideClipOption(result[0].result.selection);
+                latestClipRequestId = createClipRequestId();
                 let message = {
                     type: "clip",
+                    clipRequestId: latestClipRequestId,
                     dom: result[0].result.dom,
                     selection: result[0].result.selection,
                     pageUrl: result[0].result.pageUrl || null,
@@ -5635,6 +5651,9 @@ async function sendToObsidian(e) {
 
 //function that handles messages from the injected script into the site
 function notify(message) {
+    if ((message.type === "display.md" || message.type === "display.error") && isSupersededClipResult(message)) {
+        return;
+    }
     // message for displaying markdown
     if (message.type == "display.md") {
         setActiveSiteRuleState(message.matchedSiteRule, message.overriddenKeys, message.effectiveOptions || message.options);

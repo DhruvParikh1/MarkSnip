@@ -1136,6 +1136,7 @@ async function handleMessages(message, sender, _sendResponse) {
       // Without this the popup keeps its spinner up forever.
       await browser.runtime.sendMessage({
         type: "display.error",
+        clipRequestId: message.clipRequestId ?? null,
         error: message.error || 'The page could not be converted to Markdown.'
       }).catch(() => {});
       break;
@@ -2327,24 +2328,50 @@ self.markFirefoxOffscreenPageReady = markFirefoxOffscreenPageReady;
  * Ensures the offscreen document exists (Chrome) or an equivalent
  * extension page is loaded (Firefox).
  */
-async function ensureOffscreenDocumentExists(options = {}) {
-  const allowFirefoxTab = options.allowFirefoxTab !== false;
+// Creation runs once at a time: concurrent callers (a clip racing the Agent Bridge
+// pre-warm, two quick user actions) share the in-flight promise instead of each
+// trying to create the document.
+let offscreenDocumentCreation = null;
+let firefoxOffscreenTabCreation = null;
 
-  if (self.hasNativeOffscreenDocumentSupport()) {
-    // Chrome — use native offscreen API
-    const offscreenUrl = chrome.runtime.getURL('offscreen/offscreen.html');
-    const existingContexts = await chrome.runtime.getContexts({
-      contextTypes: ['OFFSCREEN_DOCUMENT'],
-      documentUrls: [offscreenUrl]
-    });
-    
-    if (existingContexts.length > 0) return;
-    
+function isSingleOffscreenDocumentError(error) {
+  return /single offscreen document/i.test(String(error?.message || error || ''));
+}
+
+async function createChromeOffscreenDocumentOnce() {
+  const offscreenUrl = chrome.runtime.getURL('offscreen/offscreen.html');
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [offscreenUrl]
+  });
+
+  if (existingContexts.length > 0) return;
+
+  try {
     await chrome.offscreen.createDocument({
       url: 'offscreen/offscreen.html',
       reasons: ['DOM_PARSER', 'CLIPBOARD', 'BLOBS'],
       justification: 'HTML to Markdown conversion'
     });
+  } catch (error) {
+    // Another context created it between our check and this call.
+    if (!isSingleOffscreenDocumentError(error)) {
+      throw error;
+    }
+  }
+}
+
+async function ensureOffscreenDocumentExists(options = {}) {
+  const allowFirefoxTab = options.allowFirefoxTab !== false;
+
+  if (self.hasNativeOffscreenDocumentSupport()) {
+    // Chrome — use native offscreen API
+    if (!offscreenDocumentCreation) {
+      offscreenDocumentCreation = createChromeOffscreenDocumentOnce().finally(() => {
+        offscreenDocumentCreation = null;
+      });
+    }
+    await offscreenDocumentCreation;
   } else {
     if (!allowFirefoxTab) {
       await waitForFirefoxOffscreenBridge();
@@ -2374,16 +2401,26 @@ async function ensureOffscreenDocumentExists(options = {}) {
       return;
     }
 
-    // Create a new pinned tab for the offscreen page
-    const tab = await browser.tabs.create({
-      url: 'offscreen/offscreen.html',
-      active: false,
-      pinned: true
-    });
-    firefoxOffscreenTabId = tab.id;
+    // Create a new pinned tab for the offscreen page (once, even for concurrent callers)
+    if (!firefoxOffscreenTabCreation) {
+      if (firefoxOffscreenTabId != null) {
+        return; // a concurrent caller finished creating it while we were checking
+      }
+      firefoxOffscreenTabCreation = (async () => {
+        const tab = await browser.tabs.create({
+          url: 'offscreen/offscreen.html',
+          active: false,
+          pinned: true
+        });
+        firefoxOffscreenTabId = tab.id;
 
-    // Wait briefly for the page to initialise
-    await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait briefly for the page to initialise
+        await new Promise(resolve => setTimeout(resolve, 500));
+      })().finally(() => {
+        firefoxOffscreenTabCreation = null;
+      });
+    }
+    await firefoxOffscreenTabCreation;
   }
 }
 
@@ -2870,11 +2907,13 @@ function generateRequestId() {
  * Process markdown result from offscreen document
  */
 async function handleMarkdownResult(message) {
-  const { result, requestId: _requestId } = message;
-  
-  // Forward the result to the popup
+  const { result } = message;
+
+  // Forward the result to the popup. clipRequestId is the popup's own id for the
+  // clip, so it can ignore results of a clip it has since superseded.
   await browser.runtime.sendMessage({
     type: "display.md",
+    clipRequestId: message.clipRequestId ?? null,
     markdown: result.markdown,
     article: result.article,
     imageList: result.imageList,
@@ -4349,13 +4388,16 @@ async function downloadMarkdownFromContext(info, tab, customTitle = null, provid
   await ensureScripts(tab.id);
   await ensureOffscreenDocumentExists();
   const options = providedOptions || await getOptions();
+  // Matches this request's completion message, so two conversions of the same
+  // tab cannot pick up each other's result.
+  const requestId = generateRequestId();
 
   // Create a promise to wait for completion
   let timeoutHandle;
   let messageListener;
   const processComplete = new Promise((resolve, reject) => {
     messageListener = (message) => {
-      if (message.type === 'process-complete' && message.tabId === tab.id) {
+      if (message.type === 'process-complete' && message.tabId === tab.id && message.requestId === requestId) {
         browser.runtime.onMessage.removeListener(messageListener);
         clearTimeout(timeoutHandle);
         if (message.error) {
@@ -4380,6 +4422,7 @@ async function downloadMarkdownFromContext(info, tab, customTitle = null, provid
     target: 'offscreen',
     type: 'process-context-menu',
     action: 'download',
+    requestId,
     info: info,
     tabId: tab.id,
     options: options,

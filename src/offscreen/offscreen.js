@@ -385,6 +385,7 @@ async function processContent(message) {
     await browser.runtime.sendMessage({
       type: 'markdown-result',
       requestId: requestId,
+      clipRequestId: data?.clipRequestId ?? null,
       result
     });
   } catch (error) {
@@ -393,6 +394,7 @@ async function processContent(message) {
     await browser.runtime.sendMessage({
       type: 'process-error',
       requestId,
+      clipRequestId: data?.clipRequestId ?? null,
       error: error?.message || String(error)
     });
   }
@@ -633,7 +635,7 @@ async function processContextMenu(message) {
 
   try {
     if (action === 'download') {
-      await handleContextMenuDownload(info, tabId, options, customTitle, collectOnly, notificationDelta, message.suppressTemplate, message.captureTemplate);
+      await handleContextMenuDownload(info, tabId, options, customTitle, collectOnly, notificationDelta, message.suppressTemplate, message.captureTemplate, message.requestId ?? null);
     } else if (action === 'copy') {
       const copied = await handleContextMenuCopy(info, tabId, options);
       return { ok: copied === true, action };
@@ -718,7 +720,7 @@ function isLikelyIncompleteMarkdown(markdown) {
   );
 }
 
-async function handleContextMenuDownload(info, tabId, providedOptions = null, customTitle = null, collectOnly = false, notificationDelta = null, suppressTemplate = false, captureTemplate = false) {
+async function handleContextMenuDownload(info, tabId, providedOptions = null, customTitle = null, collectOnly = false, notificationDelta = null, suppressTemplate = false, captureTemplate = false, requestId = null) {
   console.log(`Starting download for tab ${tabId}`);
   try {
     const options = providedOptions || defaultOptions;
@@ -770,6 +772,7 @@ async function handleContextMenuDownload(info, tabId, providedOptions = null, cu
     // Signal completion
     await browser.runtime.sendMessage({
       type: 'process-complete',
+      requestId,
       tabId: tabId,
       success: true,
       likelyIncomplete: likelyIncomplete,
@@ -783,6 +786,7 @@ async function handleContextMenuDownload(info, tabId, providedOptions = null, cu
     console.error(`Error processing tab ${tabId}:`, error);
     await browser.runtime.sendMessage({
       type: 'process-complete',
+      requestId,
       tabId: tabId,
       error: error.message
     });

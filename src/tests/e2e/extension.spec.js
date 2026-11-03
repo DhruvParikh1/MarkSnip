@@ -906,6 +906,32 @@ test.describe('MarkSnip Extension E2E', () => {
     }
   });
 
+  test('popup ignores the result of a clip it has since superseded', async () => {
+    const popupPage = await context.newPage();
+    try {
+      await popupPage.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+      await expect(popupPage.locator('#container')).toBeVisible();
+      const shown = await popupPage.evaluate(() => {
+        const result = (clipRequestId, markdown) => ({
+          type: 'display.md',
+          clipRequestId,
+          markdown,
+          article: { title: markdown, pageURL: 'https://example.com/' },
+          imageList: {},
+          sourceImageMap: {},
+          mdClipsFolder: ''
+        });
+        latestClipRequestId = 'newer-clip';
+        notify(result('newer-clip', 'NEWER RESULT'));
+        notify(result('older-clip', 'STALE RESULT'));
+        return getEditorValue();
+      });
+      expect(shown).toBe('NEWER RESULT');
+    } finally {
+      await popupPage.close().catch(() => {});
+    }
+  });
+
   test('same-page anchor links stay absolute by default and become #anchors when enabled', async () => {
     const pageUrl = `${fixtureHost}/extension/same-page-anchors.html`;
     const fixturePage = await context.newPage();
