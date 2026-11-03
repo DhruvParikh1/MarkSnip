@@ -212,14 +212,12 @@
     return normalizePageRecord(records[normalizedUrl] || { url, normalizedUrl }, url);
   }
 
-  async function savePageRecord(record = {}, storage = root.browser?.storage?.local) {
+  function applyPageRecordToRecords(records, record = {}) {
     const normalizedRecord = normalizePageRecord(record);
     const normalizedUrl = normalizedRecord.normalizedUrl || normalizeUrl(normalizedRecord.url);
     if (!normalizedUrl) {
       return normalizedRecord;
     }
-
-    const records = await loadRecords(storage);
     if (normalizedRecord.highlights.length > 0) {
       records[normalizedUrl] = {
         ...normalizedRecord,
@@ -229,12 +227,69 @@
     } else {
       delete records[normalizedUrl];
     }
-    await saveRecords(records, storage);
     return records[normalizedUrl] || {
       ...normalizedRecord,
       normalizedUrl,
       highlights: []
     };
+  }
+
+  // Reads the stored records once, applies each page record (no highlights deletes
+  // the page) and writes once. Pages not listed keep whatever is stored now.
+  async function savePageRecords(pageRecords = [], storage = root.browser?.storage?.local) {
+    const records = await loadRecords(storage);
+    const saved = (Array.isArray(pageRecords) ? pageRecords : [])
+      .map((record) => applyPageRecordToRecords(records, record));
+    const normalized = await saveRecords(records, storage);
+    return { records: normalized, saved };
+  }
+
+  async function savePageRecord(record = {}, storage = root.browser?.storage?.local) {
+    const { saved } = await savePageRecords([record], storage);
+    return saved[0];
+  }
+
+  // Storage writes are read-modify-write of one map shared by every tab, so
+  // extension pages and content scripts send them to the background, which
+  // runs them one at a time. Without a background (tests, or the background
+  // itself) they write directly.
+  async function sendHighlightStorageRequest(message, fallback) {
+    const runtime = root.browser?.runtime;
+    if (typeof runtime?.sendMessage !== 'function' || root.__markSnipIsBackground === true) {
+      return fallback();
+    }
+    const response = await runtime.sendMessage(message);
+    if (response?.ok) {
+      return response;
+    }
+    if (response && response.ok === false) {
+      throw new Error(response.error || 'Saving highlights failed');
+    }
+    return fallback();
+  }
+
+  async function persistPageRecord(record = {}) {
+    const response = await sendHighlightStorageRequest(
+      { type: 'highlight-storage', action: 'save-pages', records: [record] },
+      async () => ({ saved: (await savePageRecords([record])).saved })
+    );
+    return response.saved[0];
+  }
+
+  async function persistPageRecords(pageRecords = []) {
+    const response = await sendHighlightStorageRequest(
+      { type: 'highlight-storage', action: 'save-pages', records: pageRecords },
+      () => savePageRecords(pageRecords)
+    );
+    return response.records || loadRecords();
+  }
+
+  async function persistAllRecords(records = {}) {
+    const response = await sendHighlightStorageRequest(
+      { type: 'highlight-storage', action: 'replace-all', records },
+      async () => ({ records: await saveRecords(records) })
+    );
+    return response.records;
   }
 
   function rangesOverlap(aStart, aEnd, bStart, bEnd) {
@@ -635,6 +690,10 @@
     loadIndex,
     loadPageRecord,
     savePageRecord,
+    savePageRecords,
+    persistPageRecord,
+    persistPageRecords,
+    persistAllRecords,
     mergeHighlights,
     removeHighlightById,
     updateHighlight,

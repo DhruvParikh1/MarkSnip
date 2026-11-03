@@ -219,134 +219,20 @@ function getOptionsStateApi() {
     return globalThis.markSnipOptionsState || null;
 }
 
-function validateSendToUrlTemplate(value) {
-    const normalizedValue = String(value || '').trim();
-    const matches = normalizedValue.match(/\{prompt\}/g) || [];
-    if (!normalizedValue || matches.length !== 1) {
-        return { valid: false, normalizedValue };
-    }
-
-    const queryStartIndex = normalizedValue.indexOf('?');
-    const hashStartIndex = normalizedValue.indexOf('#');
-    const promptIndex = normalizedValue.indexOf('{prompt}');
-    const queryEndIndex = hashStartIndex === -1 ? normalizedValue.length : hashStartIndex;
-    if (queryStartIndex === -1 || promptIndex < queryStartIndex || promptIndex >= queryEndIndex) {
-        return { valid: false, normalizedValue };
-    }
-
-    try {
-        const parsedUrl = new URL(normalizedValue.replace('{prompt}', '__MARKSNIP_PROMPT__'));
-        return {
-            valid: parsedUrl.protocol === 'https:',
-            normalizedValue
-        };
-    } catch {
-        return { valid: false, normalizedValue };
-    }
-}
-
 function normalizeSendToCustomTargets(targets) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeCustomSendToTargets) {
-        return optionsStateApi.normalizeCustomSendToTargets(targets);
-    }
-
-    if (!Array.isArray(targets)) {
-        return [];
-    }
-
-    const seenIds = new Set();
-    return targets.reduce((normalizedTargets, target, index) => {
-        if (!target || typeof target !== 'object') {
-            return normalizedTargets;
-        }
-
-        const name = String(target.name || '').trim();
-        const urlTemplate = target.urlTemplate ?? target.url;
-        const validation = validateSendToUrlTemplate(urlTemplate);
-        if (!name || !validation.valid) {
-            return normalizedTargets;
-        }
-
-        const id = String(target.id || '').trim() || `custom-target-${index + 1}`;
-        if (seenIds.has(id)) {
-            return normalizedTargets;
-        }
-
-        seenIds.add(id);
-        normalizedTargets.push({
-            id,
-            name,
-            urlTemplate: validation.normalizedValue
-        });
-        return normalizedTargets;
-    }, []);
+    return getOptionsStateApi().normalizeCustomSendToTargets(targets);
 }
 
 function normalizeDefaultSendToTarget(value, customTargets = normalizeSendToCustomTargets(currentOptions?.sendToCustomTargets)) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeDefaultSendToTarget) {
-        return optionsStateApi.normalizeDefaultSendToTarget(value, customTargets, DEFAULT_SEND_TO_TARGET);
-    }
-
-    const normalizedValue = String(value || '').trim();
-    if (SEND_TO_TARGETS[normalizedValue]) {
-        return normalizedValue;
-    }
-
-    return customTargets.some((target) => target.id === normalizedValue)
-        ? normalizedValue
-        : DEFAULT_SEND_TO_TARGET;
+    return getOptionsStateApi().normalizeDefaultSendToTarget(value, customTargets, DEFAULT_SEND_TO_TARGET);
 }
 
 function normalizeSendToMaxUrlLength(value, fallbackValue = defaultOptions?.sendToMaxUrlLength ?? DEFAULT_SEND_TO_MAX_URL_LENGTH) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeSendToMaxUrlLength) {
-        return optionsStateApi.normalizeSendToMaxUrlLength(value, fallbackValue);
-    }
-
-    const normalizedFallback = Number.isFinite(Number(fallbackValue)) && Number(fallbackValue) > 0
-        ? Math.floor(Number(fallbackValue))
-        : DEFAULT_SEND_TO_MAX_URL_LENGTH;
-    const parsedValue = Number.parseInt(String(value ?? '').trim(), 10);
-    return Number.isFinite(parsedValue) && parsedValue > 0
-        ? parsedValue
-        : normalizedFallback;
+    return getOptionsStateApi().normalizeSendToMaxUrlLength(value, fallbackValue);
 }
 
 function normalizePopupOptions(source = {}) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeImportedOptions) {
-        return optionsStateApi.normalizeImportedOptions(source, defaultOptions);
-    }
-
-    const normalizedOptions = {
-        ...defaultOptions,
-        ...(source || {})
-    };
-    normalizedOptions.sendToCustomTargets = normalizeSendToCustomTargets(normalizedOptions.sendToCustomTargets);
-    normalizedOptions.defaultSendToTarget = normalizeDefaultSendToTarget(
-        normalizedOptions.defaultSendToTarget,
-        normalizedOptions.sendToCustomTargets
-    );
-    normalizedOptions.sendToMaxUrlLength = normalizeSendToMaxUrlLength(
-        normalizedOptions.sendToMaxUrlLength,
-        defaultOptions?.sendToMaxUrlLength
-    );
-    normalizedOptions.webhookTargets = normalizeWebhookTargets(normalizedOptions.webhookTargets);
-    normalizedOptions.defaultExportType = POPUP_PRIMARY_ACTION_SET.has(normalizedOptions.defaultExportType) || isWebhookExportType(normalizedOptions.defaultExportType)
-        ? normalizedOptions.defaultExportType
-        : defaultOptions.defaultExportType;
-    normalizedOptions.elementPickerEnabled = normalizedOptions.elementPickerEnabled !== false;
-    normalizedOptions.elementPickerDoneAction = normalizedOptions.elementPickerDoneAction === 'copy' ? 'copy' : 'popup';
-    if (isWebhookExportType(normalizedOptions.defaultExportType)) {
-        const targetId = getWebhookTargetIdFromExportType(normalizedOptions.defaultExportType);
-        const targetExists = normalizedOptions.webhookTargets.some((t) => t.id === targetId);
-        if (!targetExists) {
-            normalizedOptions.defaultExportType = defaultOptions.defaultExportType;
-        }
-    }
-    return normalizedOptions;
+    return getOptionsStateApi().normalizeImportedOptions(source, defaultOptions);
 }
 
 function resolvePopupPrimaryActionType(options = currentOptions) {
@@ -384,14 +270,7 @@ function resolveWebhookTarget(targetId, options = currentOptions) {
 }
 
 function normalizeWebhookTargets(targets) {
-    if (!Array.isArray(targets)) {
-        return [];
-    }
-    const optionsStateApi = globalThis.markSnipOptionsState;
-    if (optionsStateApi?.normalizeWebhookTargets) {
-        return optionsStateApi.normalizeWebhookTargets(targets);
-    }
-    return targets;
+    return getOptionsStateApi().normalizeWebhookTargets(targets);
 }
 
 const dom = {
@@ -2611,9 +2490,6 @@ const defaultOptions = {
     imagePlacement: '',
     imagePrefix: '{pageTitle}/',
     skipHiddenContent: false,
-    // Listed so the popup loads the stored value; the clip message overrides
-    // stored options with whatever the popup sends.
-    keepSamePageAnchors: false,
     defaultExportType: 'markdown',
     defaultSendToTarget: DEFAULT_SEND_TO_TARGET,
     sendToCustomTargets: [],
@@ -4072,77 +3948,17 @@ function getPopupBatchUtilsApi() {
 
 // Function to parse markdown links
 function parseMarkdownLink(text) {
-    const sharedApi = getPopupBatchUtilsApi();
-    if (sharedApi?.parseMarkdownLink) {
-        return sharedApi.parseMarkdownLink(text);
-    }
-
-    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/;
-    const match = text.match(markdownLinkRegex);
-    if (match) {
-        return {
-            title: match[1].trim(),
-            url: match[2].trim()
-        };
-    }
-    return null;
+    return getPopupBatchUtilsApi().parseMarkdownLink(text);
 }
 
 // Function to validate and normalize URL
 function normalizeUrl(url) {
-    const sharedApi = getPopupBatchUtilsApi();
-    if (sharedApi?.normalizeUrl) {
-        return sharedApi.normalizeUrl(url);
-    }
-
-    // Add https:// if no protocol specified
-    if (!/^https?:\/\//i.test(url)) {
-        url = 'https://' + url;
-    }
-    
-    try {
-        const urlObj = new URL(url);
-        return urlObj.href;
-    } catch (e) {
-        return null;
-    }
+    return getPopupBatchUtilsApi().normalizeUrl(url);
 }
 
 // Function to process URLs from textarea
 function processUrlInput(text) {
-    const sharedApi = getPopupBatchUtilsApi();
-    if (sharedApi?.processUrlInput) {
-        return sharedApi.processUrlInput(text);
-    }
-
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
-    const urlObjects = [];
-
-    for (const line of lines) {
-        // Try to parse as markdown link first
-        const mdLink = parseMarkdownLink(line);
-        
-        if (mdLink) {
-            const normalizedUrl = normalizeUrl(mdLink.url);
-            if (normalizedUrl) {
-                urlObjects.push({
-                    title: mdLink.title,
-                    url: normalizedUrl
-                });
-            }
-        } else if (line) {
-            // Try as regular URL
-            const normalizedUrl = normalizeUrl(line);
-            if (normalizedUrl) {
-                urlObjects.push({
-                    title: null, // Will be extracted from page
-                    url: normalizedUrl
-                });
-            }
-        }
-    }
-
-    return urlObjects;
+    return getPopupBatchUtilsApi().processUrlInput(text);
 }
 
 // URL validation preview
@@ -4152,10 +3968,7 @@ function validateAndPreviewUrls() {
     const urlValidation = document.getElementById('urlValidation');
     const text = dom.urlList?.value || '';
     const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-    const sharedApi = getPopupBatchUtilsApi();
-    const summary = sharedApi?.summarizeUrlValidation
-        ? sharedApi.summarizeUrlValidation(text)
-        : null;
+    const summary = getPopupBatchUtilsApi().summarizeUrlValidation(text);
 
     if ((summary?.totalLines ?? lines.length) === 0) {
         urlValidation.style.display = 'none';
@@ -4301,34 +4114,7 @@ async function activateTabForCapture(tabId, settleMs = 1500) {
 }
 
 function isLikelyIncompleteMarkdown(markdown) {
-    const sharedApi = getPopupBatchUtilsApi();
-    if (sharedApi?.isLikelyIncompleteMarkdown) {
-        return sharedApi.isLikelyIncompleteMarkdown(markdown);
-    }
-
-    if (!markdown || !markdown.trim()) return true;
-
-    const normalized = markdown.replace(/\r/g, '');
-    const lines = normalized.split('\n').map(line => line.trim()).filter(Boolean);
-    const headingLines = lines.filter(line => /^#{1,6}\s/.test(line)).length;
-    const listLines = lines.filter(line => /^[-*+]\s/.test(line)).length;
-    const nonStructuralLines = lines.filter(line => (
-        !/^#{1,6}\s/.test(line) &&
-        !/^[-*+]\s/.test(line) &&
-        !/^\d+\.\s/.test(line) &&
-        !/^>\s/.test(line) &&
-        !/^!\[/.test(line)
-    ));
-    const nonStructuralChars = nonStructuralLines.join(' ').replace(/`/g, '').trim().length;
-    const hasTocMarker = /\bOn this page\b/i.test(normalized) || /\bTable of contents\b/i.test(normalized);
-
-    return (
-        nonStructuralChars < 320 &&
-        (headingLines + listLines) >= 4
-    ) || (
-        hasTocMarker &&
-        nonStructuralChars < 500
-    );
+    return getPopupBatchUtilsApi().isLikelyIncompleteMarkdown(markdown);
 }
 
 async function clipTabWithRetry(tab, maxAttempts = 2) {
@@ -4342,7 +4128,7 @@ async function clipTabWithRetry(tab, maxAttempts = 2) {
             }, 45000);
 
             function messageListener(message) {
-                if (message.type === "display.md") {
+                if (message.type === "display.md" && !isSupersededClipResult(message)) {
                     clearTimeout(timeout);
                     browser.runtime.onMessage.removeListener(messageListener);
 
@@ -4611,7 +4397,9 @@ const setClipSelection = (options, clipSelection) => {
 
     options.clipSelection = clipSelection;
     setClipSelectionState(clipSelection);
-    browser.storage.sync.set(options).then(() => clipSite()).catch((error) => {
+    // Persist only this key: the popup's options are a partial copy, and writing
+    // the whole object would overwrite settings it never loaded.
+    browser.storage.sync.set({ clipSelection }).then(() => clipSite()).catch((error) => {
         console.error(error);
     });
 }
@@ -4621,7 +4409,7 @@ const toggleIncludeTemplate = options => {
         options.includeTemplate = dom.includeTemplate.checked;
     }
 
-    browser.storage.sync.set(options).then(() => {
+    browser.storage.sync.set({ includeTemplate: options.includeTemplate }).then(() => {
         return getActiveTab();
     }).then((tab) => {
         if (tab?.id) {
@@ -4637,7 +4425,7 @@ const toggleDownloadImages = options => {
         options.downloadImages = dom.downloadImages.checked;
     }
 
-    browser.storage.sync.set(options).catch((error) => {
+    browser.storage.sync.set({ downloadImages: options.downloadImages }).catch((error) => {
         console.error("Error updating options:", error);
     });
 }
@@ -4698,6 +4486,20 @@ function ensurePopupOffscreenBridge() {
     return popupOffscreenBridgePromise;
 }
 
+// Each clip gets an id; results carry it back so a slower, superseded clip (for
+// example after a quick Selected -> Document switch) cannot replace a newer one.
+let latestClipRequestId = null;
+
+function createClipRequestId() {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isSupersededClipResult(message) {
+    return Boolean(message?.clipRequestId) &&
+        Boolean(latestClipRequestId) &&
+        message.clipRequestId !== latestClipRequestId;
+}
+
 // Updated clipSite function to use scripting API
 const clipSite = id => {
     return resolveClipTargetTab(id).then(async (tab) => {
@@ -4732,8 +4534,10 @@ const clipSite = id => {
         .then((result) => {
             if (result && result[0]?.result) {
                 showOrHideClipOption(result[0].result.selection);
+                latestClipRequestId = createClipRequestId();
                 let message = {
                     type: "clip",
+                    clipRequestId: latestClipRequestId,
                     dom: result[0].result.dom,
                     selection: result[0].result.selection,
                     pageUrl: result[0].result.pageUrl || null,
@@ -5636,6 +5440,9 @@ async function sendToObsidian(e) {
 
 //function that handles messages from the injected script into the site
 function notify(message) {
+    if ((message.type === "display.md" || message.type === "display.error") && isSupersededClipResult(message)) {
+        return;
+    }
     // message for displaying markdown
     if (message.type == "display.md") {
         setActiveSiteRuleState(message.matchedSiteRule, message.overriddenKeys, message.effectiveOptions || message.options);

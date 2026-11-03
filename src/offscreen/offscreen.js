@@ -103,31 +103,7 @@ function resolveOptionsForArticle(article = {}, providedOptions = null) {
 }
 
 function buildDomWithSelection(domString, selectionHtml, shouldUseSelection = true) {
-  const sharedApi = getSelectionUtilsApi();
-  if (sharedApi?.buildDomWithSelection) {
-    return sharedApi.buildDomWithSelection(domString, selectionHtml, shouldUseSelection);
-  }
-
-  if (!shouldUseSelection || typeof selectionHtml !== 'string' || !selectionHtml.trim()) {
-    return domString;
-  }
-
-  try {
-    const parser = new DOMParser();
-    const dom = parser.parseFromString(domString, 'text/html');
-    if (dom.documentElement.nodeName === 'parsererror') {
-      return domString;
-    }
-
-    if (dom.body) {
-      dom.body.innerHTML = selectionHtml;
-      return dom.documentElement.outerHTML;
-    }
-  } catch (error) {
-    console.warn('Failed to build selection DOM, falling back to original DOM:', error);
-  }
-
-  return domString;
+  return getSelectionUtilsApi().buildDomWithSelection(domString, selectionHtml, shouldUseSelection);
 }
 
 /**
@@ -385,6 +361,7 @@ async function processContent(message) {
     await browser.runtime.sendMessage({
       type: 'markdown-result',
       requestId: requestId,
+      clipRequestId: data?.clipRequestId ?? null,
       result
     });
   } catch (error) {
@@ -393,6 +370,7 @@ async function processContent(message) {
     await browser.runtime.sendMessage({
       type: 'process-error',
       requestId,
+      clipRequestId: data?.clipRequestId ?? null,
       error: error?.message || String(error)
     });
   }
@@ -633,7 +611,7 @@ async function processContextMenu(message) {
 
   try {
     if (action === 'download') {
-      await handleContextMenuDownload(info, tabId, options, customTitle, collectOnly, notificationDelta, message.suppressTemplate, message.captureTemplate);
+      await handleContextMenuDownload(info, tabId, options, customTitle, collectOnly, notificationDelta, message.suppressTemplate, message.captureTemplate, message.requestId ?? null);
     } else if (action === 'copy') {
       const copied = await handleContextMenuCopy(info, tabId, options);
       return { ok: copied === true, action };
@@ -693,32 +671,10 @@ async function handleBridgeCapture(message) {
  * Handle context menu download action
  */
 function isLikelyIncompleteMarkdown(markdown) {
-  if (!markdown || !markdown.trim()) return true;
-
-  const normalized = markdown.replace(/\r/g, '');
-  const lines = normalized.split('\n').map(line => line.trim()).filter(Boolean);
-  const headingLines = lines.filter(line => /^#{1,6}\s/.test(line)).length;
-  const listLines = lines.filter(line => /^[-*+]\s/.test(line)).length;
-  const nonStructuralLines = lines.filter(line => (
-    !/^#{1,6}\s/.test(line) &&
-    !/^[-*+]\s/.test(line) &&
-    !/^\d+\.\s/.test(line) &&
-    !/^>\s/.test(line) &&
-    !/^!\[/.test(line)
-  ));
-  const nonStructuralChars = nonStructuralLines.join(' ').replace(/`/g, '').trim().length;
-  const hasTocMarker = /\bOn this page\b/i.test(normalized) || /\bTable of contents\b/i.test(normalized);
-
-  return (
-    nonStructuralChars < 320 &&
-    (headingLines + listLines) >= 4
-  ) || (
-    hasTocMarker &&
-    nonStructuralChars < 500
-  );
+  return globalThis.markSnipPopupBatchUtils.isLikelyIncompleteMarkdown(markdown);
 }
 
-async function handleContextMenuDownload(info, tabId, providedOptions = null, customTitle = null, collectOnly = false, notificationDelta = null, suppressTemplate = false, captureTemplate = false) {
+async function handleContextMenuDownload(info, tabId, providedOptions = null, customTitle = null, collectOnly = false, notificationDelta = null, suppressTemplate = false, captureTemplate = false, requestId = null) {
   console.log(`Starting download for tab ${tabId}`);
   try {
     const options = providedOptions || defaultOptions;
@@ -770,6 +726,7 @@ async function handleContextMenuDownload(info, tabId, providedOptions = null, cu
     // Signal completion
     await browser.runtime.sendMessage({
       type: 'process-complete',
+      requestId,
       tabId: tabId,
       success: true,
       likelyIncomplete: likelyIncomplete,
@@ -783,11 +740,21 @@ async function handleContextMenuDownload(info, tabId, providedOptions = null, cu
     console.error(`Error processing tab ${tabId}:`, error);
     await browser.runtime.sendMessage({
       type: 'process-complete',
+      requestId,
       tabId: tabId,
       error: error.message
     });
     throw error;
   }
+}
+
+// Builds the link as a DOM element so page text such as "a < b & c" or a URL
+// containing a quote is escaped instead of being parsed as markup.
+function buildContextMenuLinkHtml(linkUrl, linkText) {
+  const anchor = document.createElement('a');
+  anchor.setAttribute('href', String(linkUrl || ''));
+  anchor.textContent = String(linkText || '');
+  return anchor.outerHTML;
 }
 
 /**
@@ -802,7 +769,7 @@ async function handleContextMenuCopy(info, tabId, providedOptions = null) {
     const localOptions = { ...resolved.options };
     localOptions.frontmatter = localOptions.backmatter = '';
     const { markdown } = turndown(
-      `<a href="${info.linkUrl}">${info.linkText || info.selectionText}</a>`,
+      buildContextMenuLinkHtml(info.linkUrl, info.linkText || info.selectionText),
       { ...localOptions, downloadImages: false },
       article
     );
@@ -907,47 +874,7 @@ async function copyToClipboard(text) {
 }
 
 function createEffectiveMarkdownOptions(article, providedOptions = null, downloadImages = null) {
-  const sharedApi = getMarkdownOptionsApi();
-  if (sharedApi?.createEffectiveMarkdownOptions) {
-    return sharedApi.createEffectiveMarkdownOptions(article, providedOptions, downloadImages);
-  }
-
-  const baseOptions = providedOptions || defaultOptions;
-  const options = {
-    ...baseOptions,
-    tableFormatting: baseOptions.tableFormatting
-      ? { ...baseOptions.tableFormatting }
-      : baseOptions.tableFormatting
-  };
-
-  if (downloadImages != null) {
-    options.downloadImages = downloadImages;
-  }
-
-  if (getUrlUtilsApi()?.normalizeImagePlacementMode) {
-    options.imagePlacement = getUrlUtilsApi().normalizeImagePlacementMode(options);
-  } else if (!['sameFolder', 'sidecar', 'customPrefix'].includes(options.imagePlacement)) {
-    options.imagePlacement = options.imagePrefix ? 'customPrefix' : 'sameFolder';
-  }
-
-  if (options.includeTemplate) {
-    // With the Interpreter disabled, a {{prompt:"..."}} can never be resolved,
-    // so drop it rather than leaking the raw token into the output.
-    if (!options.interpreterEnabled) {
-      options.frontmatter = stripPromptPlaceholders(options.frontmatter);
-      options.backmatter = stripPromptPlaceholders(options.backmatter);
-    }
-    options.frontmatter = textReplace(options.frontmatter, article) + '\n';
-    options.backmatter = '\n' + textReplace(options.backmatter, article);
-  } else {
-    options.frontmatter = '';
-    options.backmatter = '';
-  }
-
-  options.imagePrefix = textReplace(options.imagePrefix, article, options.disallowedChars, options.disallowedCharReplacement)
-    .split('/').map(s => generateValidFileName(s, options.disallowedChars, options.disallowedCharReplacement)).join('/');
-
-  return options;
+  return getMarkdownOptionsApi().createEffectiveMarkdownOptions(article, providedOptions, downloadImages);
 }
 
 /**
@@ -976,24 +903,13 @@ function processCodeBlock(node, options) {
   // If preserveCodeFormatting is enabled, return original HTML content
   if (options.preserveCodeFormatting) {
     return {
-      code: sharedApi?.extractCodeText
-        ? sharedApi.extractCodeText(node, options)
-        : node.innerHTML,
+      code: sharedApi.extractCodeText(node, options),
       language: getCodeLanguage(node)
     };
   }
 
   // Get the raw text content
-  let code;
-  if (sharedApi?.extractCodeText) {
-    code = sharedApi.extractCodeText(node, options).trim();
-  } else {
-    const clonedNode = node.cloneNode(true);
-    clonedNode.querySelectorAll('br-keep, br').forEach(br => {
-      br.replaceWith('\n');
-    });
-    code = clonedNode.textContent.trim();
-  }
+  const code = sharedApi.extractCodeText(node, options).trim();
   
   // Detect language
   let language = getCodeLanguage(node);
@@ -1035,74 +951,16 @@ function getCodeLanguage(node) {
   return '';
 }
 
-const hashtagEscapeSentinel = '\uE000';
-
 function normalizeHashtagHandlingMode(mode) {
-  const sharedApi = getHashtagUtilsApi();
-  if (sharedApi?.normalizeHashtagHandlingMode) {
-    return sharedApi.normalizeHashtagHandlingMode(mode);
-  }
-
-  if (mode === 'remove' || mode === 'escape' || mode === 'keep') {
-    return mode;
-  }
-  return 'keep';
-}
-
-function replaceHashtagTokensInText(text, mode) {
-  if (!text) return text;
-
-  // Matches hashtag-like tokens in prose while skipping markdown escapes and URL fragments.
-  const hashtagTokenRegex = /(^|[^\p{L}\p{N}_\\/])#([\p{L}\p{N}_][\p{L}\p{N}_-]*)/gu;
-  return text.replace(hashtagTokenRegex, (match, prefix, tag) => {
-    if (mode === 'remove') {
-      return `${prefix}${tag}`;
-    }
-    if (mode === 'escape') {
-      return `${prefix}${hashtagEscapeSentinel}${tag}`;
-    }
-    return match;
-  });
+  return getHashtagUtilsApi().normalizeHashtagHandlingMode(mode);
 }
 
 function applyHashtagHandlingToHtml(content, mode) {
-  const sharedApi = getHashtagUtilsApi();
-  if (sharedApi?.applyHashtagHandlingToHtml) {
-    return sharedApi.applyHashtagHandlingToHtml(content, mode);
-  }
-
-  const normalizedMode = normalizeHashtagHandlingMode(mode);
-  if (normalizedMode === 'keep' || !content) {
-    return content;
-  }
-
-  const container = document.createElement('div');
-  container.innerHTML = content;
-  const excludedParents = new Set(['CODE', 'PRE', 'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA']);
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-
-  let node = walker.nextNode();
-  while (node) {
-    const parentTag = node.parentElement?.tagName;
-    if (!excludedParents.has(parentTag)) {
-      node.nodeValue = replaceHashtagTokensInText(node.nodeValue, normalizedMode);
-    }
-    node = walker.nextNode();
-  }
-
-  return container.innerHTML;
+  return getHashtagUtilsApi().applyHashtagHandlingToHtml(content, mode);
 }
 
 function applyHashtagHandlingToMarkdown(markdown, mode) {
-  const sharedApi = getHashtagUtilsApi();
-  if (sharedApi?.applyHashtagHandlingToMarkdown) {
-    return sharedApi.applyHashtagHandlingToMarkdown(markdown, mode);
-  }
-
-  if (!markdown) return markdown;
-  const normalizedMode = normalizeHashtagHandlingMode(mode);
-  if (normalizedMode !== 'escape') return markdown;
-  return markdown.replaceAll(hashtagEscapeSentinel, '\\#');
+  return getHashtagUtilsApi().applyHashtagHandlingToMarkdown(markdown, mode);
 }
 
 /**
@@ -1146,6 +1004,19 @@ function turndown(content, options, article) {
     });
   }
 
+  // Page <mark> elements are written as inline code. Build the span from the raw
+  // text, as Turndown's own code rule does: Markdown escapes inside backticks
+  // render literally, and a backtick in the text needs a longer delimiter.
+  function markAsInlineCode(node) {
+    const text = String(node.textContent || '').replace(/\r?\n|\r/g, ' ');
+    if (!text) return '';
+    const extraSpace = /^`|^ .*?[^ ].* $|`$/.test(text) ? ' ' : '';
+    let delimiter = '`';
+    const runs = text.match(/`+/g) || [];
+    while (runs.includes(delimiter)) delimiter += '`';
+    return delimiter + extraSpace + text + extraSpace + delimiter;
+  }
+
   if (options.turndownEscape) TurndownService.prototype.escape = TurndownService.prototype.defaultEscape;
   else TurndownService.prototype.escape = s => s;
 
@@ -1173,30 +1044,12 @@ function turndown(content, options, article) {
         const colorAttr = color ? ` data-color="${color.replace(/"/g, '&quot;')}"` : '';
         return `<mark${colorAttr}${styleAttr}>${content}</mark>`;
       }
-      return '`' + content + '`';
+      return markAsInlineCode(node);
     }
   });
 
-  // Added before headingLinks so that rule still wins for links wrapping a heading.
   addResolvedReferenceLinkRule(turndownService);
 
-  // Add rule to prevent wrapping headings in links
-  turndownService.addRule('headingLinks', {
-    filter: function(node) {
-      // Check if this is a link containing a heading
-      if (node.nodeName === 'A') {
-        const hasHeading = Array.from(node.children).some(child =>
-          /^H[1-6]$/.test(child.nodeName)
-        );
-        return hasHeading;
-      }
-      return false;
-    },
-    replacement: function(content) {
-      // Just return the content (the heading) without link syntax
-      return content;
-    }
-  });
 
   // Add our custom table rule
   turndownService.addRule('table', {
@@ -1244,7 +1097,7 @@ function turndown(content, options, article) {
               const colorAttr = color ? ` data-color="${color.replace(/"/g, '&quot;')}"` : '';
               return `<mark${colorAttr}${styleAttr}>${content}</mark>`;
             }
-            return '`' + content + '`';
+            return markAsInlineCode(markNode);
           }
         });
 
@@ -1567,6 +1420,25 @@ function turndown(content, options, article) {
     }
   });
 
+  // Prevents wrapping headings in links. Turndown gives rules added later
+  // precedence, so this must come after the general links rule to apply.
+  turndownService.addRule('headingLinks', {
+    filter: function(node) {
+      // Check if this is a link containing a heading
+      if (node.nodeName === 'A') {
+        const hasHeading = Array.from(node.children).some(child =>
+          /^H[1-6]$/.test(child.nodeName)
+        );
+        return hasHeading;
+      }
+      return false;
+    },
+    replacement: function(content) {
+      // Just return the content (the heading) without link syntax
+      return content;
+    }
+  });
+
   // handle multiple lines math
   turndownService.addRule('mathjax', {
     filter(node, options) {
@@ -1591,104 +1463,7 @@ function turndown(content, options, article) {
 
 
   function convertToFencedCodeBlock(node, options) {
-    const sharedApi = getCodeBlockUtilsApi();
-    if (sharedApi?.convertToFencedCodeBlock) {
-      return sharedApi.convertToFencedCodeBlock(node, options);
-    }
-
-    function normalizeCodeBlockSpacing(text, maxBlankLines = 2) {
-      const lines = text.split('\n');
-      const normalizedLines = [];
-      let blankLineCount = 0;
-
-      lines.forEach(line => {
-        if (/^[ \t]*$/.test(line)) {
-          blankLineCount += 1;
-          if (blankLineCount <= maxBlankLines) {
-            normalizedLines.push('');
-          }
-        } else {
-          blankLineCount = 0;
-          normalizedLines.push(line);
-        }
-      });
-
-      return normalizedLines.join('\n');
-    }
-
-    function detectPreLanguage(node, code) {
-      const shouldAutoDetectLanguage = options.autoDetectCodeLanguage !== false;
-      const idMatch = node.id?.match(/code-lang-(.+)/);
-      if (idMatch?.length > 1) {
-        return idMatch[1];
-      }
-
-      const classTokens = (node.className || '')
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(Boolean);
-      const candidates = new Set();
-
-      classTokens.forEach(token => {
-        candidates.add(token);
-        if (token.startsWith('language-')) candidates.add(token.substring(9));
-        if (token.startsWith('lang-')) candidates.add(token.substring(5));
-        if (token.startsWith('source-')) candidates.add(token.substring(7));
-        if (token.startsWith('highlight-')) candidates.add(token.substring(10));
-      });
-
-      if (typeof hljs !== 'undefined' && typeof hljs.getLanguage === 'function') {
-        for (const candidate of candidates) {
-          if (candidate && hljs.getLanguage(candidate)) {
-            return candidate;
-          }
-        }
-      }
-
-      if (
-        shouldAutoDetectLanguage &&
-        typeof hljs !== 'undefined' &&
-        typeof hljs.highlightAuto === 'function' &&
-        code.trim()
-      ) {
-        try {
-          const detected = hljs.highlightAuto(code);
-          if (
-            detected?.language &&
-            typeof detected.relevance === 'number' &&
-            detected.relevance >= 2
-          ) {
-            return detected.language;
-          }
-        } catch (e) {
-          console.warn('Language detection failed for <pre> block:', e);
-        }
-      }
-
-      return '';
-    }
-
-    let code;
-
-    if (options.preserveCodeFormatting) {
-      code = node.innerHTML.replaceAll('<br-keep></br-keep>', '<br>');
-    } else {
-      const clonedNode = node.cloneNode(true);
-      clonedNode.querySelectorAll('br-keep, br').forEach(br => {
-        br.replaceWith('\n');
-      });
-      code = clonedNode.textContent || '';
-      code = normalizeCodeBlockSpacing(code, 2);
-    }
-    const language = detectPreLanguage(node, code);
-
-    var fence = getCodeBlockUtilsApi().buildCodeFence(code, options.fence.charAt(0));
-
-    return (
-      '\n\n' + fence + language + '\n' +
-      code.replace(/\n$/, '') +
-      '\n' + fence + '\n\n'
-    )
+    return getCodeBlockUtilsApi().convertToFencedCodeBlock(node, options);
   }
 
   turndownService.addRule('fencedCodeBlock', {
@@ -1745,30 +1520,11 @@ function turndown(content, options, article) {
 * Get article from DOM string
 */
 function safeParseUrl(urlString) {
-  const sharedApi = getUrlUtilsApi();
-  if (sharedApi?.safeParseUrl) {
-    return sharedApi.safeParseUrl(urlString);
-  }
-
-  try {
-    return new URL(urlString);
-  } catch {
-    return null;
-  }
+  return getUrlUtilsApi().safeParseUrl(urlString);
 }
 
 function resolveArticleUrl(domBaseUri, pageUrl) {
-  const sharedApi = getUrlUtilsApi();
-  if (sharedApi?.resolveArticleUrl) {
-    return sharedApi.resolveArticleUrl(domBaseUri, pageUrl);
-  }
-
-  const normalizedPageUrl = typeof pageUrl === 'string' ? pageUrl.trim() : '';
-  const preferredUrl = normalizedPageUrl ? safeParseUrl(normalizedPageUrl) : null;
-  if (preferredUrl) {
-    return preferredUrl;
-  }
-  return safeParseUrl(domBaseUri);
+  return getUrlUtilsApi().resolveArticleUrl(domBaseUri, pageUrl);
 }
 
 function getReadabilityRecoveryApi() {
@@ -2425,25 +2181,14 @@ function generateValidFileName(title, disallowedChars = null, disallowedCharRepl
 * Protect interpreter prompt placeholders before filename sanitization.
 */
 function protectPromptPlaceholders(string) {
-  const api = getTemplateUtilsApi();
-  if (api && typeof api.protectPromptPlaceholders === 'function') {
-    return api.protectPromptPlaceholders(string);
-  }
-  return {
-    text: String(string == null ? '' : string),
-    restore: (value) => String(value == null ? '' : value)
-  };
+  return getTemplateUtilsApi().protectPromptPlaceholders(string);
 }
 
 /**
 * Remove interpreter prompt placeholders (used when the Interpreter is off).
 */
 function stripPromptPlaceholders(string) {
-  const api = getTemplateUtilsApi();
-  if (api && typeof api.stripPromptPlaceholders === 'function') {
-    return api.stripPromptPlaceholders(string);
-  }
-  return String(string == null ? '' : string);
+  return getTemplateUtilsApi().stripPromptPlaceholders(string);
 }
 
 /**
@@ -2457,57 +2202,14 @@ function cleanAttribute(attribute) {
 * Validate URI
 */
 function validateUri(href, baseURI) {
- const sharedApi = getUrlUtilsApi();
- if (sharedApi?.validateUri) {
-   return sharedApi.validateUri(href, baseURI);
- }
-
- // Check if the href is a valid url
- try {
-   new URL(href);
- }
- catch {
-   return new URL(href, baseURI).href;
- }
- return href;
+  return getUrlUtilsApi().validateUri(href, baseURI);
 }
 
 /**
 * Get image filename
 */
 function getImageFilename(src, options, prependFilePath = true) {
- const sharedApi = getUrlUtilsApi();
- if (sharedApi?.getImageFilename) {
-   return sharedApi.getImageFilename(src, options, prependFilePath);
- }
-
- const slashPos = src.lastIndexOf('/');
- const queryPos = src.indexOf('?');
- let filename = src.substring(slashPos + 1, queryPos > 0 ? queryPos : src.length);
-
- let imagePrefix = (options.imagePrefix || '');
-
- if (prependFilePath && options.title.includes('/')) {
-   imagePrefix = options.title.substring(0, options.title.lastIndexOf('/') + 1) + imagePrefix;
- }
- else if (prependFilePath) {
-   imagePrefix = options.title + (imagePrefix.startsWith('/') ? '' : '/') + imagePrefix;
- }
- 
- if (filename.includes(';base64,')) {
-   // This is a base64 encoded image
-   filename = 'image.' + filename.substring(0, filename.indexOf(';'));
- }
- 
- let extension = filename.substring(filename.lastIndexOf('.'));
- if (extension == filename) {
-   // There is no extension, give it an 'idunno' extension
-   filename = filename + '.idunno';
- }
-
- filename = generateValidFileName(filename, options.disallowedChars, options.disallowedCharReplacement);
-
- return imagePrefix + filename;
+  return getUrlUtilsApi().getImageFilename(src, options, prependFilePath);
 }
 
 /**
@@ -2857,7 +2559,7 @@ async function downloadGeneratedFileExport(content, filename, tabId, providedOpt
       });
       return;
     } catch (err) {
-      console.error('âŒ [Offscreen] Generated file download via Downloads API failed, delegating to service worker:', err);
+      console.error('[Offscreen] Generated file download via Downloads API failed, delegating to service worker:', err);
     }
   }
 
@@ -3017,7 +2719,7 @@ async function handleGetArticleContent(message) {
   } catch (error) {
     console.error('Error handling get article content:', error);
     await browser.runtime.sendMessage({
-      type: 'article-error',
+      type: 'article-result',
       requestId: message.requestId,
       error: error.message
     });

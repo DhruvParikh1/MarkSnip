@@ -320,7 +320,7 @@ describe('Real HTML to Markdown Conversion', () => {
 
       expect(result).toContain('# Article Title');
       expect(result).toContain('**bold**');
-      expect(result).toContain('*italic*');
+      expect(result).toContain('_italic_');
       expect(result).toContain('[link](https://example.com)');
       expect(result).toMatch(/-\s+List item 1/);
       expect(result).toContain('```javascript');

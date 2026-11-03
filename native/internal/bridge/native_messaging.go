@@ -3,9 +3,15 @@ package bridge
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	"io"
 	"sync"
 )
+
+// MaxIncomingNativeMessageBytes caps a message from the browser before its
+// buffer is allocated. Clip responses carry a page's Markdown, so this is far
+// above any real message but stops a bad length prefix from allocating up to 4 GiB.
+const MaxIncomingNativeMessageBytes = 64 << 20
 
 type NativeWriter struct {
 	target io.Writer
@@ -42,6 +48,9 @@ func ReadNativeMessage(source io.Reader) (NativeMessage, error) {
 	}
 
 	length := binary.LittleEndian.Uint32(header)
+	if length > MaxIncomingNativeMessageBytes {
+		return NativeMessage{}, fmt.Errorf("native message of %d bytes exceeds the %d byte limit", length, MaxIncomingNativeMessageBytes)
+	}
 	payload := make([]byte, int(length))
 	if _, err := io.ReadFull(source, payload); err != nil {
 		return NativeMessage{}, err

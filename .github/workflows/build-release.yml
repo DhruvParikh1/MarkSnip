@@ -50,6 +50,12 @@ jobs:
         working-directory: src
         run: npm run test:integration
 
+      - name: Run Agent Bridge Go tests
+        working-directory: native
+        run: |
+          go vet ./...
+          go test ./...
+
   build:
     name: Build Extension Packages
     runs-on: ubuntu-latest

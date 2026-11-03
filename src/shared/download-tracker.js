@@ -7,14 +7,45 @@
     const sendCleanupBlobUrl = typeof options.sendCleanupBlobUrl === 'function'
       ? options.sendCleanupBlobUrl
       : () => Promise.resolve();
+    // Blob URLs created in this context (e.g. the Firefox background page) are
+    // revoked here; blob URLs the offscreen page created are sent back to it.
+    const ownedBlobUrls = options.ownedBlobUrls || new Set();
+    const revokeOwnedBlobUrl = typeof options.revokeBlobUrl === 'function'
+      ? options.revokeBlobUrl
+      : (url) => root.URL?.revokeObjectURL?.(url);
 
     function getState() {
       return {
         activeDownloads,
         markSnipDownloads,
         markSnipUrls,
-        markSnipBlobUrls
+        markSnipBlobUrls,
+        ownedBlobUrls
       };
+    }
+
+    function trackOwnedBlobUrl(url) {
+      if (url && url.startsWith('blob:')) {
+        ownedBlobUrls.add(url);
+      }
+    }
+
+    function releaseBlobUrl(url) {
+      if (!url || !url.startsWith('blob:')) {
+        return;
+      }
+      if (ownedBlobUrls.has(url)) {
+        ownedBlobUrls.delete(url);
+        try {
+          revokeOwnedBlobUrl(url);
+        } catch {
+          // Already revoked or never valid; nothing to release.
+        }
+        return;
+      }
+      if (url.startsWith('blob:chrome-extension://')) {
+        sendCleanupBlobUrl(url);
+      }
     }
 
     function trackUrl(url, info = {}) {
@@ -58,9 +89,7 @@
     }
 
     function cleanupTrackedDownload(downloadId, url, downloadInfo) {
-      if (url && url.startsWith('blob:chrome-extension://')) {
-        sendCleanupBlobUrl(url);
-      }
+      releaseBlobUrl(url);
 
       activeDownloads.delete(downloadId);
       markSnipDownloads.delete(downloadId);
@@ -134,6 +163,8 @@
 
     return {
       getState,
+      trackOwnedBlobUrl,
+      releaseBlobUrl,
       trackUrl,
       setActiveDownload,
       moveTrackedUrlToDownloadId,

@@ -101,6 +101,10 @@ let highlightIndexCache = null;
 let readerCssTextCache = null;
 let releaseHighlightsCachePromise = null;
 let notificationStateTaskChain = Promise.resolve();
+// Highlight records are one map in storage.local shared by every tab; writes run
+// here one at a time so concurrent saves cannot overwrite each other.
+let highlightStorageTaskChain = Promise.resolve();
+globalThis.__markSnipIsBackground = true;
 const pendingNotificationDisplayLocks = new Map();
 const AGENT_BRIDGE_HOST_NAME = 'com.marksnip.bridge';
 const AGENT_BRIDGE_RECONNECT_DELAY_MS = 3000;
@@ -482,13 +486,6 @@ function postAgentBridgeMessage(message) {
   }
 }
 
-function _createDownloadNotificationDelta(config = {}) {
-  return {
-    downloads: config.countsTowardDownloads === false ? 0 : 1,
-    exports: config.countsTowardExports === false ? 0 : 1
-  };
-}
-
 function getCopyNotificationDelta(menuItemId) {
   switch (menuItemId) {
     case 'copy-markdown-all':
@@ -677,99 +674,9 @@ function createBatchCancellationSignal() {
     };
 }
 
-const downloadTrackerApi = globalThis.markSnipDownloadTracker || {
-  createDownloadTracker: (options = {}) => {
-    const localActiveDownloads = options.activeDownloads || new Map();
-    const localMarkSnipDownloads = new Map();
-    const localMarkSnipUrls = new Map();
-    const localMarkSnipBlobUrls = new Set();
-
-    return {
-      getState: () => ({
-        activeDownloads: localActiveDownloads,
-        markSnipDownloads: localMarkSnipDownloads,
-        markSnipUrls: localMarkSnipUrls,
-        markSnipBlobUrls: localMarkSnipBlobUrls
-      }),
-      trackUrl: (url, info) => {
-        if (!url) return;
-        localMarkSnipUrls.set(url, { ...(info || {}) });
-        if (url.startsWith('blob:')) localMarkSnipBlobUrls.add(url);
-      },
-      setActiveDownload: (downloadId, url) => {
-        localActiveDownloads.set(downloadId, url);
-      },
-      handleDownloadComplete: ({ downloadId, url } = {}) => {
-        if (!downloadId || !url) return;
-        localActiveDownloads.set(downloadId, url);
-        if (localMarkSnipUrls.has(url)) {
-          const urlInfo = localMarkSnipUrls.get(url);
-          localMarkSnipDownloads.set(downloadId, { ...urlInfo, url });
-          localMarkSnipUrls.delete(url);
-        }
-      },
-      cleanupTrackedDownload: (downloadId, url, downloadInfo) => {
-        if (url && url.startsWith('blob:chrome-extension://')) {
-          options.sendCleanupBlobUrl?.(url);
-        }
-        localActiveDownloads.delete(downloadId);
-        localMarkSnipDownloads.delete(downloadId);
-        if (url) localMarkSnipBlobUrls.delete(url);
-        if (downloadInfo?.url && localMarkSnipUrls.has(downloadInfo.url)) {
-          localMarkSnipUrls.delete(downloadInfo.url);
-        } else if (url && localMarkSnipUrls.has(url)) {
-          localMarkSnipUrls.delete(url);
-        }
-      },
-      handleDownloadChange: async (delta, deps = {}) => {
-        if (!delta?.state) return;
-        const downloadInfo = localMarkSnipDownloads.get(delta.id);
-        const url = localActiveDownloads.get(delta.id) || downloadInfo?.url || null;
-        const cleanup = () => {
-          if (url && url.startsWith('blob:chrome-extension://')) {
-            options.sendCleanupBlobUrl?.(url);
-          }
-          localActiveDownloads.delete(delta.id);
-          localMarkSnipDownloads.delete(delta.id);
-          if (url) localMarkSnipBlobUrls.delete(url);
-          if (downloadInfo?.url && localMarkSnipUrls.has(downloadInfo.url)) {
-            localMarkSnipUrls.delete(downloadInfo.url);
-          } else if (url && localMarkSnipUrls.has(url)) {
-            localMarkSnipUrls.delete(url);
-          }
-        };
-        if (delta.state.current === 'complete') {
-          deps.logComplete?.(delta.id);
-          if (downloadInfo?.notificationDelta && deps.recordNotificationMetrics) {
-            try {
-              await deps.recordNotificationMetrics(downloadInfo.notificationDelta, downloadInfo.tabId);
-            } catch (error) {
-              deps.onMetricsError?.(error);
-            }
-          }
-          cleanup();
-          return;
-        }
-        if (delta.state.current === 'interrupted') {
-          deps.logInterrupted?.(delta.id, delta.error);
-          cleanup();
-        }
-      },
-      handleFilenameConflict: (downloadItem, suggest) => {
-        const trackedById = localMarkSnipDownloads.has(downloadItem.id);
-        const trackedByUrl = downloadItem.url && localMarkSnipUrls.has(downloadItem.url);
-        const isOurBlobUrl = downloadItem.url && localMarkSnipBlobUrls.has(downloadItem.url);
-        if (!trackedById && !trackedByUrl && !isOurBlobUrl) return false;
-        const filename = trackedById
-          ? localMarkSnipDownloads.get(downloadItem.id)?.filename
-          : localMarkSnipUrls.get(downloadItem.url)?.filename;
-        if (!filename) return false;
-        suggest({ filename, conflictAction: 'uniquify' });
-        return true;
-      }
-    };
-  }
-};
+// shared/download-tracker.js is in importScripts() (and so in the generated Firefox
+// background script list), so the tracker is always available.
+const downloadTrackerApi = globalThis.markSnipDownloadTracker;
 const downloadTracker = downloadTrackerApi.createDownloadTracker({
   activeDownloads,
   sendCleanupBlobUrl: (url) => browser.runtime.sendMessage({
@@ -1055,6 +962,8 @@ async function handleMessages(message, sender, _sendResponse) {
       return await activateHighlighterFromMessage(message, sender);
     case "clip-highlights":
       return await clipHighlightsFromMessage(message, sender);
+    case "highlight-storage":
+      return await handleHighlightStorageRequest(message);
     case "get-page-highlights":
       return { highlights: await loadPageHighlightsForUrl(message.pageUrl) };
     case "open-highlights-page":
@@ -1136,6 +1045,7 @@ async function handleMessages(message, sender, _sendResponse) {
       // Without this the popup keeps its spinner up forever.
       await browser.runtime.sendMessage({
         type: "display.error",
+        clipRequestId: message.clipRequestId ?? null,
         error: message.error || 'The page could not be converted to Markdown.'
       }).catch(() => {});
       break;
@@ -1383,6 +1293,29 @@ function getLibraryExportApi() {
 
 function getHighlightStateApi() {
   return globalThis.markSnipHighlightState || null;
+}
+
+function runHighlightStorageTask(task) {
+  const run = highlightStorageTaskChain.then(() => task(), () => task());
+  highlightStorageTaskChain = run.catch(() => {});
+  return run;
+}
+
+async function handleHighlightStorageRequest(message = {}) {
+  const api = getHighlightStateApi();
+  try {
+    if (message.action === 'save-pages') {
+      const result = await runHighlightStorageTask(() => api.savePageRecords(message.records || []));
+      return { ok: true, records: result.records, saved: result.saved };
+    }
+    if (message.action === 'replace-all') {
+      const records = await runHighlightStorageTask(() => api.saveRecords(message.records || {}));
+      return { ok: true, records };
+    }
+    return { ok: false, error: `Unknown highlight storage action: ${message.action}` };
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) };
+  }
 }
 
 async function loadHighlightIndex() {
@@ -1762,18 +1695,6 @@ async function updateBatchProgressOverlay(tabId, current, total, url, pageTitle,
   }
 }
 
-async function _removeBatchProgressOverlay(tabId) {
-  try {
-    await browser.scripting.executeScript({
-      target: { tabId },
-      func: () => {
-        document.getElementById('marksnip-batch-overlay')?.remove();
-        document.getElementById('marksnip-batch-overlay-style')?.remove();
-      }
-    });
-  } catch (e) { /* ignore */ }
-}
-
 async function processBatchTab(urlObj, index, total, options, batchSaveMode = 'zip', signal = null, accentColors = null, captureTemplate = false) {
   // ZIP and Combined both assemble their output after every page is captured,
   // so neither triggers a per-page download — they only collect markdown.
@@ -2150,6 +2071,12 @@ async function forwardGetArticleContent(tabId, selection, originalRequestId, opt
     }
   } catch (error) {
     console.error("Error forwarding article content:", error);
+    // Report the failure to the waiting request instead of letting it time out.
+    await browser.runtime.sendMessage({
+      type: 'article-result',
+      requestId: originalRequestId,
+      error: error?.message || String(error)
+    }).catch(() => {});
   }
 }
 
@@ -2327,24 +2254,50 @@ self.markFirefoxOffscreenPageReady = markFirefoxOffscreenPageReady;
  * Ensures the offscreen document exists (Chrome) or an equivalent
  * extension page is loaded (Firefox).
  */
-async function ensureOffscreenDocumentExists(options = {}) {
-  const allowFirefoxTab = options.allowFirefoxTab !== false;
+// Creation runs once at a time: concurrent callers (a clip racing the Agent Bridge
+// pre-warm, two quick user actions) share the in-flight promise instead of each
+// trying to create the document.
+let offscreenDocumentCreation = null;
+let firefoxOffscreenTabCreation = null;
 
-  if (self.hasNativeOffscreenDocumentSupport()) {
-    // Chrome — use native offscreen API
-    const offscreenUrl = chrome.runtime.getURL('offscreen/offscreen.html');
-    const existingContexts = await chrome.runtime.getContexts({
-      contextTypes: ['OFFSCREEN_DOCUMENT'],
-      documentUrls: [offscreenUrl]
-    });
-    
-    if (existingContexts.length > 0) return;
-    
+function isSingleOffscreenDocumentError(error) {
+  return /single offscreen document/i.test(String(error?.message || error || ''));
+}
+
+async function createChromeOffscreenDocumentOnce() {
+  const offscreenUrl = chrome.runtime.getURL('offscreen/offscreen.html');
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [offscreenUrl]
+  });
+
+  if (existingContexts.length > 0) return;
+
+  try {
     await chrome.offscreen.createDocument({
       url: 'offscreen/offscreen.html',
       reasons: ['DOM_PARSER', 'CLIPBOARD', 'BLOBS'],
       justification: 'HTML to Markdown conversion'
     });
+  } catch (error) {
+    // Another context created it between our check and this call.
+    if (!isSingleOffscreenDocumentError(error)) {
+      throw error;
+    }
+  }
+}
+
+async function ensureOffscreenDocumentExists(options = {}) {
+  const allowFirefoxTab = options.allowFirefoxTab !== false;
+
+  if (self.hasNativeOffscreenDocumentSupport()) {
+    // Chrome — use native offscreen API
+    if (!offscreenDocumentCreation) {
+      offscreenDocumentCreation = createChromeOffscreenDocumentOnce().finally(() => {
+        offscreenDocumentCreation = null;
+      });
+    }
+    await offscreenDocumentCreation;
   } else {
     if (!allowFirefoxTab) {
       await waitForFirefoxOffscreenBridge();
@@ -2374,22 +2327,38 @@ async function ensureOffscreenDocumentExists(options = {}) {
       return;
     }
 
-    // Create a new pinned tab for the offscreen page
-    const tab = await browser.tabs.create({
-      url: 'offscreen/offscreen.html',
-      active: false,
-      pinned: true
-    });
-    firefoxOffscreenTabId = tab.id;
+    // Create a new pinned tab for the offscreen page (once, even for concurrent callers)
+    if (!firefoxOffscreenTabCreation) {
+      if (firefoxOffscreenTabId != null) {
+        return; // a concurrent caller finished creating it while we were checking
+      }
+      firefoxOffscreenTabCreation = (async () => {
+        const tab = await browser.tabs.create({
+          url: 'offscreen/offscreen.html',
+          active: false,
+          pinned: true
+        });
+        firefoxOffscreenTabId = tab.id;
 
-    // Wait briefly for the page to initialise
-    await new Promise(resolve => setTimeout(resolve, 500));
+        // Wait briefly for the page to initialise
+        await new Promise(resolve => setTimeout(resolve, 500));
+      })().finally(() => {
+        firefoxOffscreenTabCreation = null;
+      });
+    }
+    await firefoxOffscreenTabCreation;
   }
 }
 
 /**
  * Handle clip request — uses offscreen document on both Chrome and Firefox.
  */
+// The only options a clip request may override per clip. Everything else comes from
+// storage: callers such as the popup hold a partial, normalized copy of the options,
+// and letting it through replaced stored site rules and table formatting with empty
+// values.
+const CLIP_REQUEST_OVERRIDE_KEYS = Object.freeze(['clipSelection', 'includeTemplate', 'downloadImages']);
+
 async function getClipRequestOptions(message = {}) {
   const storedOptions = await getOptions();
   const source = message?.options && typeof message.options === 'object'
@@ -2397,7 +2366,7 @@ async function getClipRequestOptions(message = {}) {
     : message;
   const options = { ...storedOptions };
 
-  Object.keys(defaultOptions || {}).forEach((key) => {
+  CLIP_REQUEST_OVERRIDE_KEYS.forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(source || {}, key)) {
       options[key] = source[key];
     }
@@ -2864,11 +2833,13 @@ function generateRequestId() {
  * Process markdown result from offscreen document
  */
 async function handleMarkdownResult(message) {
-  const { result, requestId: _requestId } = message;
-  
-  // Forward the result to the popup
+  const { result } = message;
+
+  // Forward the result to the popup. clipRequestId is the popup's own id for the
+  // clip, so it can ignore results of a clip it has since superseded.
   await browser.runtime.sendMessage({
     type: "display.md",
+    clipRequestId: message.clipRequestId ?? null,
     markdown: result.markdown,
     article: result.article,
     imageList: result.imageList,
@@ -2885,7 +2856,11 @@ async function handleMarkdownResult(message) {
  * Handle download request
  */
 async function handleDownloadRequest(message) {
-  const options = message.options || await getOptions();
+  // The popup sends the effective options of its clip; fill anything it left out
+  // from storage rather than falling back to bare defaults further down.
+  const options = message.options && typeof message.options === 'object'
+    ? { ...(await getOptions()), ...message.options }
+    : await getOptions();
   console.log(`🔧 [Service Worker] Download request: downloadMode=${options.downloadMode}, offscreen=${typeof chrome !== 'undefined' && chrome.offscreen}`);
   
   if (typeof chrome !== 'undefined' && chrome.offscreen && options.downloadMode === 'downloadsApi') {
@@ -4092,15 +4067,31 @@ async function handleCommands(command) {
 /**
  * Handle storage changes - recreate menus when options change
  */
+// Sync options that change which context menus exist, their checked state or
+// their labels. Other sync writes (every popup toggle, each debounced options
+// keystroke) no longer tear down and rebuild every menu.
+const CONTEXT_MENU_OPTION_KEYS = Object.freeze([
+  'contextMenus',
+  'contextMenuItems',
+  'includeTemplate',
+  'downloadImages',
+  'obsidianIntegration',
+  'elementPickerEnabled',
+  'highlighterEnabled',
+  'readerViewEnabled',
+  'uiLanguage'
+]);
+
 async function handleStorageChange(changes, areaName) {
   // Only handle sync storage changes
   if (areaName === 'sync') {
-    console.log('Options changed, recreating context menus...');
     if (Object.prototype.hasOwnProperty.call(changes, 'uiLanguage')) {
       await globalThis.markSnipI18n?.setUiLanguage?.(changes.uiLanguage.newValue || 'auto').catch(() => {});
     }
-    // Recreate all context menus with updated options
-    await createMenus();
+    if (CONTEXT_MENU_OPTION_KEYS.some((key) => Object.prototype.hasOwnProperty.call(changes, key))) {
+      console.log('Context menu options changed, recreating context menus...');
+      await createMenus();
+    }
     return;
   }
 
@@ -4225,7 +4216,9 @@ async function toggleSetting(setting, options = null) {
   }
   else {
     options[setting] = !options[setting];
-    await browser.storage.sync.set(options);
+    // Write only the toggled key. getOptions() applies runtime-only adjustments
+    // (e.g. downloadMode without a downloads API) that must not be persisted.
+    await browser.storage.sync.set({ [setting]: options[setting] });
     if (setting == "includeTemplate") {
       browser.contextMenus.update("toggle-includeTemplate", {
         checked: options.includeTemplate
@@ -4337,13 +4330,16 @@ async function downloadMarkdownFromContext(info, tab, customTitle = null, provid
   await ensureScripts(tab.id);
   await ensureOffscreenDocumentExists();
   const options = providedOptions || await getOptions();
+  // Matches this request's completion message, so two conversions of the same
+  // tab cannot pick up each other's result.
+  const requestId = generateRequestId();
 
   // Create a promise to wait for completion
   let timeoutHandle;
   let messageListener;
   const processComplete = new Promise((resolve, reject) => {
     messageListener = (message) => {
-      if (message.type === 'process-complete' && message.tabId === tab.id) {
+      if (message.type === 'process-complete' && message.tabId === tab.id && message.requestId === requestId) {
         browser.runtime.onMessage.removeListener(messageListener);
         clearTimeout(timeoutHandle);
         if (message.error) {
@@ -4368,6 +4364,7 @@ async function downloadMarkdownFromContext(info, tab, customTitle = null, provid
     target: 'offscreen',
     type: 'process-context-menu',
     action: 'download',
+    requestId,
     info: info,
     tabId: tab.id,
     options: options,
@@ -4546,9 +4543,11 @@ async function getArticleFromContent(tabId, selection = false, options = null) {
     const requestId = generateRequestId();
     
     const resultPromise = new Promise((resolve, reject) => {
+      let timeoutHandle = null;
       const messageListener = (message) => {
         if (message.type === 'article-result' && message.requestId === requestId) {
           browser.runtime.onMessage.removeListener(messageListener);
+          clearTimeout(timeoutHandle);
           if (message.error) {
             reject(new Error(message.error));
           } else {
@@ -4557,7 +4556,7 @@ async function getArticleFromContent(tabId, selection = false, options = null) {
         }
       };
       
-      setTimeout(() => {
+      timeoutHandle = setTimeout(() => {
         browser.runtime.onMessage.removeListener(messageListener);
         reject(new Error('Timeout getting article content'));
       }, 30000);
@@ -4684,7 +4683,8 @@ async function handleDownloadWithBlobUrl(blobUrl, filename, title = null, tabId,
       
     } catch (err) {
       console.error("❌ [Service Worker] Downloads API with blob URL failed:", err);
-      // Release the offscreen blob and our tracking entries for it.
+      // Release the blob (revoked here if this context created it, otherwise by the
+      // offscreen page) and our tracking entries for it.
       downloadTracker.cleanupTrackedDownload(null, blobUrl);
 
       // A cancelled Save As dialog is the user's decision, not a failure.
@@ -4698,117 +4698,6 @@ async function handleDownloadWithBlobUrl(blobUrl, filename, title = null, tabId,
     }
   } else {
     console.error("❌ [Service Worker] No Downloads API available");
-  }
-}
-
-/**
- * Handle download directly in service worker (bypass offscreen routing)
- * Used when offscreen document can't use Downloads API
- */
-async function _handleDownloadDirectly(markdown, title, tabId, imageList = {}, mdClipsFolder = '', options = null) {
-  if (!options) options = await getOptions();
-  
-  // CRITICAL: Ensure title is never empty
-  if (!title || title.trim() === '') {
-    console.warn('⚠️ [Service Worker] Empty title detected, using fallback');
-    title = 'Untitled-' + Date.now();
-  }
-  
-  console.log(`🚀 [Service Worker] Handling download directly: title="${title}", folder="${mdClipsFolder}"`);
-  
-  if (options.downloadMode === 'downloadsApi' && (browser.downloads || (typeof chrome !== 'undefined' && chrome.downloads))) {
-    // Use Downloads API directly
-    const downloadsAPI = browser.downloads || chrome.downloads;
-    
-    try {
-      // Create blob URL
-      const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      
-      if (mdClipsFolder && !mdClipsFolder.endsWith('/')) mdClipsFolder += '/';
-      
-      const fullFilename = sanitizeDownloadPath(mdClipsFolder + title + ".md");
-      
-      console.log(`🎯 [Service Worker] Starting Downloads API: URL=${url}, filename="${fullFilename}"`);
-      
-      // CRITICAL: Set up URL tracking BEFORE calling download API
-      // Track in both Maps for redundancy
-      markSnipUrls.set(url, {
-        filename: fullFilename,
-        isMarkdown: true,
-        tabId: tabId
-      });
-      markSnipBlobUrls.add(url);
-      console.log(`📝 [Service Worker] Pre-tracked blob URL: ${url} -> ${fullFilename}`);
-      
-      // Start download
-      const id = await downloadsAPI.download({
-        url: url,
-        filename: fullFilename,
-        saveAs: options.saveAs
-      });
-      
-      console.log(`✅ [Service Worker] Download started with ID: ${id}`);
-      
-      // Move from URL tracking to ID tracking
-      if (markSnipUrls.has(url)) {
-        const urlInfo = markSnipUrls.get(url);
-        markSnipDownloads.set(id, {
-          ...urlInfo,
-          url: url
-        });
-        markSnipUrls.delete(url);
-      }
-      
-      // Add download listener for cleanup
-      browser.downloads.onChanged.addListener(downloadListener(id, url));
-      
-      // Handle images if needed
-      if (options.downloadImages) {
-        await handleImageDownloadsDirectly(imageList, mdClipsFolder, title, options);
-      }
-      
-    } catch (err) {
-      console.error("❌ [Service Worker] Downloads API failed, falling back to content script", err);
-      
-      // Final fallback: content script method
-      await ensureScripts(tabId);
-      const filename = mdClipsFolder + generateValidFileName(title, options.disallowedChars, options.disallowedCharReplacement) + ".md";
-      const base64Content = base64EncodeUnicode(markdown);
-      
-      await browser.scripting.executeScript({
-        target: { tabId: tabId },
-        func: (filename, content) => {
-          const decoded = atob(content);
-          const dataUri = `data:text/markdown;base64,${btoa(decoded)}`;
-          const link = document.createElement('a');
-          link.download = filename;
-          link.href = dataUri;
-          link.click();
-        },
-        args: [filename, base64Content]
-      });
-    }
-  } else {
-    // Content script fallback
-    console.log(`🔗 [Service Worker] Using content script fallback`);
-    
-    await ensureScripts(tabId);
-    const filename = mdClipsFolder + generateValidFileName(title, options.disallowedChars, options.disallowedCharReplacement) + ".md";
-    const base64Content = base64EncodeUnicode(markdown);
-    
-    await browser.scripting.executeScript({
-      target: { tabId: tabId },
-      func: (filename, content) => {
-        const decoded = atob(content);
-        const dataUri = `data:text/markdown;base64,${btoa(decoded)}`;
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = dataUri;
-        link.click();
-      },
-      args: [filename, base64Content]
-    });
   }
 }
 
@@ -4896,6 +4785,7 @@ async function downloadGeneratedFile(message = {}) {
     typeof URL?.createObjectURL === 'function'
   ) {
     const blobUrl = URL.createObjectURL(new Blob([content], { type: mimeType }));
+    downloadTracker.trackOwnedBlobUrl(blobUrl);
     await handleDownloadWithBlobUrl(
       blobUrl,
       filename,
@@ -4913,7 +4803,7 @@ async function downloadGeneratedFile(message = {}) {
   }
 
   if (options.downloadMode === 'downloadsApi') {
-    console.warn('âš ï¸ [Service Worker] Blob downloads unavailable for generated file, falling back to content-script download');
+    console.warn('[Service Worker] Blob downloads unavailable for generated file, falling back to content-script download');
   }
 
   await ensureScripts(tabId);
@@ -4986,6 +4876,7 @@ async function downloadMarkdownImageBundleZipDirect({
     });
     const zipBlob = zipUtils.createStoredZipBlob(files);
     zipUrl = URL.createObjectURL(zipBlob);
+    downloadTracker.trackOwnedBlobUrl(zipUrl);
     const zipFilename = sanitizeDownloadPath(zipUtils.buildBundleZipDownloadFilename(title, mdClipsFolder));
 
     downloadTracker.trackUrl(zipUrl, {
@@ -5011,13 +4902,8 @@ async function downloadMarkdownImageBundleZipDirect({
     return id;
   } catch (error) {
     if (zipUrl) {
-      markSnipUrls.delete(zipUrl);
-      markSnipBlobUrls.delete(zipUrl);
-      try {
-        URL.revokeObjectURL(zipUrl);
-      } catch (revokeError) {
-        console.warn('[Service Worker] Failed to revoke image bundle ZIP URL:', revokeError);
-      }
+      // Releases the tracking entries and revokes the URL (this context created it).
+      downloadTracker.cleanupTrackedDownload(null, zipUrl);
     }
     throw error;
   }
@@ -5085,6 +4971,7 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
       // Create blob URL
       const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
       url = URL.createObjectURL(blob);
+      downloadTracker.trackOwnedBlobUrl(url);
 
       const fullFilename = sanitizeDownloadPath(mdClipsFolder + title + ".md");
 
@@ -5132,7 +5019,6 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
       if (url && !Array.from(markSnipDownloads.values()).some((info) => info?.url === url)) {
         // The download never started: release the blob and its tracking entries.
         downloadTracker.cleanupTrackedDownload(null, url);
-        URL.revokeObjectURL(url);
         if (!isUserCanceledDownloadError(err)) {
           await saveMarkdownViaPageLink(markdown, title, tabId, options, resolvedNotificationDelta);
         }

@@ -244,6 +244,34 @@ describe('Webhook utilities', () => {
     expect(validateWebhookUrl('https://8.8.8.8/hooks/notes').valid).toBe(true);
   });
 
+  test('rejects IPv6 forms that embed a private IPv4 address', () => {
+    [
+      'https://[::ffff:127.0.0.1]/hook',
+      'https://[::ffff:7f00:1]/hook',
+      'https://[::ffff:0:7f00:1]/hook',
+      'https://[::ffff:0:a00:5]/hook',
+      'https://[::7f00:1]/hook',
+      'https://[64:ff9b::7f00:1]/hook',
+      'https://[64:ff9b::a9fe:a9fe]/hook',
+      'https://[64:ff9b:1::8.8.8.8]/hook',
+      'https://[2002:7f00:1::1]/hook',
+      'https://[2002:c0a8:10a::1]/hook'
+    ].forEach((url) => {
+      expect({ url, valid: validateWebhookUrl(url).valid }).toEqual({ url, valid: false });
+    });
+  });
+
+  test('allows IPv6 forms that embed a public IPv4 address, and ordinary public IPv6', () => {
+    [
+      'https://[::ffff:8.8.8.8]/hook',
+      'https://[64:ff9b::808:808]/hook',
+      'https://[2002:808:808::1]/hook',
+      'https://[2606:4700:4700::1111]/hook'
+    ].forEach((url) => {
+      expect({ url, valid: validateWebhookUrl(url).valid }).toEqual({ url, valid: true });
+    });
+  });
+
   test('rejects unsafe URLs after webhook template rendering', () => {
     expect(() => buildWebhookFetchRequest({
       target: {

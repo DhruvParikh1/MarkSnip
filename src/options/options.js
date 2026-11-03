@@ -83,19 +83,7 @@ function getDefaultContextMenuItemsState() {
 }
 
 function normalizeContextMenuItemsState(contextMenuItems) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeContextMenuItems) {
-        return optionsStateApi.normalizeContextMenuItems(contextMenuItems, getDefaultContextMenuItemsState());
-    }
-
-    const defaults = getDefaultContextMenuItemsState();
-    const source = contextMenuItems && typeof contextMenuItems === 'object' ? contextMenuItems : {};
-    return Object.keys(defaults).reduce((normalized, key) => {
-        normalized[key] = Object.prototype.hasOwnProperty.call(source, key)
-            ? source[key] !== false
-            : defaults[key] !== false;
-        return normalized;
-    }, {});
+    return getOptionsStateApi().normalizeContextMenuItems(contextMenuItems, getDefaultContextMenuItemsState());
 }
 
 function setContextMenuItemControls(contextMenuItems) {
@@ -182,107 +170,19 @@ function buildCustomSendToTargetId() {
 }
 
 function getSendToUrlValidationState(value) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.validateSendToUrlTemplate) {
-        return optionsStateApi.validateSendToUrlTemplate(value);
-    }
-
-    const normalizedValue = String(value || '').trim();
-    if (!normalizedValue) {
-        return { valid: false, normalizedValue: '', error: 'URL template is required' };
-    }
-
-    const matches = normalizedValue.match(/\{prompt\}/g) || [];
-    if (matches.length !== 1) {
-        return { valid: false, normalizedValue, error: 'URL template must contain exactly one {prompt} placeholder' };
-    }
-
-    const queryStartIndex = normalizedValue.indexOf('?');
-    const hashStartIndex = normalizedValue.indexOf('#');
-    const promptIndex = normalizedValue.indexOf('{prompt}');
-    const queryEndIndex = hashStartIndex === -1 ? normalizedValue.length : hashStartIndex;
-    if (queryStartIndex === -1 || promptIndex < queryStartIndex || promptIndex >= queryEndIndex) {
-        return { valid: false, normalizedValue, error: '{prompt} must appear in the query portion of the URL' };
-    }
-
-    try {
-        const parsedUrl = new URL(normalizedValue.replace('{prompt}', '__MARKSNIP_PROMPT__'));
-        if (parsedUrl.protocol !== 'https:') {
-            return { valid: false, normalizedValue, error: 'URL template must start with https://' };
-        }
-    } catch {
-        return { valid: false, normalizedValue, error: 'URL template must be a valid HTTPS URL' };
-    }
-
-    return { valid: true, normalizedValue, error: '' };
+    return getOptionsStateApi().validateSendToUrlTemplate(value);
 }
 
 function normalizeCustomSendToTargetsState(targets) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeCustomSendToTargets) {
-        return optionsStateApi.normalizeCustomSendToTargets(targets);
-    }
-
-    if (!Array.isArray(targets)) {
-        return [];
-    }
-
-    const seenIds = new Set();
-    return targets.reduce((normalizedTargets, target, index) => {
-        if (!target || typeof target !== 'object') {
-            return normalizedTargets;
-        }
-
-        const name = String(target.name || '').trim();
-        const validation = getSendToUrlValidationState(target.urlTemplate ?? target.url);
-        if (!name || !validation.valid) {
-            return normalizedTargets;
-        }
-
-        const id = String(target.id || '').trim() || `custom-target-${index + 1}`;
-        if (seenIds.has(id)) {
-            return normalizedTargets;
-        }
-
-        seenIds.add(id);
-        normalizedTargets.push({
-            id,
-            name,
-            urlTemplate: validation.normalizedValue
-        });
-        return normalizedTargets;
-    }, []);
+    return getOptionsStateApi().normalizeCustomSendToTargets(targets);
 }
 
 function normalizeDefaultSendToTargetState(value, customTargets = normalizeCustomSendToTargetsState(options?.sendToCustomTargets)) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeDefaultSendToTarget) {
-        return optionsStateApi.normalizeDefaultSendToTarget(value, customTargets, DEFAULT_SEND_TO_TARGET);
-    }
-
-    const normalizedValue = String(value || '').trim();
-    if (normalizedValue === 'chatgpt' || normalizedValue === 'claude' || normalizedValue === 'perplexity') {
-        return normalizedValue;
-    }
-
-    return customTargets.some((target) => target.id === normalizedValue)
-        ? normalizedValue
-        : DEFAULT_SEND_TO_TARGET;
+    return getOptionsStateApi().normalizeDefaultSendToTarget(value, customTargets, DEFAULT_SEND_TO_TARGET);
 }
 
 function normalizeSendToMaxUrlLengthState(value, fallbackValue = defaultOptions?.sendToMaxUrlLength ?? DEFAULT_SEND_TO_MAX_URL_LENGTH) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeSendToMaxUrlLength) {
-        return optionsStateApi.normalizeSendToMaxUrlLength(value, fallbackValue);
-    }
-
-    const normalizedFallback = Number.isFinite(Number(fallbackValue)) && Number(fallbackValue) > 0
-        ? Math.floor(Number(fallbackValue))
-        : DEFAULT_SEND_TO_MAX_URL_LENGTH;
-    const parsedValue = Number.parseInt(String(value ?? '').trim(), 10);
-    return Number.isFinite(parsedValue) && parsedValue > 0
-        ? parsedValue
-        : normalizedFallback;
+    return getOptionsStateApi().normalizeSendToMaxUrlLength(value, fallbackValue);
 }
 
 function getDefaultWebhookBodyTemplate() {
@@ -297,61 +197,6 @@ function getDefaultWebhookBodyTemplate() {
     }
 
     throw new Error('Default webhook body template is unavailable');
-}
-
-function normalizeWebhookTargetsState(targets) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeWebhookTargets) {
-        return optionsStateApi.normalizeWebhookTargets(targets);
-    }
-
-    if (!Array.isArray(targets)) {
-        return [];
-    }
-
-    const VALID_METHODS = new Set(['POST', 'PUT', 'PATCH']);
-    const seenIds = new Set();
-    return targets.reduce((result, target, index) => {
-        if (!target || typeof target !== 'object') {
-            return result;
-        }
-
-        const id = String(target.id || '').trim() || `wh-${index + 1}`;
-        const name = String(target.name || '').trim();
-        const url = String(target.url || '').trim();
-        if (!id || !name || !url) {
-            return result;
-        }
-
-        if (seenIds.has(id)) {
-            return result;
-        }
-
-        let parsedUrl;
-        try { parsedUrl = new URL(url); } catch { return result; }
-        if (parsedUrl.protocol !== 'https:') {
-            return result;
-        }
-
-        const method = VALID_METHODS.has(String(target.method || '').toUpperCase())
-            ? String(target.method).toUpperCase() : 'POST';
-
-        let bodyTemplate = String(target.bodyTemplate || '').trim();
-        if (bodyTemplate) {
-            try { JSON.parse(bodyTemplate); } catch { bodyTemplate = ''; }
-        }
-
-        const headers = Array.isArray(target.headers) ? target.headers.filter((h) => {
-            return h && typeof h === 'object' && String(h.key || '').trim().length > 0;
-        }).map((h) => ({
-            key: String(h.key).trim(),
-            value: String(h.value || '').trim()
-        })) : [];
-
-        seenIds.add(id);
-        result.push({ id, name, url, method, headers, bodyTemplate });
-        return result;
-    }, []);
 }
 
 function getNormalizedSendToTargets() {
@@ -573,11 +418,7 @@ function buildWebhookTargetId() {
 }
 
 function getNormalizedWebhookTargets() {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeWebhookTargets) {
-        return optionsStateApi.normalizeWebhookTargets(options.webhookTargets || []);
-    }
-    return Array.isArray(options.webhookTargets) ? options.webhookTargets : [];
+    return getOptionsStateApi().normalizeWebhookTargets(options.webhookTargets || []);
 }
 
 function renderWebhookTargetsList() {
@@ -2526,130 +2367,23 @@ function handlePermissionDismiss() {
 }
 
 function normalizeImportedOptionsState(importedOptions) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.normalizeImportedOptions) {
-        return optionsStateApi.normalizeImportedOptions(importedOptions, defaultOptions);
-    }
-
-    const normalizedOptions = {
-        ...defaultOptions,
-        ...(importedOptions || {}),
-        tableFormatting: {
-            ...(defaultOptions.tableFormatting || {}),
-            ...((importedOptions && importedOptions.tableFormatting) || {})
-        },
-        readerSettings: {
-            ...(defaultOptions.readerSettings || {}),
-            ...((importedOptions && importedOptions.readerSettings) || {})
-        }
-    };
-
-    normalizedOptions.sendToCustomTargets = normalizeCustomSendToTargetsState(normalizedOptions.sendToCustomTargets);
-    normalizedOptions.defaultSendToTarget = normalizeDefaultSendToTargetState(
-        normalizedOptions.defaultSendToTarget,
-        normalizedOptions.sendToCustomTargets
-    );
-    normalizedOptions.sendToMaxUrlLength = normalizeSendToMaxUrlLengthState(
-        normalizedOptions.sendToMaxUrlLength,
-        defaultOptions?.sendToMaxUrlLength
-    );
-	    normalizedOptions.webhookTargets = normalizeWebhookTargetsState(normalizedOptions.webhookTargets);
-	    normalizedOptions.contextMenuItems = normalizeContextMenuItemsState(normalizedOptions.contextMenuItems);
-
-	    const validPrimaryActions = new Set(['markdown', 'text', 'html', 'pdf', 'copy', 'sendTo']);
-    const exportType = String(normalizedOptions.defaultExportType || '').trim();
-    normalizedOptions.defaultExportType = validPrimaryActions.has(exportType) || exportType.startsWith('webhook:')
-      ? exportType
-      : defaultOptions.defaultExportType;
-
-    return normalizedOptions;
+    return getOptionsStateApi().normalizeImportedOptions(importedOptions, defaultOptions);
 }
 
 function getContextMenuTransitionState(previousOptions, nextOptions) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.getContextMenuTransition) {
-        return optionsStateApi.getContextMenuTransition(previousOptions, nextOptions);
-    }
-
-    const previousEnabled = Boolean(previousOptions?.contextMenus);
-    const nextEnabled = Boolean(nextOptions?.contextMenus);
-    if (previousEnabled === nextEnabled) {
-        return 'none';
-    }
-    return nextEnabled ? 'create' : 'remove';
+    return getOptionsStateApi().getContextMenuTransition(previousOptions, nextOptions);
 }
 
 function resetOptionKeysState(keys) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.resetOptionKeys) {
-        return optionsStateApi.resetOptionKeys(options, defaultOptions, keys);
-    }
-
-    const nextOptions = JSON.parse(JSON.stringify(options));
-    const keyList = Array.isArray(keys) ? keys : String(keys || '').split(',');
-    keyList.forEach((rawKey) => {
-        const key = String(rawKey || '').trim();
-        if (!key) return;
-
-        if (key === 'tableFormatting') {
-            nextOptions.tableFormatting = JSON.parse(JSON.stringify(defaultOptions.tableFormatting || {}));
-            return;
-        }
-
-        if (key.startsWith('tableFormatting.')) {
-            const optionName = key.split('.')[1];
-            if (!optionName) return;
-            nextOptions.tableFormatting = nextOptions.tableFormatting || {};
-            nextOptions.tableFormatting[optionName] = defaultOptions.tableFormatting?.[optionName];
-            return;
-        }
-
-        if (key === 'readerSettings') {
-            nextOptions.readerSettings = JSON.parse(JSON.stringify(defaultOptions.readerSettings || {}));
-            return;
-        }
-
-        if (key.startsWith('readerSettings.')) {
-            const optionName = key.split('.')[1];
-            if (!optionName) return;
-            nextOptions.readerSettings = { ...(defaultOptions.readerSettings || {}), ...(nextOptions.readerSettings || {}) };
-            nextOptions.readerSettings[optionName] = defaultOptions.readerSettings?.[optionName];
-            return;
-        }
-
-        nextOptions[key] = typeof defaultOptions[key] === 'object'
-            ? JSON.parse(JSON.stringify(defaultOptions[key]))
-            : defaultOptions[key];
-    });
-
-    return {
-        options: normalizeImportedOptionsState(nextOptions),
-        contextMenuAction: getContextMenuTransitionState(options, nextOptions)
-    };
+    return getOptionsStateApi().resetOptionKeys(options, defaultOptions, keys);
 }
 
 function resetAllOptionsState() {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.resetAllOptions) {
-        return optionsStateApi.resetAllOptions(options, defaultOptions);
-    }
-
-    const nextOptions = JSON.parse(JSON.stringify(defaultOptions));
-    return {
-        options: nextOptions,
-        contextMenuAction: getContextMenuTransitionState(options, nextOptions)
-    };
+    return getOptionsStateApi().resetAllOptions(options, defaultOptions);
 }
 
 function buildExportFilenameState(date) {
-    const optionsStateApi = getOptionsStateApi();
-    if (optionsStateApi?.buildExportFilename) {
-        return optionsStateApi.buildExportFilename(date);
-    }
-
-    const d = date instanceof Date ? date : new Date(date);
-    const datestring = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
-    return `MarkSnip-export-${datestring}.json`;
+    return getOptionsStateApi().buildExportFilename(date);
 }
 
 function buildExportPayload() {
@@ -3446,6 +3180,46 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushPendingInputSaves();
 });
 
+// Saves the settings export and releases its blob URL once the download has
+// finished. Without a downloads API (some Firefox for Android builds) it falls
+// back to a download link.
+async function exportSettingsFile(json, filename) {
+    const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+
+    if (!browser.downloads?.download) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
+        return;
+    }
+
+    let downloadId = null;
+    const release = () => {
+        browser.downloads.onChanged?.removeListener?.(handleChange);
+        URL.revokeObjectURL(url);
+    };
+    function handleChange(delta) {
+        if (delta.id === downloadId && ['complete', 'interrupted'].includes(delta.state?.current)) {
+            release();
+        }
+    }
+    browser.downloads.onChanged?.addListener?.(handleChange);
+
+    try {
+        downloadId = await browser.downloads.download({ url, saveAs: true, filename });
+    } catch (error) {
+        // Includes a cancelled Save As dialog; nothing was saved.
+        release();
+        if (!/cancel/i.test(String(error?.message || error))) {
+            showToast(String(error?.message || error), 'error');
+        }
+    }
+}
+
 const buttonClick = async (e) => {
     if (e.target.id == "import" || e.target.closest('#import')) {
         document.getElementById("import-file").click();
@@ -3453,13 +3227,7 @@ const buttonClick = async (e) => {
     else if (e.target.id == "export" || e.target.closest('#export')) {
         console.log("export");
         const json = JSON.stringify(buildExportPayload(), null, 2);
-        var blob = new Blob([json], { type: "text/json" });
-        var url = URL.createObjectURL(blob);
-	        browser.downloads.download({
-	            url: url,
-	            saveAs: true,
-	            filename: buildExportFilenameState(new Date())
-	        });
+        await exportSettingsFile(json, buildExportFilenameState(new Date()));
 	    }
 	    else if (e.target.id == "contextMenuItemsEnableAll" || e.target.closest('#contextMenuItemsEnableAll')) {
 	        await setAllContextMenuItems(true);
