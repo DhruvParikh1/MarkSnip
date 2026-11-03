@@ -885,7 +885,7 @@
 
   async function saveRecord(highlights) {
     const metadata = getPageMetadata();
-    state.record = await api.savePageRecord({
+    state.record = await api.persistPageRecord({
       ...metadata,
       highlights: api.normalizeHighlightList(highlights)
     });

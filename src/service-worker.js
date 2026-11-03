@@ -101,6 +101,10 @@ let highlightIndexCache = null;
 let readerCssTextCache = null;
 let releaseHighlightsCachePromise = null;
 let notificationStateTaskChain = Promise.resolve();
+// Highlight records are one map in storage.local shared by every tab; writes run
+// here one at a time so concurrent saves cannot overwrite each other.
+let highlightStorageTaskChain = Promise.resolve();
+globalThis.__markSnipIsBackground = true;
 const pendingNotificationDisplayLocks = new Map();
 const AGENT_BRIDGE_HOST_NAME = 'com.marksnip.bridge';
 const AGENT_BRIDGE_RECONNECT_DELAY_MS = 3000;
@@ -1055,6 +1059,8 @@ async function handleMessages(message, sender, _sendResponse) {
       return await activateHighlighterFromMessage(message, sender);
     case "clip-highlights":
       return await clipHighlightsFromMessage(message, sender);
+    case "highlight-storage":
+      return await handleHighlightStorageRequest(message);
     case "get-page-highlights":
       return { highlights: await loadPageHighlightsForUrl(message.pageUrl) };
     case "open-highlights-page":
@@ -1384,6 +1390,29 @@ function getLibraryExportApi() {
 
 function getHighlightStateApi() {
   return globalThis.markSnipHighlightState || null;
+}
+
+function runHighlightStorageTask(task) {
+  const run = highlightStorageTaskChain.then(() => task(), () => task());
+  highlightStorageTaskChain = run.catch(() => {});
+  return run;
+}
+
+async function handleHighlightStorageRequest(message = {}) {
+  const api = getHighlightStateApi();
+  try {
+    if (message.action === 'save-pages') {
+      const result = await runHighlightStorageTask(() => api.savePageRecords(message.records || []));
+      return { ok: true, records: result.records, saved: result.saved };
+    }
+    if (message.action === 'replace-all') {
+      const records = await runHighlightStorageTask(() => api.saveRecords(message.records || {}));
+      return { ok: true, records };
+    }
+    return { ok: false, error: `Unknown highlight storage action: ${message.action}` };
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) };
+  }
 }
 
 async function loadHighlightIndex() {
@@ -2151,6 +2180,12 @@ async function forwardGetArticleContent(tabId, selection, originalRequestId, opt
     }
   } catch (error) {
     console.error("Error forwarding article content:", error);
+    // Report the failure to the waiting request instead of letting it time out.
+    await browser.runtime.sendMessage({
+      type: 'article-result',
+      requestId: originalRequestId,
+      error: error?.message || String(error)
+    }).catch(() => {});
   }
 }
 
@@ -4601,9 +4636,11 @@ async function getArticleFromContent(tabId, selection = false, options = null) {
     const requestId = generateRequestId();
     
     const resultPromise = new Promise((resolve, reject) => {
+      let timeoutHandle = null;
       const messageListener = (message) => {
         if (message.type === 'article-result' && message.requestId === requestId) {
           browser.runtime.onMessage.removeListener(messageListener);
+          clearTimeout(timeoutHandle);
           if (message.error) {
             reject(new Error(message.error));
           } else {
@@ -4612,7 +4649,7 @@ async function getArticleFromContent(tabId, selection = false, options = null) {
         }
       };
       
-      setTimeout(() => {
+      timeoutHandle = setTimeout(() => {
         browser.runtime.onMessage.removeListener(messageListener);
         reject(new Error('Timeout getting article content'));
       }, 30000);
@@ -4739,7 +4776,8 @@ async function handleDownloadWithBlobUrl(blobUrl, filename, title = null, tabId,
       
     } catch (err) {
       console.error("❌ [Service Worker] Downloads API with blob URL failed:", err);
-      // Release the offscreen blob and our tracking entries for it.
+      // Release the blob (revoked here if this context created it, otherwise by the
+      // offscreen page) and our tracking entries for it.
       downloadTracker.cleanupTrackedDownload(null, blobUrl);
 
       // A cancelled Save As dialog is the user's decision, not a failure.
@@ -4951,6 +4989,7 @@ async function downloadGeneratedFile(message = {}) {
     typeof URL?.createObjectURL === 'function'
   ) {
     const blobUrl = URL.createObjectURL(new Blob([content], { type: mimeType }));
+    downloadTracker.trackOwnedBlobUrl(blobUrl);
     await handleDownloadWithBlobUrl(
       blobUrl,
       filename,
@@ -5041,6 +5080,7 @@ async function downloadMarkdownImageBundleZipDirect({
     });
     const zipBlob = zipUtils.createStoredZipBlob(files);
     zipUrl = URL.createObjectURL(zipBlob);
+    downloadTracker.trackOwnedBlobUrl(zipUrl);
     const zipFilename = sanitizeDownloadPath(zipUtils.buildBundleZipDownloadFilename(title, mdClipsFolder));
 
     downloadTracker.trackUrl(zipUrl, {
@@ -5066,13 +5106,8 @@ async function downloadMarkdownImageBundleZipDirect({
     return id;
   } catch (error) {
     if (zipUrl) {
-      markSnipUrls.delete(zipUrl);
-      markSnipBlobUrls.delete(zipUrl);
-      try {
-        URL.revokeObjectURL(zipUrl);
-      } catch (revokeError) {
-        console.warn('[Service Worker] Failed to revoke image bundle ZIP URL:', revokeError);
-      }
+      // Releases the tracking entries and revokes the URL (this context created it).
+      downloadTracker.cleanupTrackedDownload(null, zipUrl);
     }
     throw error;
   }
@@ -5140,6 +5175,7 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
       // Create blob URL
       const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
       url = URL.createObjectURL(blob);
+      downloadTracker.trackOwnedBlobUrl(url);
 
       const fullFilename = sanitizeDownloadPath(mdClipsFolder + title + ".md");
 
@@ -5187,7 +5223,6 @@ async function downloadMarkdown(markdown, title, tabId, imageList = {}, mdClipsF
       if (url && !Array.from(markSnipDownloads.values()).some((info) => info?.url === url)) {
         // The download never started: release the blob and its tracking entries.
         downloadTracker.cleanupTrackedDownload(null, url);
-        URL.revokeObjectURL(url);
         if (!isUserCanceledDownloadError(err)) {
           await saveMarkdownViaPageLink(markdown, title, tabId, options, resolvedNotificationDelta);
         }

@@ -248,8 +248,25 @@
     render();
   }
 
+  // Send only the pages this change touched: state.records is a snapshot from
+  // when the manager loaded, and writing it back whole would drop highlights
+  // other tabs saved since.
   async function persistRecords(records) {
-    state.records = await api.saveRecords(records);
+    const previous = state.records || {};
+    const changed = [];
+    Object.keys(records).forEach((key) => {
+      if (JSON.stringify(records[key]) !== JSON.stringify(previous[key])) {
+        changed.push(records[key]);
+      }
+    });
+    Object.keys(previous).forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(records, key)) {
+        changed.push({ ...previous[key], highlights: [] });
+      }
+    });
+    state.records = changed.length > 0
+      ? await api.persistPageRecords(changed)
+      : await api.loadRecords();
     render();
   }
 
@@ -354,7 +371,8 @@
     }
     state.scope = { type: 'all', key: '' };
     state.editingHighlights.clear();
-    await persistRecords({});
+    state.records = await api.persistAllRecords({});
+    render();
   }
 
   function createSwatches(highlight) {

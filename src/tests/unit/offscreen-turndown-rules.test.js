@@ -201,6 +201,13 @@ describe('offscreen Turndown rules (real pipeline)', () => {
     });
   });
 
+  test('copy-as-link keeps special characters in the link text and URL', async () => {
+    const html = win.eval(`buildContextMenuLinkHtml('https://example.com/search?q="a"&b=1', 'a < b & <c>')`);
+    win.__linkHtml = html;
+    const md = await toMarkdown(html, { turndownEscape: false });
+    expect(md).toBe('[a < b & <c>](https://example.com/search?q="a"&b=1)');
+  });
+
   test('separates TeX control words from following letters in MathML', async () => {
     const md = await toMarkdown('<p>Eq: <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi><mi>x</mi></math></p>');
     expect(md).toBe('Eq: $\\alpha x$');

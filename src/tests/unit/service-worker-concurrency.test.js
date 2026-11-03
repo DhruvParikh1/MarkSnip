@@ -111,3 +111,105 @@ describe('conversion completion messages', () => {
     await expect(pending).resolves.toEqual(expect.objectContaining({ markdown: 'fresh' }));
   });
 });
+
+describe('highlight storage', () => {
+  function createSlowLocalStorage() {
+    const data = {};
+    const tick = () => new Promise(resolve => setTimeout(resolve, 2));
+    return {
+      data,
+      async get(keys) {
+        await tick();
+        const list = Array.isArray(keys) ? keys : [keys];
+        return JSON.parse(JSON.stringify(Object.fromEntries(list.filter(key => key in data).map(key => [key, data[key]]))));
+      },
+      async set(items) {
+        await tick();
+        Object.assign(data, JSON.parse(JSON.stringify(items)));
+      }
+    };
+  }
+
+  const page = (url, text) => ({
+    url,
+    title: url,
+    highlights: [{ id: `hl-${text}`, type: 'text', text, xpath: '/html/body/p[1]', startOffset: 0, endOffset: text.length }]
+  });
+
+  test('concurrent saves from different tabs keep every page', async () => {
+    const local = createSlowLocalStorage();
+    const sw = loadServiceWorker({ apiOverrides: { 'storage.local': local } });
+
+    await Promise.all([
+      sw.context.handleMessages({ type: 'highlight-storage', action: 'save-pages', records: [page('https://a.example/one', 'alpha')] }, {}),
+      sw.context.handleMessages({ type: 'highlight-storage', action: 'save-pages', records: [page('https://b.example/two', 'beta')] }, {}),
+      sw.context.handleMessages({ type: 'highlight-storage', action: 'save-pages', records: [page('https://c.example/three', 'gamma')] }, {})
+    ]);
+
+    const records = await sw.context.markSnipHighlightState.loadRecords(local);
+    expect(Object.keys(records).sort()).toEqual([
+      'https://a.example/one',
+      'https://b.example/two',
+      'https://c.example/three'
+    ]);
+  });
+
+  test('a page saved with no highlights is removed and other pages are kept', async () => {
+    const local = createSlowLocalStorage();
+    const sw = loadServiceWorker({ apiOverrides: { 'storage.local': local } });
+    const save = (records) => sw.context.handleMessages({ type: 'highlight-storage', action: 'save-pages', records }, {});
+
+    await save([page('https://a.example/one', 'alpha'), page('https://b.example/two', 'beta')]);
+    const response = await save([{ ...page('https://a.example/one', 'alpha'), highlights: [] }]);
+
+    expect(response.ok).toBe(true);
+    expect(Object.keys(response.records)).toEqual(['https://b.example/two']);
+  });
+
+  test('replace-all clears every page', async () => {
+    const local = createSlowLocalStorage();
+    const sw = loadServiceWorker({ apiOverrides: { 'storage.local': local } });
+    await sw.context.handleMessages({ type: 'highlight-storage', action: 'save-pages', records: [page('https://a.example/one', 'alpha')] }, {});
+
+    const response = await sw.context.handleMessages({ type: 'highlight-storage', action: 'replace-all', records: {} }, {});
+    expect(response).toEqual(expect.objectContaining({ ok: true, records: {} }));
+  });
+});
+
+describe('article fetch failures', () => {
+  test('a tab that cannot be read fails fast instead of waiting for the timeout', async () => {
+    const listeners = new Set();
+    let sw;
+    const sendMessage = async (message) => {
+      // Stand in for the offscreen page, which relays the request back to the worker.
+      if (message.target === 'offscreen' && message.type === 'get-article-content') {
+        setTimeout(() => sw.context.handleMessages({
+          type: 'forward-get-article-content',
+          originalRequestId: message.requestId,
+          tabId: message.tabId,
+          selection: message.selection,
+          options: message.options
+        }, {}), 0);
+        return undefined;
+      }
+      listeners.forEach(fn => fn(message));
+      return undefined;
+    };
+    sw = loadServiceWorker({
+      apiOverrides: {
+        'runtime.onMessage': {
+          addListener: (fn) => { if (fn.name !== 'handleMessages') listeners.add(fn); },
+          removeListener: (fn) => listeners.delete(fn)
+        },
+        'runtime.sendMessage': sendMessage,
+        'scripting.executeScript': async () => { throw new Error('Cannot access contents of the page'); }
+      }
+    });
+    vm.runInContext('ensureScripts = async () => {}; ensureOffscreenDocumentExists = async () => {};', sw.context);
+
+    const started = Date.now();
+    await expect(sw.context.getArticleFromContent(4, false, sw.context.defaultOptions))
+      .rejects.toThrow('Cannot access contents of the page');
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+});

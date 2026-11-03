@@ -44,6 +44,28 @@ describe('download failures', () => {
   });
 });
 
+describe('completed downloads', () => {
+  test('a blob URL the background created is revoked once its download completes', async () => {
+    const sw = loadServiceWorker({ apiOverrides: { 'downloads.download': async () => 77 } });
+    await sw.context.downloadMarkdown('# Clip', 'My clip', 5, {}, '', { ...sw.context.defaultOptions, ...downloadOptions });
+    expect(sw.revoked).toHaveLength(0);
+
+    await sw.context.handleDownloadChange({ id: 77, state: { current: 'complete' } });
+    expect(sw.revoked).toHaveLength(1);
+    expect(sw.revoked[0]).toMatch(/^blob:/);
+    expect(sw.pendingTracked()).toBe(0);
+  });
+
+  test('an interrupted download also releases its blob URL', async () => {
+    const sw = loadServiceWorker({ apiOverrides: { 'downloads.download': async () => 78 } });
+    await sw.context.downloadMarkdown('# Clip', 'My clip', 5, {}, '', { ...sw.context.defaultOptions, ...downloadOptions });
+
+    await sw.context.handleDownloadChange({ id: 78, state: { current: 'interrupted' }, error: { current: 'NETWORK_FAILED' } });
+    expect(sw.revoked).toHaveLength(1);
+    expect(sw.pendingTracked()).toBe(0);
+  });
+});
+
 describe('commands that act on every tab', () => {
   test('download all tabs continues past a tab that cannot be downloaded', async () => {
     const tabs = [

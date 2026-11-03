@@ -794,6 +794,15 @@ async function handleContextMenuDownload(info, tabId, providedOptions = null, cu
   }
 }
 
+// Builds the link as a DOM element so page text such as "a < b & c" or a URL
+// containing a quote is escaped instead of being parsed as markup.
+function buildContextMenuLinkHtml(linkUrl, linkText) {
+  const anchor = document.createElement('a');
+  anchor.setAttribute('href', String(linkUrl || ''));
+  anchor.textContent = String(linkText || '');
+  return anchor.outerHTML;
+}
+
 /**
  * Handle context menu copy action
  */
@@ -806,7 +815,7 @@ async function handleContextMenuCopy(info, tabId, providedOptions = null) {
     const localOptions = { ...resolved.options };
     localOptions.frontmatter = localOptions.backmatter = '';
     const { markdown } = turndown(
-      `<a href="${info.linkUrl}">${info.linkText || info.selectionText}</a>`,
+      buildContextMenuLinkHtml(info.linkUrl, info.linkText || info.selectionText),
       { ...localOptions, downloadImages: false },
       article
     );
@@ -3021,7 +3030,7 @@ async function handleGetArticleContent(message) {
   } catch (error) {
     console.error('Error handling get article content:', error);
     await browser.runtime.sendMessage({
-      type: 'article-error',
+      type: 'article-result',
       requestId: message.requestId,
       error: error.message
     });
