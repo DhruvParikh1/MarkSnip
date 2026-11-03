@@ -208,6 +208,17 @@ describe('offscreen Turndown rules (real pipeline)', () => {
     expect(md).toBe('[a < b & <c>](https://example.com/search?q="a"&b=1)');
   });
 
+  test('page <mark> elements become inline code without Markdown escapes inside the backticks', async () => {
+    const md = await toMarkdown('<p>Set <mark>&forecast_days=16</mark> or <mark>a `tick` here</mark>.</p>', { turndownEscape: true });
+    expect(md).toBe('Set `&forecast_days=16` or ``a `tick` here``.');
+  });
+
+  test('a link wrapping a heading keeps the heading and drops the broken link syntax', async () => {
+    const md = await toMarkdown('<a href="#docs"><h2 id="docs">API Documentation</h2><span>icon</span></a><p>Body.</p>');
+    expect(md).toContain('## API Documentation');
+    expect(md).not.toMatch(/\[\s*##/);
+  });
+
   test('separates TeX control words from following letters in MathML', async () => {
     const md = await toMarkdown('<p>Eq: <math xmlns="http://www.w3.org/1998/Math/MathML"><mi>α</mi><mi>x</mi></math></p>');
     expect(md).toBe('Eq: $\\alpha x$');

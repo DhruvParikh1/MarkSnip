@@ -486,13 +486,6 @@ function postAgentBridgeMessage(message) {
   }
 }
 
-function _createDownloadNotificationDelta(config = {}) {
-  return {
-    downloads: config.countsTowardDownloads === false ? 0 : 1,
-    exports: config.countsTowardExports === false ? 0 : 1
-  };
-}
-
 function getCopyNotificationDelta(menuItemId) {
   switch (menuItemId) {
     case 'copy-markdown-all':
@@ -681,99 +674,9 @@ function createBatchCancellationSignal() {
     };
 }
 
-const downloadTrackerApi = globalThis.markSnipDownloadTracker || {
-  createDownloadTracker: (options = {}) => {
-    const localActiveDownloads = options.activeDownloads || new Map();
-    const localMarkSnipDownloads = new Map();
-    const localMarkSnipUrls = new Map();
-    const localMarkSnipBlobUrls = new Set();
-
-    return {
-      getState: () => ({
-        activeDownloads: localActiveDownloads,
-        markSnipDownloads: localMarkSnipDownloads,
-        markSnipUrls: localMarkSnipUrls,
-        markSnipBlobUrls: localMarkSnipBlobUrls
-      }),
-      trackUrl: (url, info) => {
-        if (!url) return;
-        localMarkSnipUrls.set(url, { ...(info || {}) });
-        if (url.startsWith('blob:')) localMarkSnipBlobUrls.add(url);
-      },
-      setActiveDownload: (downloadId, url) => {
-        localActiveDownloads.set(downloadId, url);
-      },
-      handleDownloadComplete: ({ downloadId, url } = {}) => {
-        if (!downloadId || !url) return;
-        localActiveDownloads.set(downloadId, url);
-        if (localMarkSnipUrls.has(url)) {
-          const urlInfo = localMarkSnipUrls.get(url);
-          localMarkSnipDownloads.set(downloadId, { ...urlInfo, url });
-          localMarkSnipUrls.delete(url);
-        }
-      },
-      cleanupTrackedDownload: (downloadId, url, downloadInfo) => {
-        if (url && url.startsWith('blob:chrome-extension://')) {
-          options.sendCleanupBlobUrl?.(url);
-        }
-        localActiveDownloads.delete(downloadId);
-        localMarkSnipDownloads.delete(downloadId);
-        if (url) localMarkSnipBlobUrls.delete(url);
-        if (downloadInfo?.url && localMarkSnipUrls.has(downloadInfo.url)) {
-          localMarkSnipUrls.delete(downloadInfo.url);
-        } else if (url && localMarkSnipUrls.has(url)) {
-          localMarkSnipUrls.delete(url);
-        }
-      },
-      handleDownloadChange: async (delta, deps = {}) => {
-        if (!delta?.state) return;
-        const downloadInfo = localMarkSnipDownloads.get(delta.id);
-        const url = localActiveDownloads.get(delta.id) || downloadInfo?.url || null;
-        const cleanup = () => {
-          if (url && url.startsWith('blob:chrome-extension://')) {
-            options.sendCleanupBlobUrl?.(url);
-          }
-          localActiveDownloads.delete(delta.id);
-          localMarkSnipDownloads.delete(delta.id);
-          if (url) localMarkSnipBlobUrls.delete(url);
-          if (downloadInfo?.url && localMarkSnipUrls.has(downloadInfo.url)) {
-            localMarkSnipUrls.delete(downloadInfo.url);
-          } else if (url && localMarkSnipUrls.has(url)) {
-            localMarkSnipUrls.delete(url);
-          }
-        };
-        if (delta.state.current === 'complete') {
-          deps.logComplete?.(delta.id);
-          if (downloadInfo?.notificationDelta && deps.recordNotificationMetrics) {
-            try {
-              await deps.recordNotificationMetrics(downloadInfo.notificationDelta, downloadInfo.tabId);
-            } catch (error) {
-              deps.onMetricsError?.(error);
-            }
-          }
-          cleanup();
-          return;
-        }
-        if (delta.state.current === 'interrupted') {
-          deps.logInterrupted?.(delta.id, delta.error);
-          cleanup();
-        }
-      },
-      handleFilenameConflict: (downloadItem, suggest) => {
-        const trackedById = localMarkSnipDownloads.has(downloadItem.id);
-        const trackedByUrl = downloadItem.url && localMarkSnipUrls.has(downloadItem.url);
-        const isOurBlobUrl = downloadItem.url && localMarkSnipBlobUrls.has(downloadItem.url);
-        if (!trackedById && !trackedByUrl && !isOurBlobUrl) return false;
-        const filename = trackedById
-          ? localMarkSnipDownloads.get(downloadItem.id)?.filename
-          : localMarkSnipUrls.get(downloadItem.url)?.filename;
-        if (!filename) return false;
-        suggest({ filename, conflictAction: 'uniquify' });
-        return true;
-      }
-    };
-  }
-};
+// shared/download-tracker.js is in importScripts() (and so in the generated Firefox
+// background script list), so the tracker is always available.
+const downloadTrackerApi = globalThis.markSnipDownloadTracker;
 const downloadTracker = downloadTrackerApi.createDownloadTracker({
   activeDownloads,
   sendCleanupBlobUrl: (url) => browser.runtime.sendMessage({
@@ -1790,18 +1693,6 @@ async function updateBatchProgressOverlay(tabId, current, total, url, pageTitle,
   } catch (e) {
     // Tab may have navigated or closed
   }
-}
-
-async function _removeBatchProgressOverlay(tabId) {
-  try {
-    await browser.scripting.executeScript({
-      target: { tabId },
-      func: () => {
-        document.getElementById('marksnip-batch-overlay')?.remove();
-        document.getElementById('marksnip-batch-overlay-style')?.remove();
-      }
-    });
-  } catch (e) { /* ignore */ }
 }
 
 async function processBatchTab(urlObj, index, total, options, batchSaveMode = 'zip', signal = null, accentColors = null, captureTemplate = false) {
@@ -4176,15 +4067,31 @@ async function handleCommands(command) {
 /**
  * Handle storage changes - recreate menus when options change
  */
+// Sync options that change which context menus exist, their checked state or
+// their labels. Other sync writes (every popup toggle, each debounced options
+// keystroke) no longer tear down and rebuild every menu.
+const CONTEXT_MENU_OPTION_KEYS = Object.freeze([
+  'contextMenus',
+  'contextMenuItems',
+  'includeTemplate',
+  'downloadImages',
+  'obsidianIntegration',
+  'elementPickerEnabled',
+  'highlighterEnabled',
+  'readerViewEnabled',
+  'uiLanguage'
+]);
+
 async function handleStorageChange(changes, areaName) {
   // Only handle sync storage changes
   if (areaName === 'sync') {
-    console.log('Options changed, recreating context menus...');
     if (Object.prototype.hasOwnProperty.call(changes, 'uiLanguage')) {
       await globalThis.markSnipI18n?.setUiLanguage?.(changes.uiLanguage.newValue || 'auto').catch(() => {});
     }
-    // Recreate all context menus with updated options
-    await createMenus();
+    if (CONTEXT_MENU_OPTION_KEYS.some((key) => Object.prototype.hasOwnProperty.call(changes, key))) {
+      console.log('Context menu options changed, recreating context menus...');
+      await createMenus();
+    }
     return;
   }
 
@@ -4794,117 +4701,6 @@ async function handleDownloadWithBlobUrl(blobUrl, filename, title = null, tabId,
   }
 }
 
-/**
- * Handle download directly in service worker (bypass offscreen routing)
- * Used when offscreen document can't use Downloads API
- */
-async function _handleDownloadDirectly(markdown, title, tabId, imageList = {}, mdClipsFolder = '', options = null) {
-  if (!options) options = await getOptions();
-  
-  // CRITICAL: Ensure title is never empty
-  if (!title || title.trim() === '') {
-    console.warn('⚠️ [Service Worker] Empty title detected, using fallback');
-    title = 'Untitled-' + Date.now();
-  }
-  
-  console.log(`🚀 [Service Worker] Handling download directly: title="${title}", folder="${mdClipsFolder}"`);
-  
-  if (options.downloadMode === 'downloadsApi' && (browser.downloads || (typeof chrome !== 'undefined' && chrome.downloads))) {
-    // Use Downloads API directly
-    const downloadsAPI = browser.downloads || chrome.downloads;
-    
-    try {
-      // Create blob URL
-      const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
-      
-      if (mdClipsFolder && !mdClipsFolder.endsWith('/')) mdClipsFolder += '/';
-      
-      const fullFilename = sanitizeDownloadPath(mdClipsFolder + title + ".md");
-      
-      console.log(`🎯 [Service Worker] Starting Downloads API: URL=${url}, filename="${fullFilename}"`);
-      
-      // CRITICAL: Set up URL tracking BEFORE calling download API
-      // Track in both Maps for redundancy
-      markSnipUrls.set(url, {
-        filename: fullFilename,
-        isMarkdown: true,
-        tabId: tabId
-      });
-      markSnipBlobUrls.add(url);
-      console.log(`📝 [Service Worker] Pre-tracked blob URL: ${url} -> ${fullFilename}`);
-      
-      // Start download
-      const id = await downloadsAPI.download({
-        url: url,
-        filename: fullFilename,
-        saveAs: options.saveAs
-      });
-      
-      console.log(`✅ [Service Worker] Download started with ID: ${id}`);
-      
-      // Move from URL tracking to ID tracking
-      if (markSnipUrls.has(url)) {
-        const urlInfo = markSnipUrls.get(url);
-        markSnipDownloads.set(id, {
-          ...urlInfo,
-          url: url
-        });
-        markSnipUrls.delete(url);
-      }
-      
-      // Add download listener for cleanup
-      browser.downloads.onChanged.addListener(downloadListener(id, url));
-      
-      // Handle images if needed
-      if (options.downloadImages) {
-        await handleImageDownloadsDirectly(imageList, mdClipsFolder, title, options);
-      }
-      
-    } catch (err) {
-      console.error("❌ [Service Worker] Downloads API failed, falling back to content script", err);
-      
-      // Final fallback: content script method
-      await ensureScripts(tabId);
-      const filename = mdClipsFolder + generateValidFileName(title, options.disallowedChars, options.disallowedCharReplacement) + ".md";
-      const base64Content = base64EncodeUnicode(markdown);
-      
-      await browser.scripting.executeScript({
-        target: { tabId: tabId },
-        func: (filename, content) => {
-          const decoded = atob(content);
-          const dataUri = `data:text/markdown;base64,${btoa(decoded)}`;
-          const link = document.createElement('a');
-          link.download = filename;
-          link.href = dataUri;
-          link.click();
-        },
-        args: [filename, base64Content]
-      });
-    }
-  } else {
-    // Content script fallback
-    console.log(`🔗 [Service Worker] Using content script fallback`);
-    
-    await ensureScripts(tabId);
-    const filename = mdClipsFolder + generateValidFileName(title, options.disallowedChars, options.disallowedCharReplacement) + ".md";
-    const base64Content = base64EncodeUnicode(markdown);
-    
-    await browser.scripting.executeScript({
-      target: { tabId: tabId },
-      func: (filename, content) => {
-        const decoded = atob(content);
-        const dataUri = `data:text/markdown;base64,${btoa(decoded)}`;
-        const link = document.createElement('a');
-        link.download = filename;
-        link.href = dataUri;
-        link.click();
-      },
-      args: [filename, base64Content]
-    });
-  }
-}
-
 function normalizeGeneratedFileExtension(extension, fallback = 'bin') {
   const normalized = String(extension || fallback)
     .trim()
@@ -5007,7 +4803,7 @@ async function downloadGeneratedFile(message = {}) {
   }
 
   if (options.downloadMode === 'downloadsApi') {
-    console.warn('âš ï¸ [Service Worker] Blob downloads unavailable for generated file, falling back to content-script download');
+    console.warn('[Service Worker] Blob downloads unavailable for generated file, falling back to content-script download');
   }
 
   await ensureScripts(tabId);

@@ -566,7 +566,7 @@ if (!verification.valid) {
 
       expect(restoredHtml).toContain('<table');
       expect(restoredHtml).toContain('HEX');
-      expect(markdown).toContain('| HEX | RGB |');
+      expect(markdown).toMatch(/^\|\s*HEX\s*\|\s*RGB\s*\|/m);
       expect(markdown).toContain('#c15f3c');
       expect(markdown).toContain('193, 95, 60');
     });
@@ -617,7 +617,7 @@ if (!verification.valid) {
       expect(restoredHtml).toContain('HEX');
       expect(restoredHtml).toContain('RGB');
       expect(restoredHtml).not.toContain('Hidden column');
-      expect(markdown).toContain('| HEX | RGB |');
+      expect(markdown).toMatch(/^\|\s*HEX\s*\|\s*RGB\s*\|/m);
       expect(markdown).toContain('#c15f3c');
       expect(markdown).toContain('193, 95, 60');
     });
@@ -957,7 +957,7 @@ if (!verification.valid) {
       const result = service.turndown(html);
 
       expect(result).toContain('**Bold text**');
-      expect(result).toContain('*italic*');
+      expect(result).toContain('_italic_');
     });
 
     test('should preserve code blocks in tables', () => {

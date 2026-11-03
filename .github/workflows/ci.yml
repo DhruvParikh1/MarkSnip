@@ -47,7 +47,8 @@ jobs:
 
       - name: Run deterministic E2E tests
         working-directory: src
-        run: xvfb-run -a npx playwright test tests/e2e/extension.spec.js tests/e2e/notifications.spec.js tests/e2e/batch-processing.spec.js tests/e2e/command-download-regression.spec.js
+        # The spec list lives in package.json (test:e2e:ci) so local runs and CI match.
+        run: xvfb-run -a npm run test:e2e:ci
 
   lint:
     name: Lint
