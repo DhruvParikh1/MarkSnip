@@ -31,7 +31,13 @@ func EnsureStateBaseDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	// status.json holds the bearer token for the loopback clip server, so the
+	// directory and file are private to the current user.
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	// MkdirAll leaves an existing directory's mode alone; tighten older installs.
+	if err := os.Chmod(dir, 0o700); err != nil {
 		return "", err
 	}
 	return dir, nil
@@ -81,7 +87,12 @@ func WriteStatusFile(status StatusFile) error {
 	}
 
 	tempPath := path + ".tmp"
-	if err := os.WriteFile(tempPath, append(payload, '\n'), 0o644); err != nil {
+	// WriteFile only applies the mode when it creates the file, so start fresh.
+	_ = os.Remove(tempPath)
+	if err := os.WriteFile(tempPath, append(payload, '\n'), 0o600); err != nil {
+		return err
+	}
+	if err := os.Chmod(tempPath, 0o600); err != nil {
 		return err
 	}
 	_ = os.Remove(path)

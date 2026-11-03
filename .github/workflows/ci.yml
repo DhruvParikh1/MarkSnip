@@ -86,3 +86,29 @@ jobs:
       - name: Run web-ext lint (Firefox)
         working-directory: src
         run: npx web-ext lint -s .build/firefox
+
+  go:
+    name: Agent Bridge Go tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+          # The module has no dependencies (no go.sum), so there is nothing to cache.
+          cache: false
+
+      - name: Check formatting
+        working-directory: native
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        working-directory: native
+        run: go vet ./...
+
+      - name: Test
+        working-directory: native
+        run: go test ./...

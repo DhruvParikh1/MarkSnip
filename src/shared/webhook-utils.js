@@ -165,10 +165,27 @@
     const isLinkLocal = (parts[0] & 0xffc0) === 0xfe80;
     const isUniqueLocal = (parts[0] & 0xfe00) === 0xfc00;
     const isMulticast = (parts[0] & 0xff00) === 0xff00;
-    const isIPv4Mapped = parts.slice(0, 5).every((part) => part === 0) && parts[5] === 0xffff;
-    const mappedIPv4 = isIPv4Mapped
-      ? [(parts[6] >> 8) & 255, parts[6] & 255, (parts[7] >> 8) & 255, parts[7] & 255]
-      : null;
+    const toIPv4 = (high, low) => [(high >> 8) & 255, high & 255, (low >> 8) & 255, low & 255];
+    const zeros = (from, to) => parts.slice(from, to).every((part) => part === 0);
+
+    // Address forms that carry an IPv4 address the network may route to:
+    // IPv4-mapped (::ffff:a.b.c.d), IPv4-translated/SIIT (::ffff:0:a.b.c.d),
+    // IPv4-compatible (::a.b.c.d), NAT64 well-known prefix (64:ff9b::/96) and
+    // 6to4 (2002:AABB:CCDD::/16).
+    let embeddedIPv4 = null;
+    if (zeros(0, 5) && parts[5] === 0xffff) {
+      embeddedIPv4 = toIPv4(parts[6], parts[7]);
+    } else if (zeros(0, 4) && parts[4] === 0xffff && parts[5] === 0) {
+      embeddedIPv4 = toIPv4(parts[6], parts[7]);
+    } else if (zeros(0, 6)) {
+      embeddedIPv4 = toIPv4(parts[6], parts[7]);
+    } else if (parts[0] === 0x64 && parts[1] === 0xff9b && zeros(2, 6)) {
+      embeddedIPv4 = toIPv4(parts[6], parts[7]);
+    } else if (parts[0] === 0x2002) {
+      embeddedIPv4 = toIPv4(parts[1], parts[2]);
+    }
+    // Local-use NAT64 prefix (RFC 8215) is never a public destination.
+    const isLocalUseNat64 = parts[0] === 0x64 && parts[1] === 0xff9b && parts[2] === 1;
 
     return (
       isLoopback ||
@@ -176,7 +193,8 @@
       isLinkLocal ||
       isUniqueLocal ||
       isMulticast ||
-      (mappedIPv4 && isPrivateWebhookIPv4(mappedIPv4))
+      isLocalUseNat64 ||
+      Boolean(embeddedIPv4 && isPrivateWebhookIPv4(embeddedIPv4))
     );
   }
 

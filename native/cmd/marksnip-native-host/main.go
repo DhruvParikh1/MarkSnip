@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -145,7 +146,7 @@ func (s *hostServer) routes() http.Handler {
 }
 
 func (s *hostServer) authenticate(w http.ResponseWriter, r *http.Request) bool {
-	if r.Header.Get("X-MarkSnip-Token") != s.token {
+	if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-MarkSnip-Token")), []byte(s.token)) != 1 {
 		http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
 		s.debugf("http unauthorized path=%s", r.URL.Path)
 		return false
@@ -233,12 +234,13 @@ func buildDebugLogger() func(string, ...any) {
 	}
 
 	logDir := filepath.Join(configDir, "MarkSnip", "agent-bridge")
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
+	if err := os.MkdirAll(logDir, 0o700); err != nil {
 		return func(string, ...any) {}
 	}
 
+	// The debug log can contain clipped page content, so keep it private.
 	logPath := filepath.Join(logDir, "host-debug.log")
-	file, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
 	if err != nil {
 		return func(string, ...any) {}
 	}
