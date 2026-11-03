@@ -14,7 +14,8 @@ const fixtureFiles = {
   '/extension/deterministic-article.html': path.join(__dirname, '../fixtures/e2e-pages/extension/deterministic-article.html'),
   '/extension/mathml-article.html': path.join(__dirname, '../fixtures/e2e-pages/extension/mathml-article.html'),
   '/extension/wechat-code-block.html': path.join(__dirname, '../fixtures/e2e-pages/extension/wechat-code-block.html'),
-  '/extension/same-page-anchors.html': path.join(__dirname, '../fixtures/e2e-pages/extension/same-page-anchors.html')
+  '/extension/same-page-anchors.html': path.join(__dirname, '../fixtures/e2e-pages/extension/same-page-anchors.html'),
+  '/extension/options-plumbing.html': path.join(__dirname, '../fixtures/e2e-pages/extension/options-plumbing.html')
 };
 
 async function installFixtureRoutes(context) {
@@ -820,6 +821,87 @@ test.describe('MarkSnip Extension E2E', () => {
       await popupAgain.close().catch(() => {});
     } finally {
       await popupPage.close().catch(() => {});
+      await fixturePage.close().catch(() => {});
+    }
+  });
+
+  test('popup clips use stored site rules and table formatting, and popup toggles keep unrelated settings', async () => {
+    const pageUrl = `${fixtureHost}/extension/options-plumbing.html`;
+    const siteRule = {
+      id: 'e2e-options-plumbing',
+      name: 'E2E options plumbing',
+      enabled: true,
+      pattern: 'fixtures.marksnip.test/extension/options-plumbing.html',
+      overrides: { includeTemplate: true, frontmatter: 'SITE-RULE-FRONTMATTER' }
+    };
+    const tableFormatting = { stripLinks: true, stripFormatting: false, prettyPrint: false, centerText: false };
+    const fixturePage = await context.newPage();
+
+    const original = await serviceWorker.evaluate(async () => (
+      browser.storage.sync.get(['siteRules', 'tableFormatting', 'contextMenuItems', 'includeTemplate', 'downloadImages', 'clipSelection'])
+    ));
+
+    try {
+      const contextMenuItems = await serviceWorker.evaluate(() => {
+        const items = { ...defaultOptions.contextMenuItems };
+        items.downloadTab = false;
+        items.copyLink = false;
+        return items;
+      });
+      await setSyncStorage(serviceWorker, {
+        siteRules: [siteRule],
+        tableFormatting,
+        contextMenuItems,
+        includeTemplate: false,
+        downloadImages: false,
+        clipSelection: true
+      });
+
+      await fixturePage.goto(pageUrl);
+      await fixturePage.waitForLoadState('networkidle');
+
+      const popupPage = await context.newPage();
+      try {
+        await fixturePage.bringToFront();
+        await popupPage.goto(`chrome-extension://${extensionId}/popup/popup.html`);
+        await expect(popupPage.locator('#container')).toBeVisible();
+        const tabId = await getTabIdForUrl(serviceWorker, pageUrl);
+        await popupPage.evaluate(async (id) => {
+          await clipSite(id);
+        }, tabId);
+
+        await expect.poll(() => getPopupMarkdown(popupPage), { timeout: 45000 })
+          .toContain('SITE-RULE-FRONTMATTER');
+        const markdown = await getPopupMarkdown(popupPage);
+        expect(markdown).toContain('| Row one | Example A |');
+        expect(markdown).not.toContain('](https://example.com/a)');
+
+        // Each popup toggle writes its own key; nothing else in storage may change.
+        await popupPage.evaluate(() => {
+          setClipSelection(currentOptions, false);
+          const downloadImagesInput = document.getElementById('downloadImages');
+          downloadImagesInput.checked = true;
+          toggleDownloadImages(currentOptions);
+        });
+        await expect.poll(async () => serviceWorker.evaluate(async () => (
+          (await browser.storage.sync.get(['clipSelection', 'downloadImages']))
+        )), { timeout: 10000 }).toEqual({ clipSelection: false, downloadImages: true });
+
+        const after = await serviceWorker.evaluate(async () => (
+          browser.storage.sync.get(['siteRules', 'tableFormatting', 'contextMenuItems'])
+        ));
+        expect(after.siteRules).toHaveLength(1);
+        expect(after.siteRules[0]).toEqual(expect.objectContaining({ id: siteRule.id, pattern: siteRule.pattern }));
+        expect(after.tableFormatting).toEqual(tableFormatting);
+        expect(after.contextMenuItems).toEqual(contextMenuItems);
+      } finally {
+        await popupPage.close().catch(() => {});
+      }
+    } finally {
+      await serviceWorker.evaluate(async ({ previous }) => {
+        await browser.storage.sync.remove(['siteRules', 'tableFormatting', 'contextMenuItems', 'includeTemplate', 'downloadImages', 'clipSelection']);
+        await browser.storage.sync.set(previous);
+      }, { previous: original }).catch(() => {});
       await fixturePage.close().catch(() => {});
     }
   });

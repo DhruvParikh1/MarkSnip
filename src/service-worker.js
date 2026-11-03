@@ -2390,6 +2390,12 @@ async function ensureOffscreenDocumentExists(options = {}) {
 /**
  * Handle clip request — uses offscreen document on both Chrome and Firefox.
  */
+// The only options a clip request may override per clip. Everything else comes from
+// storage: callers such as the popup hold a partial, normalized copy of the options,
+// and letting it through replaced stored site rules and table formatting with empty
+// values.
+const CLIP_REQUEST_OVERRIDE_KEYS = Object.freeze(['clipSelection', 'includeTemplate', 'downloadImages']);
+
 async function getClipRequestOptions(message = {}) {
   const storedOptions = await getOptions();
   const source = message?.options && typeof message.options === 'object'
@@ -2397,7 +2403,7 @@ async function getClipRequestOptions(message = {}) {
     : message;
   const options = { ...storedOptions };
 
-  Object.keys(defaultOptions || {}).forEach((key) => {
+  CLIP_REQUEST_OVERRIDE_KEYS.forEach((key) => {
     if (Object.prototype.hasOwnProperty.call(source || {}, key)) {
       options[key] = source[key];
     }
@@ -2885,7 +2891,11 @@ async function handleMarkdownResult(message) {
  * Handle download request
  */
 async function handleDownloadRequest(message) {
-  const options = message.options || await getOptions();
+  // The popup sends the effective options of its clip; fill anything it left out
+  // from storage rather than falling back to bare defaults further down.
+  const options = message.options && typeof message.options === 'object'
+    ? { ...(await getOptions()), ...message.options }
+    : await getOptions();
   console.log(`🔧 [Service Worker] Download request: downloadMode=${options.downloadMode}, offscreen=${typeof chrome !== 'undefined' && chrome.offscreen}`);
   
   if (typeof chrome !== 'undefined' && chrome.offscreen && options.downloadMode === 'downloadsApi') {
@@ -4225,7 +4235,9 @@ async function toggleSetting(setting, options = null) {
   }
   else {
     options[setting] = !options[setting];
-    await browser.storage.sync.set(options);
+    // Write only the toggled key. getOptions() applies runtime-only adjustments
+    // (e.g. downloadMode without a downloads API) that must not be persisted.
+    await browser.storage.sync.set({ [setting]: options[setting] });
     if (setting == "includeTemplate") {
       browser.contextMenus.update("toggle-includeTemplate", {
         checked: options.includeTemplate

@@ -2611,9 +2611,6 @@ const defaultOptions = {
     imagePlacement: '',
     imagePrefix: '{pageTitle}/',
     skipHiddenContent: false,
-    // Listed so the popup loads the stored value; the clip message overrides
-    // stored options with whatever the popup sends.
-    keepSamePageAnchors: false,
     defaultExportType: 'markdown',
     defaultSendToTarget: DEFAULT_SEND_TO_TARGET,
     sendToCustomTargets: [],
@@ -4611,7 +4608,9 @@ const setClipSelection = (options, clipSelection) => {
 
     options.clipSelection = clipSelection;
     setClipSelectionState(clipSelection);
-    browser.storage.sync.set(options).then(() => clipSite()).catch((error) => {
+    // Persist only this key: the popup's options are a partial copy, and writing
+    // the whole object would overwrite settings it never loaded.
+    browser.storage.sync.set({ clipSelection }).then(() => clipSite()).catch((error) => {
         console.error(error);
     });
 }
@@ -4621,7 +4620,7 @@ const toggleIncludeTemplate = options => {
         options.includeTemplate = dom.includeTemplate.checked;
     }
 
-    browser.storage.sync.set(options).then(() => {
+    browser.storage.sync.set({ includeTemplate: options.includeTemplate }).then(() => {
         return getActiveTab();
     }).then((tab) => {
         if (tab?.id) {
@@ -4637,7 +4636,7 @@ const toggleDownloadImages = options => {
         options.downloadImages = dom.downloadImages.checked;
     }
 
-    browser.storage.sync.set(options).catch((error) => {
+    browser.storage.sync.set({ downloadImages: options.downloadImages }).catch((error) => {
         console.error("Error updating options:", error);
     });
 }

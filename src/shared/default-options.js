@@ -209,6 +209,12 @@ async function getOptions() {
     options.imagePlacement = urlUtilsApi.normalizeImagePlacementMode(options);
   }
   options.contextMenuItems = normalizeContextMenuItems(options.contextMenuItems);
+  // storage.get(defaults) does not merge nested objects, so a stored tableFormatting
+  // missing some keys (older popups saved it as {}) would leave them undefined.
+  options.tableFormatting = {
+    ...defaultOptions.tableFormatting,
+    ...(options.tableFormatting && typeof options.tableFormatting === 'object' ? options.tableFormatting : {})
+  };
   options.readerSettings = normalizeReaderSettings(options.readerSettings);
   const siteRulesApi = getSiteRulesApi();
   if (siteRulesApi?.normalizeSiteRules) {
