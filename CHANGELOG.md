@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### User Highlights
+
+- Popup clips now use your site rules and table settings, like the right-click menu and keyboard shortcuts already did. By default, tables clipped from the popup now have links removed and are aligned and padded. To keep table links, turn off Strip Links under Markdown, Tables.
+- Clicking Document/Selected, Include template or Download images in the popup no longer erases your site rules, table settings or context-menu choices.
+- Highlights saved in several tabs at the same time are all kept, and editing in the highlights manager no longer drops highlights saved elsewhere since it opened.
+- "Copy tab as Markdown link" fails right away on pages it cannot read instead of waiting 30 seconds, and copied links keep characters like `<` and `&` in their text.
+- Fixes a link wrapped around a heading producing broken Markdown, and inline code from highlighted `<mark>` text showing stray backslashes.
+
+### Technical Notes
+
+- **Option Ownership**: The popup writes only the key a toggle changes, and the service worker's `toggleSetting` does the same. `getClipRequestOptions` accepts only `clipSelection`, `includeTemplate` and `downloadImages` from a clip request. `getOptions()` merges stored `tableFormatting` over the defaults, so a previously wiped `{}` reads back as the defaults.
+- **Concurrency**: `ensureOffscreenDocumentExists` shares one in-flight creation, so a clip no longer races the Agent Bridge pre-warm into "Only a single offscreen document may be created". Popup clips carry a `clipRequestId` so superseded results are ignored, and `process-complete` is matched by `requestId`. Highlight writes are serialized through a `highlight-storage` message in the background.
+- **Failure Paths**: Article-fetch failures are reported as `article-result` errors (the unused `article-error` type is gone). Blob URLs the Firefox background page creates are revoked when their download completes or is interrupted. The settings export releases its blob URL and works without a downloads API.
+- **Converter**: `headingLinks` is registered after the general `links` rule so it applies. Page `<mark>` code spans are built from raw text, with a longer delimiter when the text contains backticks.
+- **Security**: The Agent Bridge `status.json` (which holds the loopback token) and debug log are now user-only (0600, in a 0700 directory). Native messages over 64 MiB are rejected before allocation, and the token check is constant-time. The webhook guard also rejects IPv6 forms that embed a private IPv4 address (SIIT, IPv4-compatible, NAT64 and 6to4).
+- **Cleanup**: Removed about 1,300 lines of unreachable fallbacks and duplicated helpers from the offscreen page, service worker, popup and options, plus the unused `shared/turndown-factory.js` and the upstream issue-to-project workflow. Context menus rebuild only when a menu-related option changes.
+- **Tests and CI**: Integration tests now convert through the real offscreen pipeline (`tests/helpers/offscreen-pipeline.js`). Added tests for concurrency, ZIP structure and CRCs, the download tracker, webhook IPv6 forms, popup option handling (e2e) and the Go host. CI runs `go vet`/`go test` and the `test:e2e:ci` spec list.
+
 ## 5.3.0
 
 ### User Highlights
