@@ -218,8 +218,8 @@ npm ci
 - `npm run audit:i18n`: check locale key parity and exact-English fallback strings
 - `npm run build:manifests`: generate the browser-specific manifests and release highlights
 - `npm run build`: Firefox package build via `web-ext`
-- `npm run build:chrome`: Chrome ZIP package
-- `npm run build:all`: build the Firefox and Chrome artifacts
+- `npm run build:chrome`: Chrome, Edge, and Firefox ZIP packages in `dist/` (alias for `build:all`)
+- `npm run build:all`: build the Chrome, Edge, and Firefox artifacts
 - `npm run verify:firefox`: focused Firefox unit tests, the live smoke run, and `web-ext lint`
 
 For the Agent Bridge companion, build the Go binaries from `native/`:
@@ -252,7 +252,7 @@ npm run audit:i18n -- --allow-key someIntentionalEnglishKey
 `src/manifest.json` is the source manifest. `src/scripts/generate-browser-manifests.js` produces:
 
 - `src/.build/chrome/manifest.json` with `background.service_worker`
-- `src/.build/firefox/manifest.json` with `background.scripts`
+- `src/.build/firefox/manifest.json` with `background.scripts` (derived from the `importScripts(...)` block in `src/service-worker.js`, so the two cannot drift apart)
 
 The `.build/` directory is generated output and is not committed. Root-level `dist/` holds packaged release artifacts, and root-level `tmp/` is ignored local scratch space.
 

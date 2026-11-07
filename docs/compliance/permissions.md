@@ -58,7 +58,7 @@ This document explains every permission declared in `src/manifest.json`, why it 
 
 ---
 
-## Core Permissions
+## Content Access Permissions
 
 ### `scripting`
 **Why it's needed:** Injects content scripts into web pages at clip time to extract the page's DOM, selected text, and metadata (title, author, date, etc.) for Markdown conversion. It also injects the optional highlighter script when the user activates highlighting, or when a page with previously saved highlights finishes loading and "Show saved highlights on pages" is enabled.

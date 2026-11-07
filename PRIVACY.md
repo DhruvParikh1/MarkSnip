@@ -21,8 +21,9 @@ and is not used to send your data to me or to any remote MarkSnip service.
 If you enable the optional Interpreter feature, MarkSnip sends the converted Markdown of a page you clip to the LLM provider you
 configure (for example Anthropic, OpenAI, Google Gemini, OpenRouter, or a local Ollama instance), using the API key you supply. This
 only happens when the Interpreter is enabled, a provider is configured, and the feature runs. Data goes directly from your browser to
-that provider under the provider's own privacy policy — it is never sent to me or to any MarkSnip service. API keys are stored only in
-your browser's local storage and are not synced.
+that provider under the provider's own privacy policy — it is never sent to me or to any MarkSnip service. API keys are stored in the
+browser's session storage and are cleared when the browser closes, unless you enable "Remember API key on this device" for a provider,
+in which case that key is stored in the browser's local storage. Keys are never stored in synced storage.
 
 ## Changes to This Privacy Policy
 I may update this Privacy Policy from time to time, for example if new features are developed which require data collection.

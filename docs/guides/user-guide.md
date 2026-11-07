@@ -65,14 +65,19 @@ Click **Pick Links from Page** to enter the visual link picker. This injects an 
 
 ### Output Format
 
-Use the toggle to choose between:
+Use the cards to choose between:
 
 - **ZIP file** — all converted Markdown files are bundled into a single `.zip` download.
 - **Individual** — each page is downloaded as a separate `.md` file.
+- **Combined** — every converted page is appended into one Markdown document, rendered with the combined-document template.
 
 ### Converting
 
 Click **Convert All URLs** to start processing. A progress bar shows the current status including a count and the URL being processed.
+
+### Click & Clip
+
+For pages that reveal content through interaction rather than links (tabs, accordions, load-more buttons, pagination, SPA sidebars), use **Click & Clip** instead of a URL list. MarkSnip steps through each interactive state on the page, captures every state's content, and collects the results so they can be exported with the same ZIP, individual, or combined output options.
 
 ---
 
@@ -199,10 +204,10 @@ Toggles the right-click context menu items on and off. Use **Visible Menu Items*
 
 Controls the popup's primary export buttons.
 
-- **Markdown** â€” downloads the current popup clip as `.md`
-- **Plain text** â€” downloads rendered plain text as `.txt`
-- **HTML** â€” downloads a styled rendered HTML document as `.html`
-- **PDF** â€” opens the existing print-to-PDF flow
+- **Markdown** — downloads the current popup clip as `.md`
+- **Plain text** — downloads rendered plain text as `.txt`
+- **HTML** — downloads a styled rendered HTML document as `.html`
+- **PDF** — opens the existing print-to-PDF flow
 
 This setting does **not** change context-menu downloads, keyboard download shortcuts, batch output, Library exports, Agent Bridge output, or Obsidian sends.
 
