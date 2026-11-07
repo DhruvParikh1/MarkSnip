@@ -137,6 +137,9 @@ function listFirefoxPackages(distDir, chromePackage, edgePackage) {
   const excluded = new Set([chromePackage, edgePackage].map(packagePath => path.resolve(packagePath)));
   return fs.readdirSync(distDir)
     .filter(filename => filename.endsWith('.zip'))
+    // Only web-ext's Firefox artifact should be reported here; skip the
+    // Chrome/Edge packages this build wrote and any older versions of them.
+    .filter(filename => !/^marksnip-(chrome|edge)-/.test(filename))
     .map(filename => path.join(distDir, filename))
     .filter(packagePath => !excluded.has(path.resolve(packagePath)))
     .sort();

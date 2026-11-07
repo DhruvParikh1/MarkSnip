@@ -1,4 +1,62 @@
-const { buildCaseRecord } = require('../../scripts/capture-live-markdown-snapshots');
+const {
+  buildCaseRecord,
+  parseArgs
+} = require('../../scripts/capture-live-markdown-snapshots');
+
+describe('live markdown snapshot script arguments', () => {
+  test('defaults to the documented case ids, HEAD ref, headed mode, and 60s captcha wait', () => {
+    const args = parseArgs([]);
+
+    expect(args.cases).toEqual(['runjs-equations', 'ruby-data-docs', 'virginia-beach-celebrating-children']);
+    expect(args.ref).toBe('HEAD');
+    expect(args.headless).toBe(false);
+    expect(args.keepWorkDir).toBe(false);
+    expect(args.captchaWaitMs).toBe(60000);
+    expect(args.storageOptions).toEqual({});
+  });
+
+  test('parses case selection, ref, headless, and wait overrides', () => {
+    const args = parseArgs([
+      '--cases', 'alpha,beta',
+      '--ref', 'v5.1.0',
+      '--headless',
+      '--wait-after-load', '2.5',
+      '--captcha-wait', '30',
+      '--allow-skips',
+      '--no-stealth'
+    ]);
+
+    expect(args.cases).toEqual(['alpha', 'beta']);
+    expect(args.ref).toBe('v5.1.0');
+    expect(args.headless).toBe(true);
+    expect(args.waitAfterLoadMs).toBe(2500);
+    expect(args.captchaWaitMs).toBe(30000);
+    expect(args.allowSkips).toBe(true);
+    expect(args.stealth).toBe(false);
+  });
+
+  test('supports the all shortcut for case selection', () => {
+    expect(parseArgs(['--cases', 'all']).cases).toEqual(['all']);
+  });
+
+  test('maps skip-hidden-content variants onto the storage option', () => {
+    expect(parseArgs(['--skip-hidden-content', 'off']).storageOptions.skipHiddenContent).toBe(false);
+    expect(parseArgs(['--skip-hidden-content', 'false']).storageOptions.skipHiddenContent).toBe(false);
+    expect(parseArgs(['--skip-hidden-content', 'on']).storageOptions.skipHiddenContent).toBe(true);
+    expect(parseArgs(['--include-hidden-content']).storageOptions.skipHiddenContent).toBe(false);
+  });
+
+  test('rejects invalid skip-hidden-content values', () => {
+    expect(() => parseArgs(['--skip-hidden-content', 'maybe']))
+      .toThrow(/--skip-hidden-content must be "on", "off", "true", or "false"/);
+  });
+
+  test('rejects negative wait overrides and unknown arguments', () => {
+    expect(() => parseArgs(['--wait-after-load', '-1'])).toThrow(/--wait-after-load/);
+    expect(() => parseArgs(['--captcha-wait', 'nope'])).toThrow(/--captcha-wait/);
+    expect(() => parseArgs(['--unknown-flag'])).toThrow(/Unknown argument/);
+  });
+});
 
 describe('live markdown snapshot records', () => {
   function buildRecord(markdown, expectedMarkdownImageCount) {

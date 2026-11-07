@@ -16,26 +16,39 @@ function parseArgs(argv) {
     targets: []
   };
 
+  const nextValue = (index, arg) => {
+    const value = argv[index + 1];
+    if (value === undefined) {
+      throw new Error(`${arg} requires a value`);
+    }
+    return value;
+  };
+
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--iterations') {
-      options.iterations = Number(argv[++i] || options.iterations);
+      options.iterations = Number(nextValue(i, arg) || options.iterations);
+      i += 1;
       continue;
     }
     if (arg === '--warmup') {
-      options.warmup = Number(argv[++i] || options.warmup);
+      options.warmup = Number(nextValue(i, arg) || options.warmup);
+      i += 1;
       continue;
     }
     if (arg === '--current') {
-      options.targets.push({ label: 'current', extensionPath: path.resolve(argv[++i]) });
+      options.targets.push({ label: 'current', extensionPath: path.resolve(nextValue(i, arg)) });
+      i += 1;
       continue;
     }
     if (arg === '--baseline') {
-      options.targets.push({ label: 'baseline', extensionPath: path.resolve(argv[++i]) });
+      options.targets.push({ label: 'baseline', extensionPath: path.resolve(nextValue(i, arg)) });
+      i += 1;
       continue;
     }
     if (arg === '--extension-path') {
-      options.targets.push({ label: 'target', extensionPath: path.resolve(argv[++i]) });
+      options.targets.push({ label: 'target', extensionPath: path.resolve(nextValue(i, arg)) });
+      i += 1;
       continue;
     }
   }
@@ -43,7 +56,9 @@ function parseArgs(argv) {
   if (options.targets.length === 0) {
     options.targets.push({
       label: 'current',
-      extensionPath: path.resolve(path.join(__dirname, '../..'))
+      // The extension root is this repo's src/ directory (one level up from
+      // scripts/), matching the layout the docs tell users to benchmark.
+      extensionPath: path.resolve(__dirname, '..')
     });
   }
 
@@ -353,7 +368,15 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  parseArgs,
+  percentile,
+  summarizeMetric
+};

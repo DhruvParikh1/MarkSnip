@@ -1,7 +1,6 @@
 const fs = require('fs');
 const http = require('http');
 const net = require('net');
-const os = require('os');
 const path = require('path');
 const { execFileSync, spawn } = require('child_process');
 
@@ -134,10 +133,11 @@ function wait(ms) {
 }
 
 function withTimeout(promise, label, timeoutMs) {
+  let timer;
   return Promise.race([
-    promise,
+    promise.finally(() => clearTimeout(timer)),
     new Promise((_, reject) => {
-      setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs);
     })
   ]);
 }
@@ -694,7 +694,14 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error(error instanceof Error ? error.stack || error.message : error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch(error => {
+    console.error(error instanceof Error ? error.stack || error.message : error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  assertFirefoxSmokeResult,
+  parseArgs
+};

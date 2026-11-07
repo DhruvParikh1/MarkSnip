@@ -7,6 +7,7 @@ const {
   buildExtensionPackages,
   generateReleaseHighlightsForPackaging,
   getPackageDependencies,
+  listFirefoxPackages,
   verifyPackageDependencies
 } = require('../../scripts/build-extension-packages');
 
@@ -41,6 +42,14 @@ function createTempSrcFixture() {
   fs.mkdirSync(path.join(srcDir, 'node_modules'), { recursive: true });
   fs.writeFileSync(path.join(srcDir, 'content.js'), 'console.log("clip");\n');
   fs.writeFileSync(path.join(srcDir, 'shared', 'helper.js'), 'globalThis.helper = true;\n');
+  fs.writeFileSync(path.join(srcDir, 'service-worker.js'), [
+    'if (typeof importScripts === "function") {',
+    '  importScripts(',
+    '    "shared/helper.js"',
+    '  );',
+    '}',
+    'console.log("worker");'
+  ].join('\n'));
   fs.writeFileSync(path.join(srcDir, 'manifest.json'), JSON.stringify({
     manifest_version: 3,
     name: 'MarkSnip',
@@ -108,6 +117,38 @@ describe('extension package builder', () => {
 
     expect(JSON.parse(fs.readFileSync(outputPath, 'utf8')).generatedAt)
       .toBe('2024-01-01T00:00:00.000Z');
+  });
+
+  test('returns no Firefox packages when the dist directory is missing', () => {
+    expect(listFirefoxPackages(path.join(os.tmpdir(), 'marksnip-missing-dist'), '/tmp/chrome.zip', '/tmp/edge.zip'))
+      .toEqual([]);
+  });
+
+  test('reports only Firefox artifacts, skipping Chrome/Edge packages from any version', () => {
+    const distDir = fs.mkdtempSync(path.join(os.tmpdir(), 'marksnip-dist-test-'));
+    try {
+      const chromePackage = path.join(distDir, 'marksnip-chrome-9.8.7.zip');
+      const edgePackage = path.join(distDir, 'marksnip-edge-9.8.7.zip');
+      const firefoxPackage = path.join(distDir, 'marksnip-firefox-9.8.7.zip');
+      // Stale artifacts from a previous version must not be reported either.
+      for (const filename of [
+        'marksnip-chrome-9.8.7.zip',
+        'marksnip-chrome-9.0.0.zip',
+        'marksnip-edge-9.8.7.zip',
+        'marksnip-edge-9.0.0.zip',
+        'marksnip-firefox-9.8.7.zip',
+        'marksnip_-_webpage_to_markdown_clipper-9.8.7.zip'
+      ]) {
+        fs.writeFileSync(path.join(distDir, filename), 'zip');
+      }
+
+      expect(listFirefoxPackages(distDir, chromePackage, edgePackage)).toEqual([
+        firefoxPackage,
+        path.join(distDir, 'marksnip_-_webpage_to_markdown_clipper-9.8.7.zip')
+      ]);
+    } finally {
+      fs.rmSync(distDir, { recursive: true, force: true });
+    }
   });
 
   test('creates Chrome and Edge ZIP packages without requiring a system zip command', async () => {

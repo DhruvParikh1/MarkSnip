@@ -83,7 +83,7 @@ function parseArgs(argv) {
     } else if (arg === '--skip-hidden-content' && next) {
       const normalized = next.toLowerCase();
       if (!['on', 'off', 'true', 'false'].includes(normalized)) {
-        throw new Error('--skip-hidden-content must be "on" or "off"');
+        throw new Error('--skip-hidden-content must be "on", "off", "true", or "false"');
       }
       args.storageOptions.skipHiddenContent = normalized === 'on' || normalized === 'true';
       index += 1;
@@ -111,7 +111,7 @@ Options:
   --headless          Run Chromium headless
   --wait-after-load <seconds>
                       Wait after each page load before selector/capture
-  --skip-hidden-content <on|off>
+  --skip-hidden-content <on|off|true|false>
                       Store the extension option before capture
   --include-hidden-content
                       Alias for --skip-hidden-content off
@@ -753,5 +753,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  buildCaseRecord
+  buildCaseRecord,
+  parseArgs
 };
