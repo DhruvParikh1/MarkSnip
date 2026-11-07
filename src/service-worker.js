@@ -1,5 +1,7 @@
 // In Chrome service workers, importScripts is available; in Firefox background
-// scripts, these files are listed in manifest.json background.scripts instead.
+// scripts, generate-browser-manifests.js derives background.scripts from this
+// importScripts list, so it is the single source of truth for both browsers.
+// Keep every module the worker depends on listed here.
 if (typeof importScripts === 'function') {
   importScripts(
     'shared/debug-logging.js',

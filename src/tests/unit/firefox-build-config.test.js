@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 const {
   createChromeManifest,
-  createFirefoxManifest
+  createFirefoxManifest,
+  extractImportScriptPaths
 } = require('../../scripts/generate-browser-manifests');
 
 const srcRoot = path.join(__dirname, '../..');
@@ -41,6 +42,45 @@ describe('Firefox build configuration', () => {
       'scripting'
     ]));
     expect(firefoxManifest.browser_specific_settings?.gecko?.id).toBe('marksnip@dhruvparikh');
+  });
+
+  test('keeps Firefox background.scripts exactly in sync with service-worker importScripts', () => {
+    const sourceManifest = readJson('manifest.json');
+    const firefoxManifest = createFirefoxManifest(sourceManifest);
+    const serviceWorkerSource = fs.readFileSync(
+      path.join(srcRoot, 'service-worker.js'),
+      'utf8'
+    );
+    const importedScripts = extractImportScriptPaths(serviceWorkerSource);
+
+    // Every module the Chrome service worker imports must load in Firefox too,
+    // in the same order, followed by the worker itself. A missing entry means
+    // the Firefox build silently loses that feature (webhooks, Obsidian sends,
+    // site rules, downloads tracking, ...).
+    expect(firefoxManifest.background.scripts).toEqual([
+      ...importedScripts,
+      'service-worker.js'
+    ]);
+
+    // Regression guards: these modules were missing from the generated Firefox
+    // manifest when the list was maintained by hand.
+    for (const requiredScript of [
+      'background/apache-mime-types.js',
+      'shared/site-rules.js',
+      'shared/webhook-utils.js',
+      'shared/obsidian-utils.js',
+      'shared/library-export.js',
+      'shared/download-tracker.js'
+    ]) {
+      expect(importedScripts).toContain(requiredScript);
+      expect(firefoxManifest.background.scripts).toContain(requiredScript);
+    }
+  });
+
+  test('rejects a service worker source without a parseable importScripts block', () => {
+    expect(() => extractImportScriptPaths('console.log("no imports here");'))
+      .toThrow(/importScripts/i);
+    expect(() => extractImportScriptPaths('importScripts();')).toThrow(/lists no files/i);
   });
 
   test('keeps Chrome-only manifest changes out of Firefox output', () => {

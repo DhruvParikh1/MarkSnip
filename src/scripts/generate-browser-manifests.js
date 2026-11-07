@@ -53,25 +53,39 @@ function createChromeManifest(sourceManifest) {
   return chromeManifest;
 }
 
-function createFirefoxManifest(sourceManifest) {
+// Firefox background pages must load the same shared modules that the Chrome
+// service worker pulls in with importScripts(...). Derive the list from
+// service-worker.js itself so the two can never drift apart.
+function extractImportScriptPaths(serviceWorkerSource) {
+  const match = String(serviceWorkerSource).match(/importScripts\(([\s\S]*?)\);/);
+  if (!match) {
+    throw new Error("Could not find an importScripts(...) block in service-worker.js");
+  }
+
+  const files = [];
+  const stringLiteral = /["']([^"']+)["']/g;
+  let entry;
+  while ((entry = stringLiteral.exec(match[1])) !== null) {
+    files.push(entry[1]);
+  }
+
+  if (files.length === 0) {
+    throw new Error("The importScripts block in service-worker.js lists no files");
+  }
+
+  return files;
+}
+
+function readFirefoxBackgroundScripts(srcDir = SRC_DIR) {
+  const serviceWorkerSource = fs.readFileSync(path.join(srcDir, "service-worker.js"), "utf8");
+  return extractImportScriptPaths(serviceWorkerSource);
+}
+
+function createFirefoxManifest(sourceManifest, options = {}) {
   const firefoxManifest = JSON.parse(JSON.stringify(sourceManifest));
+  const backgroundScripts = options.backgroundScripts || readFirefoxBackgroundScripts(options.srcDir);
   firefoxManifest.background = {
-    scripts: [
-      "shared/debug-logging.js",
-      "browser-polyfill.min.js",
-      "shared/i18n.js",
-      "background/moment.min.js",
-      "shared/notifications.js",
-      "shared/default-options.js",
-      "shared/template-utils.js",
-      "shared/url-utils.js",
-      "shared/zip-utils.js",
-      "shared/highlight-state.js",
-      "shared/interpreter-utils.js",
-      "shared/agent-bridge-state.js",
-      "shared/context-menus.js",
-      "service-worker.js"
-    ]
+    scripts: [...backgroundScripts, "service-worker.js"]
   };
   // Remove Chrome-only permissions
   firefoxManifest.permissions = firefoxManifest.permissions.filter(
@@ -96,7 +110,7 @@ function buildBrowserManifests(options = {}) {
   copyDirectory(srcDir, firefoxDir);
 
   const chromeManifest = createChromeManifest(sourceManifest);
-  const firefoxManifest = createFirefoxManifest(sourceManifest);
+  const firefoxManifest = createFirefoxManifest(sourceManifest, { srcDir });
 
   writeManifest(chromeDir, chromeManifest);
   writeManifest(firefoxDir, firefoxManifest);
@@ -124,5 +138,7 @@ if (require.main === module) {
 module.exports = {
   createChromeManifest,
   createFirefoxManifest,
+  extractImportScriptPaths,
+  readFirefoxBackgroundScripts,
   buildBrowserManifests
 };
