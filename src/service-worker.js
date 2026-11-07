@@ -4832,7 +4832,7 @@ async function downloadGeneratedFile(message = {}) {
   }
 
   if (options.downloadMode === 'downloadsApi') {
-    console.warn('âš ï¸ [Service Worker] Blob downloads unavailable for generated file, falling back to content-script download');
+    console.warn('⚠️ [Service Worker] Blob downloads unavailable for generated file, falling back to content-script download');
   }
 
   await ensureScripts(tabId);

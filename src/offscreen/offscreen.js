@@ -2951,7 +2951,7 @@ async function downloadGeneratedFileExport(content, filename, tabId, providedOpt
       });
       return;
     } catch (err) {
-      console.error('âŒ [Offscreen] Generated file download via Downloads API failed, delegating to service worker:', err);
+      console.error('❌ [Offscreen] Generated file download via Downloads API failed, delegating to service worker:', err);
     }
   }
 
