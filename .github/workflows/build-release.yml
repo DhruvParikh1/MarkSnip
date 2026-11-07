@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version tag (e.g., v4.0.1)"
+        description: "Tag to build and release (e.g., v5.2.0). Empty = manifest version on this ref."
         required: false
 
 jobs:
@@ -56,10 +56,24 @@ jobs:
     needs: test
     outputs:
       version: ${{ steps.get-version.outputs.version }}
+      tag: ${{ steps.get-tag.outputs.tag }}
 
     steps:
+      - name: Resolve checkout ref
+        id: checkout-ref
+        run: |
+          # Tag pushes check out the tag; workflow_dispatch may target a
+          # historical tag so the released artifacts match the released ref.
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "ref=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "ref=${{ github.ref }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.checkout-ref.outputs.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -96,6 +110,26 @@ jobs:
           VERSION=$(node -p "require('./manifest.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Extension version: $VERSION"
+
+      - name: Resolve release tag
+        id: get-tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="${{ github.event.inputs.version }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            case "$TAG" in refs/*|"") TAG="v${{ steps.get-version.outputs.version }}" ;; esac
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+
+      - name: Verify tag matches manifest version
+        run: |
+          TAG="${{ steps.get-tag.outputs.tag }}"
+          if [ "${TAG#v}" != "${{ steps.get-version.outputs.version }}" ]; then
+            echo "::error::Tag $TAG does not match manifest version ${{ steps.get-version.outputs.version }}. Cut the tag at the commit whose src/manifest.json carries the same version."
+            exit 1
+          fi
 
       - name: Generate browser-specific manifests
         working-directory: src
@@ -147,30 +181,40 @@ jobs:
           build_bridge darwin arm64 marksnip-agent-bridge-macos-arm64.tar.gz
           build_bridge linux amd64 marksnip-agent-bridge-linux-amd64.tar.gz
 
-      - name: Create Chrome package (.zip)
-        working-directory: src/.build/chrome
-        run: |
-          zip -r ../../../dist/marksnip-chrome-${{ steps.get-version.outputs.version }}.zip . \
-            -x "*.DS_Store"
+      # One-command packaging: release highlights, browser manifests, Chrome
+      # and Edge zips via the repo's own packager, and the Firefox package
+      # via web-ext. dist/ ends up with marksnip-chrome-<v>.zip,
+      # marksnip-edge-<v>.zip and the web-ext Firefox zip.
+      - name: Build extension packages
+        working-directory: src
+        run: npm run package:extension
 
-      - name: Create Firefox package (.xpi)
-        working-directory: src/.build/firefox
+      - name: Normalize Firefox package name (.xpi)
         run: |
-          zip -r ../../../dist/marksnip-firefox-${{ steps.get-version.outputs.version }}.xpi . \
-            -x "*.DS_Store"
+          FIREFOX_ZIP=$(ls dist/marksnip_-_webpage_to_markdown_clipper-*.zip | head -1)
+          cp "${FIREFOX_ZIP}" "dist/marksnip-firefox-${{ steps.get-version.outputs.version }}.xpi"
+          rm "${FIREFOX_ZIP}"
+          ls -la dist/
 
       - name: Upload Chrome artifact
         uses: actions/upload-artifact@v4
         with:
           name: marksnip-chrome
-          path: dist/marksnip-chrome-${{ steps.get-version.outputs.version }}.zip
+          path: dist/marksnip-chrome-*.zip
+          retention-days: 30
+
+      - name: Upload Edge artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: marksnip-edge
+          path: dist/marksnip-edge-*.zip
           retention-days: 30
 
       - name: Upload Firefox artifact
         uses: actions/upload-artifact@v4
         with:
           name: marksnip-firefox
-          path: dist/marksnip-firefox-${{ steps.get-version.outputs.version }}.xpi
+          path: dist/marksnip-firefox-*.xpi
           retention-days: 30
 
       - name: Upload Agent Bridge artifact
@@ -196,11 +240,19 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.tag }}
 
       - name: Download Chrome artifact
         uses: actions/download-artifact@v4
         with:
           name: marksnip-chrome
+          path: ./artifacts
+
+      - name: Download Edge artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: marksnip-edge
           path: ./artifacts
 
       - name: Download Firefox artifact
@@ -218,23 +270,10 @@ jobs:
       - name: List artifacts
         run: ls -la ./artifacts/
 
-      - name: Get tag name
-        id: get-tag
-        run: |
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.version }}"
-            if [ -z "$TAG" ]; then
-              TAG="v${{ needs.build.outputs.version }}"
-            fi
-          else
-            TAG="${GITHUB_REF#refs/tags/}"
-          fi
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-
       - name: Extract changelog entry
         id: changelog
         run: |
-          VERSION="${{ steps.get-tag.outputs.tag }}"
+          VERSION="${{ needs.build.outputs.tag }}"
           VERSION="${VERSION#v}"
 
           CHANGELOG_ENTRY="$(awk -v version="$VERSION" '
@@ -258,10 +297,10 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.get-tag.outputs.tag }}
-          name: MarkSnip ${{ steps.get-tag.outputs.tag }}
+          tag_name: ${{ needs.build.outputs.tag }}
+          name: MarkSnip ${{ needs.build.outputs.tag }}
           body: |
-            ## MarkSnip ${{ steps.get-tag.outputs.tag }}
+            ## MarkSnip ${{ needs.build.outputs.tag }}
 
             ### Installation
 
@@ -271,6 +310,12 @@ jobs:
             3. Enable "Developer mode"
             4. Click "Load unpacked" and select the extracted folder
             5. Or drag and drop the .zip file to install
+
+            **Edge:**
+            1. Download `marksnip-edge-${{ needs.build.outputs.version }}.zip`
+            2. Go to `edge://extensions/`
+            3. Enable "Developer mode"
+            4. Click "Load unpacked" and select the extracted folder
 
             **Firefox:**
             1. Download `marksnip-firefox-${{ needs.build.outputs.version }}.xpi`
